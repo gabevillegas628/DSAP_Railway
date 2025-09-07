@@ -61,19 +61,33 @@ const validateStatusMiddleware = (req, res, next) => {
 
 // Handle preflight requests
 app.options('*', cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'https://aa44f61db6f3.ngrok.app', 'https://ab2abec5ead1.ngrok.app'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'https://e39465be44d5.ngrok.app', 'https://d3e1112ebefd.ngrok.app'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
   credentials: true
 }));
 
 // Middleware (add this right after the app.options section)
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      process.env.FRONTEND_URL,  // Set this in Railway environment variables
+      'https://your-railway-app.railway.app'  // Your actual Railway domain
+    ]
+  : [
+      'http://localhost:3000', 
+      'http://localhost:3001',
+      'https://ab2abec5ead1.ngrok.app'  // Keep for local development
+    ];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'https://aa44f61db6f3.ngrok.app', 'https://ab2abec5ead1.ngrok.app'],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
+  origin: (origin, callback) => {
+    // Accept all origins
+    callback(null, true);
+  },
   credentials: true
 }));
+
+
 app.use(express.json());
 
 // Configure multer for file uploads
@@ -6511,7 +6525,6 @@ app.get('/api/step-help/:step', async (req, res) => {
 });
 
 // Serve React
-const path = require('path');
 
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, '../client/build')));
