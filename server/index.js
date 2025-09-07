@@ -5615,6 +5615,28 @@ app.get('/api/users/:id/demographics', authenticateToken, async (req, res) => {
   }
 });
 
+// Temporary fix for sequence reset - REMOVE after running once
+app.post('/api/admin/fix-sequences', async (req, res) => {
+  try {
+    await prisma.$executeRaw`SELECT setval('CloneDiscussion_id_seq', (SELECT MAX(id) FROM "CloneDiscussion") + 1)`;
+    await prisma.$executeRaw`SELECT setval('LoginLog_id_seq', (SELECT MAX(id) FROM "LoginLog") + 1)`;
+    await prisma.$executeRaw`SELECT setval('User_id_seq', (SELECT MAX(id) FROM "User") + 1)`;
+    await prisma.$executeRaw`SELECT setval('School_id_seq', (SELECT MAX(id) FROM "School") + 1)`;
+    await prisma.$executeRaw`SELECT setval('UploadedFile_id_seq', (SELECT MAX(id) FROM "UploadedFile") + 1)`;
+    await prisma.$executeRaw`SELECT setval('Message_id_seq', (SELECT MAX(id) FROM "Message") + 1)`;
+    await prisma.$executeRaw`SELECT setval('PracticeClone_id_seq', (SELECT MAX(id) FROM "PracticeClone") + 1)`;
+    await prisma.$executeRaw`SELECT setval('UserPracticeProgress_id_seq', (SELECT MAX(id) FROM "UserPracticeProgress") + 1)`;
+    await prisma.$executeRaw`SELECT setval('CommonFeedback_id_seq', (SELECT MAX(id) FROM "CommonFeedback") + 1)`;
+    await prisma.$executeRaw`SELECT setval('ProgramSettings_id_seq', (SELECT MAX(id) FROM "ProgramSettings") + 1)`;
+    await prisma.$executeRaw`SELECT setval('Demographics_id_seq', (SELECT MAX(id) FROM "Demographics") + 1)`;
+    await prisma.$executeRaw`SELECT setval('DiscussionMessage_id_seq', (SELECT MAX(id) FROM "DiscussionMessage") + 1)`;
+    
+    res.json({ message: 'Sequences fixed successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Temporary debug endpoint - ADD THIS
 app.get('/api/debug/demographics', authenticateToken, requireRole(['director']), async (req, res) => {
   try {
