@@ -5259,13 +5259,29 @@ app.post('/api/students/:userId/claim-clone/:cloneId', async (req, res) => {
 
 
 // Forgot password endpoint - ADD THIS
+// Forgot password endpoint with Railway support
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
-    console.log('=== FORGOT PASSWORD DEBUG ===');
-    console.log('Email requested:', email);
-    console.log('EMAIL_USER from env:', process.env.EMAIL_USER);
-    console.log('EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+
+    console.log('=== FORGOT PASSWORD REQUEST ===');
+    console.log('Email:', email);
+    console.log('Environment check - EMAIL_USER:', process.env.EMAIL_USER);
+    console.log('Environment check - EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+    console.log('Environment check - FRONTEND_URL:', process.env.FRONTEND_URL);
+    console.log('Request headers - Origin:', req.headers.origin);
+    console.log('Request headers - Host:', req.headers.host);
+
+    // Basic validation
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if email service is configured
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.error('Email service not configured');
+      return res.status(500).json({ error: 'Email service not available' });
+    }
 
     const user = await prisma.user.findUnique({
       where: { email }
@@ -5295,9 +5311,46 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     });
     console.log('Token saved to database successfully');
 
-    // Send reset email
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-    console.log('Reset URL:', resetUrl);
+    // Smart frontend URL detection for Railway
+    let frontendUrl = process.env.FRONTEND_URL;
+    
+    if (!frontendUrl) {
+      console.log('FRONTEND_URL not set, attempting to detect...');
+      
+      // Try to get from request origin (works when user initiates from frontend)
+      const origin = req.headers.origin;
+      const host = req.headers.host;
+      
+      if (origin) {
+        frontendUrl = origin;
+        console.log('Using origin from request:', frontendUrl);
+      } else if (host && host.includes('railway.app')) {
+        // For Railway deployments, construct frontend URL from backend URL
+        frontendUrl = `https://${host}`;
+        // Remove common backend suffixes if present
+        frontendUrl = frontendUrl
+          .replace('-backend', '')
+          .replace('-api', '')
+          .replace('-server', '');
+        console.log('Constructed Railway frontend URL:', frontendUrl);
+      } else if (host && !host.includes('localhost')) {
+        // For other production environments
+        frontendUrl = `https://${host}`;
+        console.log('Using host as frontend URL:', frontendUrl);
+      } else {
+        // Development fallback
+        frontendUrl = 'http://localhost:3000';
+        console.warn('No frontend URL detected, using localhost fallback');
+      }
+    } else {
+      console.log('Using configured FRONTEND_URL:', frontendUrl);
+    }
+
+    // Ensure no trailing slash
+    frontendUrl = frontendUrl.replace(/\/$/, '');
+    
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+    console.log('Final reset URL:', resetUrl);
 
     console.log('Attempting to send email...');
     console.log('From:', process.env.EMAIL_USER);
@@ -5307,16 +5360,32 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       to: email,
       subject: 'Password Reset Request - DNA Analysis Program',
       html: `
-        <h2>Password Reset Request</h2>
-        <p>You requested a password reset for your account.</p>
-        <p>Click the link below to reset your password (expires in 1 hour):</p>
-        <a href="${resetUrl}" style="color: #3B82F6;">${resetUrl}</a>
-        <p>If you didn't request this, please ignore this email.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #3B82F6;">Password Reset Request</h2>
+          <p>You requested a password reset for your account.</p>
+          <p>Click the link below to reset your password (expires in 1 hour):</p>
+          <div style="margin: 20px 0;">
+            <a href="${resetUrl}" 
+               style="background-color: #3B82F6; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 6px; display: inline-block;">
+              Reset Password
+            </a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #666;">
+            <a href="${resetUrl}" style="color: #3B82F6;">${resetUrl}</a>
+          </p>
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">
+            If you didn't request this password reset, please ignore this email. 
+            Your password will remain unchanged.
+          </p>
+        </div>
       `
     });
 
     console.log('Email sent successfully!');
     res.json({ message: 'If an account exists with this email, you will receive reset instructions.' });
+
   } catch (error) {
     console.error('=== FORGOT PASSWORD ERROR ===');
     console.error('Error type:', error.constructor.name);
@@ -5326,15 +5395,46 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     // More specific error handling
     let errorMessage = 'Error processing request';
+    
     if (error.code === 'EAUTH') {
       errorMessage = 'Email authentication failed. Please check email configuration.';
     } else if (error.code === 'ECONNECTION') {
       errorMessage = 'Cannot connect to email server.';
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = 'Email service timeout. Please try again.';
+    } else if (error.message.includes('Invalid login')) {
+      errorMessage = 'Email service authentication failed.';
     }
 
     res.status(500).json({
       error: errorMessage,
-      details: error.message
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Add this test endpoint to your index.js
+app.get('/api/test-email', async (req, res) => {
+  try {
+    console.log('Testing email connection...');
+    console.log('EMAIL_USER:', process.env.EMAIL_USER);
+    console.log('EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+    
+    // Test connection
+    const testResult = await emailTransporter.verify();
+    console.log('Email connection successful:', testResult);
+    
+    res.json({ 
+      success: true, 
+      message: 'Email connection working',
+      emailUser: process.env.EMAIL_USER 
+    });
+  } catch (error) {
+    console.error('Email connection failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      code: error.code 
     });
   }
 });
