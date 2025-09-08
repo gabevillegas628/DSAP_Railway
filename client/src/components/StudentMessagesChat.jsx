@@ -144,6 +144,7 @@ const StudentMessagesChat = ({
                 console.log('About to call onMessageRead()');
                 // Refresh the dashboard count
                 if (onMessageRead) {
+                    console.log('onMessageRead callback exists but SKIPPING for test');
                     onMessageRead();
                 }
                 console.log('Called onMessageRead(), discussions count now:', discussions.length);

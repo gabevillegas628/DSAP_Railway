@@ -8,6 +8,7 @@ import StudentMessagesChat from './StudentMessagesChat';
 import StudentSettings from './StudentSettings';
 import StudentClones from './StudentClones';
 import StudentHelp from './StudentHelp.jsx';
+import SimpleStudentChat from './SimpleStudentChat.jsx';
 import { CLONE_STATUSES, validateAndWarnStatus } from '../statusConstraints.js';
 import apiService from '../services/apiService'; // Updated import
 
@@ -413,15 +414,11 @@ const StudentDashboard = () => {
         </div>
 
         <div style={{ display: activeTab === 'messages' ? 'block' : 'none' }}>
-          <StudentMessagesChat
-            onMessageRead={fetchUnreadRepliesCount}
+          <SimpleStudentChat
             selectedCloneId={selectedCloneForMessages}
-            onCloneSelected={() => {
-              setSelectedCloneForMessages(null);
-              setPrePopulatedReplyText(''); // Clear reply text when clone is deselected
-            }}
-            prePopulatedReplyText={prePopulatedReplyText} // Pass the reply text
-            onReplyTextUsed={() => setPrePopulatedReplyText('')} // Clear after use
+            onMessageRead={fetchUnreadRepliesCount}
+            prePopulatedReplyText={prePopulatedReplyText}
+            onReplyTextUsed={() => setPrePopulatedReplyText('')}
           />
         </div>
 
