@@ -28,22 +28,34 @@ const { group } = require('console');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
-// Email configuration (add this near your other config)
+// Update your environment check
+console.log('=== ENVIRONMENT VARIABLES CHECK ===');
+console.log('EMAIL_USER:', process.env.EMAIL_USER);
+console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
+console.log('SENDGRID_API_KEY length:', process.env.SENDGRID_API_KEY?.length);
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
+console.log('=====================================');
+
+// Email configuration (SENDGRID)
 const emailTransporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,  // Use 465 for SSL instead of 587
-  secure: true, // true for 465
+  host: 'smtp.sendgrid.net',
+  port: 587,
+  secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
+    user: 'apikey', // This is literally the string 'apikey'
+    pass: process.env.SENDGRID_API_KEY // Your actual API key
   },
-  connectionTimeout: 10000, // Shorter timeout for faster failure detection
+  connectionTimeout: 10000,
   greetingTimeout: 5000,
-  socketTimeout: 10000,
-  tls: {
-    // Railway sometimes needs these relaxed TLS settings
-    rejectUnauthorized: false,
-    ciphers: 'SSLv3'
+  socketTimeout: 10000
+});
+
+// Test connection on startup
+emailTransporter.verify((error, success) => {
+  if (error) {
+    console.error('SendGrid connection error:', error);
+  } else {
+    console.log('SendGrid is ready to send emails');
   }
 });
 
@@ -83,16 +95,16 @@ app.options('*', cors({
 }));
 
 // Middleware (add this right after the app.options section)
-const allowedOrigins = process.env.NODE_ENV === 'production' 
+const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
-      process.env.FRONTEND_URL,  // Set this in Railway environment variables
-      'https://your-railway-app.railway.app'  // Your actual Railway domain
-    ]
+    process.env.FRONTEND_URL,  // Set this in Railway environment variables
+    'https://your-railway-app.railway.app'  // Your actual Railway domain
+  ]
   : [
-      'http://localhost:3000', 
-      'http://localhost:3001',
-      'https://ab2abec5ead1.ngrok.app'  // Keep for local development
-    ];
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://ab2abec5ead1.ngrok.app'  // Keep for local development
+  ];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -631,11 +643,11 @@ app.get('/api/test-s3', async (req, res) => {
   try {
     const testKey = `test-${Date.now()}.txt`;
     const testContent = 'S3 connection test';
-    
+
     console.log('Testing S3 connection...');
     console.log('Bucket:', process.env.S3_BUCKET_NAME);
     console.log('Region:', process.env.S3_REGION);
-    
+
     // Test upload
     const putCommand = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,
@@ -646,26 +658,26 @@ app.get('/api/test-s3', async (req, res) => {
 
     await s3Client.send(putCommand);
     console.log('✅ Successfully uploaded test file');
-    
+
     // Test download (generate presigned URL)
     const downloadUrl = await generatePresignedDownloadUrl(testKey, 'test.txt', 60);
     console.log('✅ Successfully generated presigned URL');
-    
+
     // Test deletion
     const deleteCommand = new DeleteObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,
       Key: testKey
     });
-    
+
     await s3Client.send(deleteCommand);
     console.log('✅ Successfully deleted test file');
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'S3 connection working perfectly! Upload, download, and delete all tested successfully.',
       tests: {
         upload: '✅ Success',
-        download: '✅ Success', 
+        download: '✅ Success',
         delete: '✅ Success'
       },
       bucket: process.env.S3_BUCKET_NAME,
@@ -674,7 +686,7 @@ app.get('/api/test-s3', async (req, res) => {
     });
   } catch (error) {
     console.error('S3 test error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: error.message,
       bucket: process.env.S3_BUCKET_NAME,
@@ -1704,17 +1716,17 @@ app.get('/api/uploaded-files/:id/download', async (req, res) => {
     });
 
     const s3Response = await s3Client.send(getObjectCommand);
-    
+
     // Set the appropriate headers for file download
     res.setHeader('Content-Type', s3Response.ContentType || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
     res.setHeader('Content-Length', s3Response.ContentLength);
-    
+
     console.log('Streaming file from S3...');
-    
+
     // Stream the file from S3 to the client
     s3Response.Body.pipe(res);
-    
+
   } catch (error) {
     console.error('S3 download error:', error.message);
     res.status(500).json({ error: error.message });
@@ -3746,7 +3758,7 @@ app.delete('/api/practice-clones/:id', async (req, res) => {
     });
     console.log('Deleted practice clone from database');
 
-    res.json({ 
+    res.json({
       message: 'Practice clone and associated file deleted successfully',
       deletedClone: practiceCloneToDelete.cloneName
     });
@@ -3966,17 +3978,17 @@ app.get('/api/practice-clones/:id/download', async (req, res) => {
     });
 
     const s3Response = await s3Client.send(getObjectCommand);
-    
+
     // Set the appropriate headers for file download
     res.setHeader('Content-Type', s3Response.ContentType || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${practiceClone.originalName}"`);
     res.setHeader('Content-Length', s3Response.ContentLength);
-    
+
     console.log('Streaming practice clone file from S3...');
-    
+
     // Stream the file from S3 to the client
     s3Response.Body.pipe(res);
-    
+
   } catch (error) {
     console.error('Practice clone S3 download error:', error.message);
     res.status(500).json({ error: error.message });
@@ -5058,7 +5070,7 @@ app.delete('/api/help-topics/:id', async (req, res) => {
 app.get('/api/help-topics/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // First try to find in HelpTopic (question-specific help)
     let helpContent = await prisma.helpTopic.findUnique({
       where: { id },
@@ -5078,7 +5090,7 @@ app.get('/api/help-topics/:id', async (req, res) => {
       helpContent = await prisma.stepHelp.findUnique({
         where: { id }
       });
-      
+
       if (helpContent) {
         // Add flags to indicate this is step help
         helpContent.isStepHelp = true;
@@ -5288,7 +5300,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 
     // Check if email service is configured
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    if (!process.env.EMAIL_USER || !process.env.SENDGRID_API_KEY) {
       console.error('Email service not configured');
       return res.status(500).json({ error: 'Email service not available' });
     }
@@ -5323,14 +5335,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     // Smart frontend URL detection for Railway
     let frontendUrl = process.env.FRONTEND_URL;
-    
+
     if (!frontendUrl) {
       console.log('FRONTEND_URL not set, attempting to detect...');
-      
+
       // Try to get from request origin (works when user initiates from frontend)
       const origin = req.headers.origin;
       const host = req.headers.host;
-      
+
       if (origin) {
         frontendUrl = origin;
         console.log('Using origin from request:', frontendUrl);
@@ -5358,7 +5370,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     // Ensure no trailing slash
     frontendUrl = frontendUrl.replace(/\/$/, '');
-    
+
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
     console.log('Final reset URL:', resetUrl);
 
@@ -5405,7 +5417,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     // More specific error handling
     let errorMessage = 'Error processing request';
-    
+
     if (error.code === 'EAUTH') {
       errorMessage = 'Email authentication failed. Please check email configuration.';
     } else if (error.code === 'ECONNECTION') {
@@ -5429,22 +5441,22 @@ app.get('/api/test-email', async (req, res) => {
     console.log('Testing email connection...');
     console.log('EMAIL_USER:', process.env.EMAIL_USER);
     console.log('EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
-    
+
     // Test connection
     const testResult = await emailTransporter.verify();
     console.log('Email connection successful:', testResult);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Email connection working',
-      emailUser: process.env.EMAIL_USER 
+      emailUser: process.env.EMAIL_USER
     });
   } catch (error) {
     console.error('Email connection failed:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: error.message,
-      code: error.code 
+      code: error.code
     });
   }
 });
@@ -5887,7 +5899,7 @@ app.post('/api/admin/fix-sequences', async (req, res) => {
     await prisma.$executeRaw`SELECT setval('ProgramSettings_id_seq', (SELECT MAX(id) FROM "ProgramSettings") + 1)`;
     await prisma.$executeRaw`SELECT setval('Demographics_id_seq', (SELECT MAX(id) FROM "Demographics") + 1)`;
     await prisma.$executeRaw`SELECT setval('DiscussionMessage_id_seq', (SELECT MAX(id) FROM "DiscussionMessage") + 1)`;
-    
+
     res.json({ message: 'Sequences fixed successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -6718,7 +6730,7 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
       });
 
       console.log(`Created new discussion: ${discussion.title}`);
-    } 
+    }
 
     console.log('Returning discussion:', discussion.id, discussion.title);
     res.json(discussion);
