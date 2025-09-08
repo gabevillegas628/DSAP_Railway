@@ -357,7 +357,14 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
     if (!answer || typeof answer !== 'string') return null;
 
     const cleanSequence = answer.replace(/\s/g, '').toUpperCase();
-    if (/^[ATGCNRYSWKMBDHV\-]+$/.test(cleanSequence) && cleanSequence.length > 10) {
+
+    // Check for DNA sequence
+    const isDNA = /^[ATGCNRYSWKMBDHV\-]+$/.test(cleanSequence);
+
+    // Check for protein sequence (20 standard amino acids plus some common ambiguity codes)
+    const isProtein = /^[ACDEFGHIKLMNPQRSTVWYXZ\-]+$/.test(cleanSequence);
+
+    if ((isDNA || isProtein) && cleanSequence.length > 10) {
       return cleanSequence;
     }
     return null;
