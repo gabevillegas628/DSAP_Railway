@@ -280,7 +280,7 @@ const SimpleInstructorChat = ({
                                     </div>
                                     <div>
                                         <h4 className="font-semibold text-lg">
-                                            {discussion.student.name}
+                                            {selectedDiscussion.student.name}
                                         </h4>
                                         <p className="text-blue-100 text-sm">
                                             {getDiscussionTitle(selectedDiscussion)}
