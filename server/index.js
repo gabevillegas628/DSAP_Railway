@@ -30,10 +30,20 @@ const nodemailer = require('nodemailer');
 
 // Email configuration (add this near your other config)
 const emailTransporter = nodemailer.createTransport({
-  service: 'gmail', // or your email service
+  host: 'smtp.gmail.com',
+  port: 465,  // Use 465 for SSL instead of 587
+  secure: true, // true for 465
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD // Use app password for Gmail
+    pass: process.env.EMAIL_PASSWORD
+  },
+  connectionTimeout: 10000, // Shorter timeout for faster failure detection
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
+  tls: {
+    // Railway sometimes needs these relaxed TLS settings
+    rejectUnauthorized: false,
+    ciphers: 'SSLv3'
   }
 });
 
