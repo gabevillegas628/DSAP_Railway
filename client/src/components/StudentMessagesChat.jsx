@@ -23,6 +23,13 @@ const StudentMessagesChat = ({
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
+        console.log('=== DISCUSSIONS STATE CHANGED ===');
+        console.log('Discussions count:', discussions.length);
+        console.log('Discussions:', discussions.map(d => ({ id: d.id, title: d.title })));
+        console.trace('Stack trace for discussions change');
+    }, [discussions]);
+
+    useEffect(() => {
         if (currentUser?.id) {
             loadDiscussions();
         } else {
@@ -72,7 +79,6 @@ const StudentMessagesChat = ({
         }
     };
 
-    /*
     // Add this new useEffect after the existing useEffects in StudentMessagesChat.jsx
     useEffect(() => {
         // Handle selectedCloneId changes when component is already mounted with discussions
@@ -88,7 +94,6 @@ const StudentMessagesChat = ({
             }
         }
     }, [selectedCloneId, discussions, selectedDiscussion]); // Watch for changes to selectedCloneId
-    */
 
     // Load all messages for a specific discussion
     const loadMessages = async (discussionId) => {
@@ -106,7 +111,8 @@ const StudentMessagesChat = ({
     // In both StudentMessagesChat.jsx and DirectorMessagesChat.jsx
     // In StudentMessagesChat.jsx, update the selectDiscussion function:
     const selectDiscussion = async (discussion) => {
-        console.log('🔍 Selecting discussion:', discussion.id, 'Unread count:', discussion.unreadCount);
+        console.log('=== SELECT DISCUSSION START ===');
+        console.log('Discussions count before selectDiscussion:', discussions.length);
 
         setSelectedDiscussion(discussion);
         setMessages([]); // Clear previous messages
@@ -114,39 +120,41 @@ const StudentMessagesChat = ({
         // Load all messages for this discussion
         await loadMessages(discussion.id);
 
+        console.log('Discussions count after loadMessages:', discussions.length);
+
         // ALWAYS mark as read when opening (like WhatsApp/Slack)
         if (discussion.unreadCount > 0) {
-            console.log('📝 Attempting to mark discussion as read:', discussion.id, 'for user:', currentUser.id);
-
             try {
                 const result = await markDiscussionAsRead(discussion.id, currentUser.id);
-                console.log('✅ markDiscussionAsRead result:', result);
+                console.log('markDiscussionAsRead result:', result);
+                console.log('Discussions count after markDiscussionAsRead:', discussions.length);
 
                 // Update local state to show 0 unread
                 setDiscussions(prev => {
                     const updated = prev.map(d => {
                         if (d.id === discussion.id) {
-                            console.log('🔄 Updating discussion', d.id, 'unread count from', d.unreadCount, 'to 0');
                             return { ...d, unreadCount: 0 };
                         }
                         return d;
                     });
-                    console.log('🔄 Updated discussions state:', updated.map(d => ({ id: d.id, unreadCount: d.unreadCount })));
+                    console.log('setDiscussions called with updated array length:', updated.length);
                     return updated;
                 });
 
+                console.log('About to call onMessageRead()');
                 // Refresh the dashboard count
                 if (onMessageRead) {
-                    console.log('🔄 Calling onMessageRead to refresh dashboard');
                     onMessageRead();
                 }
+                console.log('Called onMessageRead(), discussions count now:', discussions.length);
             } catch (error) {
-                console.error('❌ Error marking discussion as read:', error);
+                console.error('Error marking discussion as read:', error);
             }
-        } else {
-            console.log('ℹ️ Discussion already has 0 unread messages, skipping mark as read');
         }
+
+        console.log('=== SELECT DISCUSSION END ===');
     };
+
     const sendReply = async () => {
         if (!replyText.trim() || !selectedDiscussion || sending) return;
 
