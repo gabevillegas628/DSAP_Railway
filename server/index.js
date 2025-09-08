@@ -72,6 +72,7 @@ const testSendGridConnection = async () => {
 
 testSendGridConnection();
 
+/**
 // Test connection on startup
 emailTransporter.verify((error, success) => {
   if (error) {
@@ -80,6 +81,8 @@ emailTransporter.verify((error, success) => {
     console.log('SendGrid is ready to send emails');
   }
 });
+*/
+
 
 // AWS S3 Configuration
 const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
