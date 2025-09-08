@@ -43,12 +43,31 @@ const animationStyles = `
     transition: max-height 0.6s ease-in-out, opacity 0.5s ease-in-out;
   }
   .section-content.expanded {
-    max-height: 2000px;
+    max-height: 600px;
     opacity: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
   .section-content.collapsed {
     max-height: 0;
     opacity: 0;
+    overflow: hidden;
+  }
+  
+  /* Custom scrollbar styling */
+  .section-content.expanded::-webkit-scrollbar {
+    width: 8px;
+  }
+  .section-content.expanded::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  .section-content.expanded::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+  }
+  .section-content.expanded::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
   }
 `;
 
