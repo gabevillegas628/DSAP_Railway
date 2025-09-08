@@ -63,7 +63,7 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
         }
     };
 
-    
+
 
     // Filter and sort discussions
     const filteredAndSortedDiscussions = React.useMemo(() => {
@@ -165,11 +165,22 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
     const handleDeleteDiscussion = async () => {
         if (!discussionToDelete || deleting) return;
 
+        // Add this check for currentUser
+        if (!currentUser || !currentUser.id) {
+            console.error('No current user available for delete operation');
+            alert('User session not available. Please refresh and try again.');
+            return;
+        }
+
+        console.log('=== FRONTEND DELETE DEBUG ===');
+        console.log('Discussion to delete:', discussionToDelete.id);
+        console.log('Current user:', currentUser);
+        console.log('Current user ID:', currentUser.id, 'Type:', typeof currentUser.id);
+
         setDeleting(true);
         try {
-            await apiService.delete(`/clone-discussions/${discussionToDelete.id}`, {
-                requesterId: currentUser.id
-            });
+            // Changed from request body to query parameter to match backend
+            await apiService.delete(`/clone-discussions/${discussionToDelete.id}?requesterId=${currentUser.id}`);
 
             // Remove from local state
             setDiscussions(prev => prev.filter(d => d.id !== discussionToDelete.id));
