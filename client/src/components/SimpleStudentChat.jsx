@@ -162,7 +162,7 @@ const SimpleStudentChat = ({
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl">
+            <div className="flex items-center justify-center h-full bg-gray-50 rounded-xl">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-700 font-medium">Loading your discussions...</p>
@@ -173,13 +173,13 @@ const SimpleStudentChat = ({
     }
 
     return (
-        <div className="h-[650px] bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden flex">
+        <div className="h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
             {/* Left Panel - Discussions */}
-            <div className="w-1/3 border-r border-gray-100 flex flex-col bg-gradient-to-b from-gray-50 to-white">
+            <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gray-50">
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                <div className="p-6 border-b border-gray-200 bg-blue-600 text-white">
                     <div className="flex items-center space-x-3 mb-3">
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                             <MessageCircle className="w-5 h-5" />
                         </div>
                         <div>
@@ -195,7 +195,7 @@ const SimpleStudentChat = ({
                 <div className="flex-1 overflow-y-auto">
                     {discussions.length === 0 ? (
                         <div className="p-6 text-center">
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <MessageCircle className="w-8 h-8 text-blue-600" />
                             </div>
                             <h4 className="text-gray-900 font-medium mb-2">No discussions yet</h4>
@@ -209,18 +209,18 @@ const SimpleStudentChat = ({
                                 <div
                                     key={discussion.id}
                                     onClick={() => selectDiscussion(discussion)}
-                                    className={`p-4 rounded-xl cursor-pointer transition-all duration-200 transform hover:scale-[1.02] ${
+                                    className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${
                                         selectedDiscussion?.id === discussion.id
-                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-md'
-                                            : 'hover:bg-white hover:shadow-md border-2 border-transparent'
+                                            ? 'bg-blue-50 border-2 border-blue-200 shadow-md'
+                                            : 'hover:bg-white border-2 border-transparent'
                                     }`}
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center space-x-3">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                                                 discussion.clone || discussion.practiceClone 
-                                                    ? 'bg-gradient-to-br from-emerald-100 to-teal-100' 
-                                                    : 'bg-gradient-to-br from-purple-100 to-pink-100'
+                                                    ? 'bg-emerald-100' 
+                                                    : 'bg-purple-100'
                                             }`}>
                                                 {discussion.clone || discussion.practiceClone ? (
                                                     <FileText className="w-5 h-5 text-emerald-600" />
@@ -239,7 +239,7 @@ const SimpleStudentChat = ({
                                             </div>
                                         </div>
                                         {discussion.unreadCount > 0 && (
-                                            <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium shadow-lg">
+                                            <div className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium shadow-lg">
                                                 {discussion.unreadCount}
                                             </div>
                                         )}
@@ -274,13 +274,9 @@ const SimpleStudentChat = ({
                 {selectedDiscussion ? (
                     <>
                         {/* Header */}
-                        <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                        <div className="p-6 border-b border-gray-200 bg-indigo-600 text-white">
                             <div className="flex items-center space-x-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                    selectedDiscussion.clone || selectedDiscussion.practiceClone 
-                                        ? 'bg-white/20' 
-                                        : 'bg-white/20'
-                                }`}>
+                                <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center">
                                     {selectedDiscussion.clone || selectedDiscussion.practiceClone ? (
                                         <FileText className="w-6 h-6" />
                                     ) : (
@@ -297,7 +293,7 @@ const SimpleStudentChat = ({
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-50/50 to-white">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
                             {loadingMessages ? (
                                 <div className="flex items-center justify-center py-12">
                                     <div className="text-center">
@@ -308,7 +304,7 @@ const SimpleStudentChat = ({
                             ) : messages.length === 0 ? (
                                 <div className="flex items-center justify-center py-12">
                                     <div className="text-center max-w-sm">
-                                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                             <MessageCircle className="w-8 h-8 text-indigo-600" />
                                         </div>
                                         <h4 className="text-gray-900 font-medium mb-2">Start the conversation!</h4>
@@ -325,8 +321,8 @@ const SimpleStudentChat = ({
                                     >
                                         <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${
                                             message.sender.id === currentUser.id
-                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
-                                                : 'bg-white text-gray-900 border border-gray-100'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-white text-gray-900 border border-gray-200'
                                         }`}>
                                             <div className="flex items-center space-x-2 mb-2">
                                                 <span className={`text-xs font-medium ${
@@ -349,7 +345,7 @@ const SimpleStudentChat = ({
                         </div>
 
                         {/* Message Input */}
-                        <div className="p-6 border-t border-gray-100 bg-white">
+                        <div className="p-6 border-t border-gray-200 bg-white">
                             <div className="flex space-x-4">
                                 <textarea
                                     value={newMessage}
@@ -368,7 +364,7 @@ const SimpleStudentChat = ({
                                 <button
                                     onClick={sendMessage}
                                     disabled={!newMessage.trim() || sending}
-                                    className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
+                                    className="px-6 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
                                 >
                                     {sending ? (
                                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -381,9 +377,9 @@ const SimpleStudentChat = ({
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-gray-50 to-blue-50">
+                    <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
                         <div className="text-center max-w-md">
-                            <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <MessageCircle className="w-10 h-10 text-indigo-600" />
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-3">Welcome to Messages</h3>
