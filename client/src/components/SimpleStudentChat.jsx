@@ -162,7 +162,7 @@ const SimpleStudentChat = ({
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[600px] h-full bg-gray-50 rounded-xl">
+            <div className="flex items-center justify-center min-h-[800px] h-full bg-gray-50 rounded-xl">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-700 font-medium">Loading your discussions...</p>
@@ -173,7 +173,7 @@ const SimpleStudentChat = ({
     }
 
     return (
-        <div className="min-h-[600px] h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
+        <div className="min-h-[800px] h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
             {/* Left Panel - Discussions */}
             <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gray-50">
                 {/* Header */}
