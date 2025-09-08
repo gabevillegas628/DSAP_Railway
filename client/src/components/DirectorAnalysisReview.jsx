@@ -356,12 +356,12 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
     const answer = answers[questionId];
     if (!answer || typeof answer !== 'string') return null;
 
-    const cleanSequence = answer.replace(/\s/g, '').toUpperCase();
+    const cleanSequence = answer.replace(/\s/g, '').replace(/\*/g, '').toUpperCase();
 
     // Check for DNA sequence
     const isDNA = /^[ATGCNRYSWKMBDHV\-]+$/.test(cleanSequence);
 
-    // Check for protein sequence (20 standard amino acids plus some common ambiguity codes)
+    // Check for protein sequence (20 standard amino acids plus ambiguity codes)
     const isProtein = /^[ACDEFGHIKLMNPQRSTVWYXZ\-]+$/.test(cleanSequence);
 
     if ((isDNA || isProtein) && cleanSequence.length > 10) {

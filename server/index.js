@@ -6600,7 +6600,17 @@ app.get('/api/messages/check-discussion/:studentId/:cloneId', async (req, res) =
 app.delete('/api/clone-discussions/:discussionId', async (req, res) => {
   try {
     const { discussionId } = req.params;
-    const { requesterId } = req.body;
+    const { requesterId } = req.query; // Changed from req.body to req.query
+
+    console.log('=== DELETE DISCUSSION DEBUG ===');
+    console.log('Discussion ID:', discussionId);
+    console.log('Requester ID:', requesterId, 'Type:', typeof requesterId);
+
+    // Add validation
+    if (!requesterId || isNaN(parseInt(requesterId))) {
+      console.log('ERROR: Invalid or missing requesterId:', requesterId);
+      return res.status(400).json({ error: 'Valid requesterId is required' });
+    }
 
     // Verify requester is a director
     const requester = await prisma.user.findUnique({
