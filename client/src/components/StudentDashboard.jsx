@@ -125,7 +125,15 @@ const StudentDashboard = () => {
     try {
       console.log('Downloading file for clone:', clone);
 
-      const blob = await apiService.downloadBlob(`/uploaded-files/${clone.id}/download`);
+      // Use different endpoints based on clone type
+      let downloadUrl;
+      if (clone.type === 'practice') {
+        downloadUrl = `/practice-clones/${clone.id}/download`;
+      } else {
+        downloadUrl = `/uploaded-files/${clone.id}/download`;
+      }
+
+      const blob = await apiService.downloadBlob(downloadUrl);
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
