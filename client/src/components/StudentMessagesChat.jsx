@@ -72,6 +72,7 @@ const StudentMessagesChat = ({
         }
     };
 
+    /*
     // Add this new useEffect after the existing useEffects in StudentMessagesChat.jsx
     useEffect(() => {
         // Handle selectedCloneId changes when component is already mounted with discussions
@@ -87,6 +88,7 @@ const StudentMessagesChat = ({
             }
         }
     }, [selectedCloneId, discussions, selectedDiscussion]); // Watch for changes to selectedCloneId
+    */
 
     // Load all messages for a specific discussion
     const loadMessages = async (discussionId) => {
