@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, User, FileText, Clock } from 'lucide-react';
+import { MessageCircle, Send, User, FileText, Clock, Users } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import apiService from '../services/apiService';
 
@@ -162,76 +162,104 @@ const SimpleStudentChat = ({
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="ml-3 text-gray-600">Loading discussions...</span>
+            <div className="flex items-center justify-center h-96 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-700 font-medium">Loading your discussions...</p>
+                    <p className="text-gray-500 text-sm mt-1">This might take a moment</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="h-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex">
+        <div className="h-[650px] bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden flex">
             {/* Left Panel - Discussions */}
-            <div className="w-1/3 border-r border-gray-200 flex flex-col">
+            <div className="w-1/3 border-r border-gray-100 flex flex-col bg-gradient-to-b from-gray-50 to-white">
                 {/* Header */}
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                    <h3 className="text-lg font-semibold text-gray-900">Your Discussions</h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                        {discussions.length} discussion{discussions.length !== 1 ? 's' : ''}
-                    </p>
+                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                    <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                            <MessageCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold">Your Discussions</h3>
+                            <p className="text-blue-100 text-sm">
+                                {discussions.length} conversation{discussions.length !== 1 ? 's' : ''} with instructors
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Discussions List */}
                 <div className="flex-1 overflow-y-auto">
                     {discussions.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                            <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                            <p className="text-sm">No discussions found</p>
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <MessageCircle className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <h4 className="text-gray-900 font-medium mb-2">No discussions yet</h4>
+                            <p className="text-gray-500 text-sm">
+                                Discussions will appear here when you message your instructors
+                            </p>
                         </div>
                     ) : (
-                        <div className="space-y-1 p-2">
+                        <div className="space-y-2 p-3">
                             {discussions.map((discussion) => (
                                 <div
                                     key={discussion.id}
                                     onClick={() => selectDiscussion(discussion)}
-                                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                                    className={`p-4 rounded-xl cursor-pointer transition-all duration-200 transform hover:scale-[1.02] ${
                                         selectedDiscussion?.id === discussion.id
-                                            ? 'bg-blue-50 border border-blue-200'
-                                            : 'hover:bg-gray-50 border border-transparent'
+                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-md'
+                                            : 'hover:bg-white hover:shadow-md border-2 border-transparent'
                                     }`}
                                 >
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center space-x-3">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                                discussion.clone || discussion.practiceClone 
+                                                    ? 'bg-gradient-to-br from-emerald-100 to-teal-100' 
+                                                    : 'bg-gradient-to-br from-purple-100 to-pink-100'
+                                            }`}>
                                                 {discussion.clone || discussion.practiceClone ? (
-                                                    <FileText className="w-4 h-4 text-gray-600" />
+                                                    <FileText className="w-5 h-5 text-emerald-600" />
                                                 ) : (
-                                                    <MessageCircle className="w-4 h-4 text-gray-600" />
+                                                    <MessageCircle className="w-5 h-5 text-purple-600" />
                                                 )}
                                             </div>
-                                            <div className="flex-1">
-                                                <p className="font-medium text-gray-900 text-sm">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-gray-900 truncate">
                                                     {getDiscussionTitle(discussion)}
                                                 </p>
-                                                <p className="text-xs text-gray-600">with Instructors</p>
+                                                <div className="flex items-center space-x-1 mt-1">
+                                                    <Users className="w-3 h-3 text-gray-400" />
+                                                    <p className="text-xs text-gray-500">with Instructors</p>
+                                                </div>
                                             </div>
                                         </div>
                                         {discussion.unreadCount > 0 && (
-                                            <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                            <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium shadow-lg">
                                                 {discussion.unreadCount}
-                                            </span>
+                                            </div>
                                         )}
                                     </div>
 
-                                    <div className="space-y-1">
+                                    <div className="space-y-2">
                                         {discussion.lastMessage && (
-                                            <p className="text-xs text-gray-600 line-clamp-2">
+                                            <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
                                                 {discussion.lastMessage.content}
                                             </p>
                                         )}
-                                        <div className="flex items-center justify-between text-xs text-gray-500">
-                                            <span>{discussion.messageCount || 0} message{discussion.messageCount !== 1 ? 's' : ''}</span>
-                                            <span>{formatDate(discussion.lastMessageAt)}</span>
+                                        <div className="flex items-center justify-between text-xs text-gray-400">
+                                            <div className="flex items-center space-x-1">
+                                                <MessageCircle className="w-3 h-3" />
+                                                <span>{discussion.messageCount || 0} message{discussion.messageCount !== 1 ? 's' : ''}</span>
+                                            </div>
+                                            <div className="flex items-center space-x-1">
+                                                <Clock className="w-3 h-3" />
+                                                <span>{formatDate(discussion.lastMessageAt)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -246,34 +274,48 @@ const SimpleStudentChat = ({
                 {selectedDiscussion ? (
                     <>
                         {/* Header */}
-                        <div className="p-4 border-b border-gray-200 bg-gray-50">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                        <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                            <div className="flex items-center space-x-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                    selectedDiscussion.clone || selectedDiscussion.practiceClone 
+                                        ? 'bg-white/20' 
+                                        : 'bg-white/20'
+                                }`}>
                                     {selectedDiscussion.clone || selectedDiscussion.practiceClone ? (
-                                        <FileText className="w-5 h-5 text-gray-600" />
+                                        <FileText className="w-6 h-6" />
                                     ) : (
-                                        <MessageCircle className="w-5 h-5 text-gray-600" />
+                                        <MessageCircle className="w-6 h-6" />
                                     )}
                                 </div>
                                 <div>
-                                    <h4 className="font-medium text-gray-900">
+                                    <h4 className="font-semibold text-lg">
                                         {getDiscussionTitle(selectedDiscussion)}
                                     </h4>
-                                    <p className="text-sm text-gray-600">Discussion with your instructors</p>
+                                    <p className="text-indigo-100 text-sm">Real-time discussion with your instructors</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-50/50 to-white">
                             {loadingMessages ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <span className="ml-3 text-gray-600">Loading messages...</span>
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-center">
+                                        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                                        <p className="text-gray-600 font-medium">Loading messages...</p>
+                                    </div>
                                 </div>
                             ) : messages.length === 0 ? (
-                                <div className="flex items-center justify-center py-8 text-gray-500">
-                                    <p>No messages yet. Start the conversation!</p>
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-center max-w-sm">
+                                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <MessageCircle className="w-8 h-8 text-indigo-600" />
+                                        </div>
+                                        <h4 className="text-gray-900 font-medium mb-2">Start the conversation!</h4>
+                                        <p className="text-gray-500 text-sm">
+                                            Send your first message to begin discussing this topic with your instructors.
+                                        </p>
+                                    </div>
                                 </div>
                             ) : (
                                 messages.map((message) => (
@@ -281,20 +323,24 @@ const SimpleStudentChat = ({
                                         key={message.id}
                                         className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                                     >
-                                        <div className={`max-w-3/4 rounded-lg p-3 ${
+                                        <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${
                                             message.sender.id === currentUser.id
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 text-gray-900'
+                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
+                                                : 'bg-white text-gray-900 border border-gray-100'
                                         }`}>
-                                            <div className="flex items-center space-x-2 mb-1">
-                                                <span className="text-xs font-medium opacity-75">
+                                            <div className="flex items-center space-x-2 mb-2">
+                                                <span className={`text-xs font-medium ${
+                                                    message.sender.id === currentUser.id ? 'text-blue-100' : 'text-gray-600'
+                                                }`}>
                                                     {message.sender.id === currentUser.id ? 'You' : message.sender.name}
                                                 </span>
-                                                <span className="text-xs opacity-50">
+                                                <span className={`text-xs ${
+                                                    message.sender.id === currentUser.id ? 'text-blue-200' : 'text-gray-400'
+                                                }`}>
                                                     {formatFullDate(message.createdAt)}
                                                 </span>
                                             </div>
-                                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                                         </div>
                                     </div>
                                 ))
@@ -303,13 +349,13 @@ const SimpleStudentChat = ({
                         </div>
 
                         {/* Message Input */}
-                        <div className="p-4 border-t border-gray-200 bg-gray-50">
-                            <div className="flex space-x-3">
+                        <div className="p-6 border-t border-gray-100 bg-white">
+                            <div className="flex space-x-4">
                                 <textarea
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Type your message..."
-                                    className="flex-1 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="flex-1 p-4 border border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
                                     rows={3}
                                     disabled={sending}
                                     onKeyDown={(e) => {
@@ -322,25 +368,27 @@ const SimpleStudentChat = ({
                                 <button
                                     onClick={sendMessage}
                                     disabled={!newMessage.trim() || sending}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                                    className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
                                 >
                                     {sending ? (
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                     ) : (
-                                        <Send className="w-4 h-4" />
+                                        <Send className="w-5 h-5" />
                                     )}
-                                    <span>Send</span>
+                                    <span className="font-medium">Send</span>
                                 </button>
                             </div>
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex items-center justify-center p-8">
-                        <div className="text-center">
-                            <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">No Discussion Selected</h3>
-                            <p className="text-gray-600">
-                                Select a discussion to view and send messages to your instructors.
+                    <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-gray-50 to-blue-50">
+                        <div className="text-center max-w-md">
+                            <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <MessageCircle className="w-10 h-10 text-indigo-600" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">Welcome to Messages</h3>
+                            <p className="text-gray-600 leading-relaxed">
+                                Select a discussion from the left to view your conversation history and send messages to your instructors.
                             </p>
                         </div>
                     </div>
