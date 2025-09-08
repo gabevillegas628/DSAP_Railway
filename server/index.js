@@ -28,7 +28,6 @@ const { group } = require('console');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
-// Update your environment check
 console.log('=== ENVIRONMENT VARIABLES CHECK ===');
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
@@ -36,6 +35,7 @@ console.log('SENDGRID_API_KEY length:', process.env.SENDGRID_API_KEY?.length);
 console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
 console.log('=====================================');
 
+/**
 // Email configuration (SENDGRID)
 const emailTransporter = nodemailer.createTransport({
   host: 'smtp.sendgrid.net',
@@ -49,6 +49,28 @@ const emailTransporter = nodemailer.createTransport({
   greetingTimeout: 5000,
   socketTimeout: 10000
 });
+**/
+
+const sgMail = require('@sendgrid/mail');
+
+// Remove the old emailTransporter configuration
+// Replace with:
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Test SendGrid API connection
+const testSendGridConnection = async () => {
+  try {
+    // SendGrid doesn't have a "verify" method like nodemailer, but we can test with the API key
+    if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+      throw new Error('Invalid SendGrid API key format');
+    }
+    console.log('SendGrid API key configured successfully');
+  } catch (error) {
+    console.error('SendGrid configuration error:', error.message);
+  }
+};
+
+testSendGridConnection();
 
 // Test connection on startup
 emailTransporter.verify((error, success) => {
@@ -5289,7 +5311,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     console.log('=== FORGOT PASSWORD REQUEST ===');
     console.log('Email:', email);
     console.log('Environment check - EMAIL_USER:', process.env.EMAIL_USER);
-    console.log('Environment check - EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+    console.log('Environment check - SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
     console.log('Environment check - FRONTEND_URL:', process.env.FRONTEND_URL);
     console.log('Request headers - Origin:', req.headers.origin);
     console.log('Request headers - Host:', req.headers.host);
@@ -5299,9 +5321,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Check if email service is configured
-    if (!process.env.EMAIL_USER || !process.env.SENDGRID_API_KEY) {
-      console.error('Email service not configured');
+    // Check if SendGrid is configured
+    if (!process.env.SENDGRID_API_KEY || !process.env.EMAIL_USER) {
+      console.error('SendGrid not configured');
       return res.status(500).json({ error: 'Email service not available' });
     }
 
@@ -5333,53 +5355,32 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     });
     console.log('Token saved to database successfully');
 
-    // Smart frontend URL detection for Railway
+    // Generate frontend URL
     let frontendUrl = process.env.FRONTEND_URL;
-
     if (!frontendUrl) {
-      console.log('FRONTEND_URL not set, attempting to detect...');
-
-      // Try to get from request origin (works when user initiates from frontend)
       const origin = req.headers.origin;
       const host = req.headers.host;
-
       if (origin) {
         frontendUrl = origin;
-        console.log('Using origin from request:', frontendUrl);
-      } else if (host && host.includes('railway.app')) {
-        // For Railway deployments, construct frontend URL from backend URL
-        frontendUrl = `https://${host}`;
-        // Remove common backend suffixes if present
-        frontendUrl = frontendUrl
-          .replace('-backend', '')
-          .replace('-api', '')
-          .replace('-server', '');
-        console.log('Constructed Railway frontend URL:', frontendUrl);
       } else if (host && !host.includes('localhost')) {
-        // For other production environments
         frontendUrl = `https://${host}`;
-        console.log('Using host as frontend URL:', frontendUrl);
       } else {
-        // Development fallback
         frontendUrl = 'http://localhost:3000';
-        console.warn('No frontend URL detected, using localhost fallback');
       }
-    } else {
-      console.log('Using configured FRONTEND_URL:', frontendUrl);
     }
-
-    // Ensure no trailing slash
     frontendUrl = frontendUrl.replace(/\/$/, '');
-
+    
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
     console.log('Final reset URL:', resetUrl);
 
-    console.log('Attempting to send email...');
+    console.log('Attempting to send email via SendGrid Web API...');
     console.log('From:', process.env.EMAIL_USER);
     console.log('To:', email);
 
-    await emailTransporter.sendMail({
+    // Send email using SendGrid Web API
+    const msg = {
       to: email,
+      from: process.env.EMAIL_USER, // Must be verified in SendGrid
       subject: 'Password Reset Request - DNA Analysis Program',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -5403,9 +5404,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           </p>
         </div>
       `
-    });
+    };
 
-    console.log('Email sent successfully!');
+    await sgMail.send(msg);
+
+    console.log('Email sent successfully via SendGrid Web API!');
     res.json({ message: 'If an account exists with this email, you will receive reset instructions.' });
 
   } catch (error) {
@@ -5415,17 +5418,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     console.error('Error code:', error.code);
     console.error('Full error:', error);
 
-    // More specific error handling
+    // SendGrid-specific error handling
     let errorMessage = 'Error processing request';
-
-    if (error.code === 'EAUTH') {
-      errorMessage = 'Email authentication failed. Please check email configuration.';
-    } else if (error.code === 'ECONNECTION') {
-      errorMessage = 'Cannot connect to email server.';
-    } else if (error.code === 'ETIMEDOUT') {
-      errorMessage = 'Email service timeout. Please try again.';
-    } else if (error.message.includes('Invalid login')) {
-      errorMessage = 'Email service authentication failed.';
+    
+    if (error.code === 401) {
+      errorMessage = 'SendGrid authentication failed. Check API key.';
+    } else if (error.code === 403) {
+      errorMessage = 'SendGrid access forbidden. Check sender verification.';
+    } else if (error.response?.body?.errors) {
+      errorMessage = `SendGrid error: ${error.response.body.errors[0].message}`;
     }
 
     res.status(500).json({
