@@ -5,7 +5,9 @@ import apiService from '../services/apiService';
 
 const SimpleStudentChat = ({ 
     selectedCloneId = null, 
-    onMessageRead = null 
+    onMessageRead = null,
+    prePopulatedReplyText = '',
+    onReplyTextUsed = null
 }) => {
     const { currentUser } = useDNAContext();
     
