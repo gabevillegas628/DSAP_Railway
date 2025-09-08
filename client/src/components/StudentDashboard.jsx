@@ -396,7 +396,7 @@ const StudentDashboard = () => {
     return (
       <div>
         {/* Static tabs */}
-        <div style={{ display: activeTab === 'my-clones' ? 'block' : 'none' }}>
+        <div className="h-full" style={{ display: activeTab === 'my-clones' ? 'block' : 'none' }}>
           <StudentClones
             allClones={allClones}
             loading={loading}
@@ -409,11 +409,11 @@ const StudentDashboard = () => {
           />
         </div>
 
-        <div style={{ display: activeTab === 'software' ? 'block' : 'none' }}>
+        <div className="h-full"  style={{ display: activeTab === 'software' ? 'block' : 'none' }}>
           <StudentSoftware />
         </div>
 
-        <div style={{ display: activeTab === 'messages' ? 'block' : 'none' }}>
+        <div className="h-full"  style={{ display: activeTab === 'messages' ? 'block' : 'none' }}>
           <SimpleStudentChat
             selectedCloneId={selectedCloneForMessages}
             onMessageRead={fetchUnreadRepliesCount}
@@ -422,7 +422,7 @@ const StudentDashboard = () => {
           />
         </div>
 
-        <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+        <div className="h-full"  style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
           <StudentSettings currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         </div>
 
@@ -450,8 +450,8 @@ const StudentDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="h-screen bg-gray-50">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">{getTimeBasedGreeting()}, {currentUser?.name?.split(' ')[0]}</h2>
           <p className="text-gray-600 mt-2">{currentUser?.school?.name}</p>
@@ -504,7 +504,9 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        {renderTabContent()}
+        <div className="flex-1 min-h-0">
+          {renderTabContent()}
+        </div>
       </div>
 
       {/* Logout Warning Modal */}
