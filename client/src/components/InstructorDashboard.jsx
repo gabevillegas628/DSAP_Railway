@@ -6,6 +6,7 @@ import InstructorAnalysisReview from './InstructorAnalysisReview';
 import InstructorMessagesChat from './InstructorMessagesChat';
 import InstructorSettings from './InstructorSettings';
 import InstructorStudents from './InstructorStudents.jsx';
+import SimpleInstructorChat from './SimpleInstructorChat.jsx';
 import { getReviewStatus } from '../statusConstraints.js';
 import apiService from '../services/apiService';
 
@@ -128,7 +129,7 @@ const InstructorDashboard = () => {
         </div>
 
         <div style={{ display: activeTab === 'messages' ? 'block' : 'none' }}>
-          <InstructorMessagesChat onMessageRead={fetchMessageCount} />
+          <SimpleInstructorChat onMessageRead={fetchMessageCount} />
         </div>
 
         <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
