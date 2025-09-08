@@ -1,142 +1,190 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting database seeding...');
+  console.log('Starting database seed...');
 
-  // First, check if we have schools (from your previous seeds)
-  const schoolCount = await prisma.school.count();
-  if (schoolCount === 0) {
-    console.log('No schools found. Please add schools first through the web interface.');
-    return;
+  // Create schools first
+  const schools = [
+    {
+      name: 'Isla Nublar High School',
+      schoolId: 'INHS001',
+      instructor: 'Claire Dearing',
+      students: 0
+    },
+    {
+      name: 'Nedry Land Academy',
+      schoolId: 'NLA002', 
+      instructor: 'Dennis Nedry',
+      students: 0
+    },
+    {
+      name: 'Grant Paleontology Institute',
+      schoolId: 'GPI003',
+      instructor: 'Dr. Alan Grant',
+      students: 0
+    },
+    {
+      name: 'Malcolm Chaos Theory School',
+      schoolId: 'MCTS004',
+      instructor: 'Dr. Ian Malcolm', 
+      students: 0
+    },
+    {
+      name: 'Hammond Biotech Academy',
+      schoolId: 'HBA005',
+      instructor: 'John Hammond',
+      students: 0
+    }
+  ];
+
+  console.log('Creating schools...');
+  const createdSchools = [];
+  for (const school of schools) {
+    const created = await prisma.school.create({ data: school });
+    createdSchools.push(created);
+    console.log(`Created school: ${school.name}`);
   }
 
-  // Get the first school ID to use for instructor and student
-  const firstSchool = await prisma.school.findFirst();
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  // Hash password once
+  const hashedPassword = await bcrypt.hash('password', 10);
+
+  // Create the specific accounts requested
+  console.log('Creating specific accounts...');
   
-  // Check if demo users already exist
-  const existingDirector = await prisma.user.findUnique({
-    where: { email: 'director@program.edu' }
+  const director = await prisma.user.create({
+    data: {
+      email: 'director@program.edu',
+      password: hashedPassword,
+      name: 'Program Director',
+      role: 'director',
+      status: 'approved',
+      schoolId: null
+    }
   });
-  
-  if (existingDirector) {
-    console.log('Demo users already exist, updating their status to approved...');
-    
-    // Update existing demo users to approved status
-    await prisma.user.updateMany({
-      where: {
-        email: {
-          in: ['director@program.edu', 'instructor@lincoln.edu', 'student@lincoln.edu']
-        }
-      },
+  console.log('Created director account');
+
+  const dennis = await prisma.user.create({
+    data: {
+      email: 'dennis@nedryland.com',
+      password: hashedPassword,
+      name: 'Dennis Nedry',
+      role: 'student', 
+      status: 'approved',
+      schoolId: createdSchools[1].id // Nedry Land Academy
+    }
+  });
+  console.log('Created Dennis student account');
+
+  const claire = await prisma.user.create({
+    data: {
+      email: 'claire@jp.com',
+      password: hashedPassword,
+      name: 'Claire Dearing',
+      role: 'instructor',
+      status: 'approved',
+      schoolId: createdSchools[0].id // Isla Nublar High School
+    }
+  });
+  console.log('Created Claire instructor account');
+
+  // Create 4 additional instructors
+  console.log('Creating additional instructors...');
+  const instructors = [
+    { name: 'Dr. Alan Grant', email: 'alan.grant@fossil.edu', schoolId: createdSchools[2].id },
+    { name: 'Dr. Ian Malcolm', email: 'ian.malcolm@chaos.edu', schoolId: createdSchools[3].id },
+    { name: 'Dr. Ellie Sattler', email: 'ellie.sattler@plants.edu', schoolId: createdSchools[2].id },
+    { name: 'John Hammond', email: 'john.hammond@ingen.com', schoolId: createdSchools[4].id }
+  ];
+
+  for (const instructor of instructors) {
+    await prisma.user.create({
       data: {
-        status: 'approved'
+        email: instructor.email,
+        password: hashedPassword,
+        name: instructor.name,
+        role: 'instructor',
+        status: 'approved',
+        schoolId: instructor.schoolId
       }
     });
-    console.log('Updated demo users to approved status!');
-    
-  } else {
-    console.log('Creating demo users...');
-    
-    // Create demo users one by one with approved status
-    try {
-      await prisma.user.create({
-        data: {
-          email: 'director@program.edu',
-          password: hashedPassword,
-          name: 'Dr. Program Director',
-          role: 'director',
-          status: 'approved',
-          schoolId: null
-        }
-      });
-
-      await prisma.user.create({
-        data: {
-          email: 'instructor@lincoln.edu',
-          password: hashedPassword,
-          name: 'Dr. Sarah Johnson',
-          role: 'instructor',
-          status: 'approved',
-          schoolId: firstSchool.id
-        }
-      });
-
-      await prisma.user.create({
-        data: {
-          email: 'student@lincoln.edu',
-          password: hashedPassword,
-          name: 'John Smith',
-          role: 'student',
-          status: 'approved',
-          schoolId: firstSchool.id
-        }
-      });
-      
-      console.log('Created demo users with approved status!');
-    } catch (error) {
-      console.log('Error creating users:', error.message);
-    }
+    console.log(`Created instructor: ${instructor.name}`);
   }
-  
-  // Add default analysis questions (if they don't exist)
-  const existingQuestions = await prisma.analysisQuestion.findMany();
-  if (existingQuestions.length === 0) {
-    console.log('Creating default analysis questions...');
+
+  // Create 20 students with Jurassic Park themed names
+  console.log('Creating student accounts...');
+  const students = [
+    { name: 'Timothy Murphy', email: 'tim.murphy@student.edu' },
+    { name: 'Alexis Murphy', email: 'lex.murphy@student.edu' },
+    { name: 'Gerry Harding', email: 'gerry.harding@student.edu' },
+    { name: 'Donald Gennaro', email: 'donald.gennaro@student.edu' },
+    { name: 'Ray Arnold', email: 'ray.arnold@student.edu' },
+    { name: 'Robert Muldoon', email: 'robert.muldoon@student.edu' },
+    { name: 'Dr. Henry Wu', email: 'henry.wu@student.edu' },
+    { name: 'Martin Guitierrez', email: 'martin.guitierrez@student.edu' },
+    { name: 'Roberta Carter', email: 'roberta.carter@student.edu' },
+    { name: 'Ed Regis', email: 'ed.regis@student.edu' },
+    { name: 'Roland Tembo', email: 'roland.tembo@student.edu' },
+    { name: 'Sarah Harding', email: 'sarah.harding@student.edu' },
+    { name: 'Nick Van Owen', email: 'nick.vanowen@student.edu' },
+    { name: 'Kelly Curtis', email: 'kelly.curtis@student.edu' },
+    { name: 'Peter Ludlow', email: 'peter.ludlow@student.edu' },
+    { name: 'Billy Brennan', email: 'billy.brennan@student.edu' },
+    { name: 'Amanda Kirby', email: 'amanda.kirby@student.edu' },
+    { name: 'Paul Kirby', email: 'paul.kirby@student.edu' },
+    { name: 'Erik Kirby', email: 'erik.kirby@student.edu' },
+    { name: 'Cooper Pilot', email: 'cooper.pilot@student.edu' }
+  ];
+
+  for (let i = 0; i < students.length; i++) {
+    const student = students[i];
+    const schoolIndex = i % createdSchools.length; // Distribute across schools
     
-    await prisma.analysisQuestion.createMany({
-      data: [
-        {
-          id: 'seq_readable',
-          step: 'clone-editing',
-          text: 'Is the sequence readable?',
-          type: 'yes_no',
-          required: true,
-          order: 1
-        },
-        {
-          id: 'seq_quality_good',
-          step: 'clone-editing', 
-          text: 'Is the sequence quality good enough for analysis?',
-          type: 'yes_no',
-          required: true,
-          order: 2
-        },
-        {
-          id: 'blast_database',
-          step: 'blast',
-          text: 'Which BLAST database should be used?',
-          type: 'select',
-          options: JSON.stringify(['NCBI nr/nt', 'RefSeq', 'UniProt', 'Custom']),
-          required: true,
-          order: 1
-        },
-        {
-          id: 'analysis_complete',
-          step: 'analysis-submission',
-          text: 'Have you completed your sequence analysis?',
-          type: 'yes_no',
-          required: true,
-          order: 1
-        }
-      ]
+    await prisma.user.create({
+      data: {
+        email: student.email,
+        password: hashedPassword,
+        name: student.name,
+        role: 'student',
+        status: 'approved',
+        schoolId: createdSchools[schoolIndex].id
+      }
     });
-    console.log('Created default analysis questions!');
-  } else {
-    console.log('Analysis questions already exist, skipping creation.');
+    console.log(`Created student: ${student.name}`);
   }
 
-  console.log('Database seeding completed successfully!');
-  console.log('\nDemo account credentials:');
-  console.log('Director: director@program.edu / password123');
-  console.log('Instructor: instructor@lincoln.edu / password123');
-  console.log('Student: student@lincoln.edu / password123');
+  // Create default program settings
+  console.log('Creating program settings...');
+  await prisma.programSettings.create({
+    data: {
+      projectHeader: 'Waksman Student Scholars Program',
+      principalInvestigator: 'Dr. Program Director',
+      projectName: 'DNA Sequence Analysis Platform',
+      staffEmail: 'director@program.edu',
+      welcomeText: 'Welcome to the DNA Analysis Platform! This system helps students analyze DNA sequences and learn about molecular biology.',
+      overview: 'Students will upload DNA sequence files, perform BLAST analysis, and submit their findings for instructor review.',
+      collectDemographics: false
+    }
+  });
+
+  console.log('\n=== SEED COMPLETED SUCCESSFULLY ===');
+  console.log('Created accounts:');
+  console.log('📧 director@program.edu (Director) - Password: password');
+  console.log('📧 dennis@nedryland.com (Student) - Password: password'); 
+  console.log('📧 claire@jp.com (Instructor) - Password: password');
+  console.log('📧 + 4 more instructors');
+  console.log('📧 + 20 students');
+  console.log('🏫 5 schools created');
+  console.log('\nAll passwords are: password');
 }
 
 main()
-  .catch((error) => {
-    console.error('Seeding failed:', error);
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

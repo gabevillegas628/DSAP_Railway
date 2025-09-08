@@ -37,6 +37,11 @@ const emailTransporter = nodemailer.createTransport({
   }
 });
 
+// AWS S3 Configuration
+const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const multerS3 = require('multer-s3');
+
 // Add this right after your require statements at the top
 console.log('=== ENVIRONMENT VARIABLES CHECK ===');
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
@@ -91,21 +96,65 @@ app.use(cors({
 app.use(express.json());
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
-    // Create uploads directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+// Configure AWS S3 client
+const s3Client = new S3Client({
+  region: process.env.S3_REGION,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
   },
-  filename: function (req, file, cb) {
-    // Keep original filename but add timestamp to avoid conflicts
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
 });
+
+// Configure multer for S3 uploads
+const storage = multerS3({
+  s3: s3Client,
+  bucket: process.env.S3_BUCKET_NAME,
+  acl: 'private',
+  key: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const key = `uploads/${uniqueSuffix}-${file.originalname}`;
+    cb(null, key);
+  },
+  contentType: multerS3.AUTO_CONTENT_TYPE,
+});
+
+// Helper function to generate presigned URLs for secure downloads
+async function generatePresignedDownloadUrl(s3Key, originalName, expiresIn = 300) {
+  const command = new GetObjectCommand({
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: s3Key,
+    ResponseContentDisposition: `attachment; filename="${originalName}"`
+  });
+
+  try {
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
+    return signedUrl;
+  } catch (error) {
+    console.error('Error generating presigned URL:', error);
+    throw error;
+  }
+}
+
+// Helper function to delete multiple files from S3
+async function deleteFilesFromS3(s3Keys) {
+  const deletePromises = s3Keys.map(async (key) => {
+    try {
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: key
+      });
+      await s3Client.send(deleteCommand);
+      console.log('Successfully deleted from S3:', key);
+      return { key, success: true };
+    } catch (error) {
+      console.error('Error deleting from S3:', key, error);
+      return { key, success: false, error: error.message };
+    }
+  });
+
+  const results = await Promise.allSettled(deletePromises);
+  return results.map(result => result.status === 'fulfilled' ? result.value : result.reason);
+}
 
 const fileFilter = (req, file, cb) => {
   // Only allow .ab1 files
@@ -565,6 +614,65 @@ const requireRole = (roles) => {
     }
   };
 };
+
+// Test S3 connection endpoint
+// Enhanced S3 test endpoint with deletion test
+app.get('/api/test-s3', async (req, res) => {
+  try {
+    const testKey = `test-${Date.now()}.txt`;
+    const testContent = 'S3 connection test';
+    
+    console.log('Testing S3 connection...');
+    console.log('Bucket:', process.env.S3_BUCKET_NAME);
+    console.log('Region:', process.env.S3_REGION);
+    
+    // Test upload
+    const putCommand = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: testKey,
+      Body: testContent,
+      ContentType: 'text/plain'
+    });
+
+    await s3Client.send(putCommand);
+    console.log('✅ Successfully uploaded test file');
+    
+    // Test download (generate presigned URL)
+    const downloadUrl = await generatePresignedDownloadUrl(testKey, 'test.txt', 60);
+    console.log('✅ Successfully generated presigned URL');
+    
+    // Test deletion
+    const deleteCommand = new DeleteObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: testKey
+    });
+    
+    await s3Client.send(deleteCommand);
+    console.log('✅ Successfully deleted test file');
+    
+    res.json({ 
+      success: true, 
+      message: 'S3 connection working perfectly! Upload, download, and delete all tested successfully.',
+      tests: {
+        upload: '✅ Success',
+        download: '✅ Success', 
+        delete: '✅ Success'
+      },
+      bucket: process.env.S3_BUCKET_NAME,
+      region: process.env.S3_REGION,
+      downloadUrl: downloadUrl.substring(0, 100) + '...' // Show partial URL for verification
+    });
+  } catch (error) {
+    console.error('S3 test error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      bucket: process.env.S3_BUCKET_NAME,
+      region: process.env.S3_REGION
+    });
+  }
+});
+
 
 // Test route
 app.get('/api/test', (req, res) => {
@@ -1390,7 +1498,7 @@ app.post('/api/uploaded-files', upload.array('files'), async (req, res) => {
 
       const uploadedFile = await prisma.uploadedFile.create({
         data: {
-          filename: file.filename,
+          filename: file.key, // S3 key instead of local filename
           originalName: file.originalname,
           cloneName: cloneName,
           size: (file.size / 1024).toFixed(1) + ' KB',
@@ -1574,14 +1682,19 @@ app.get('/api/uploaded-files/:id/download', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    const filePath = path.join(__dirname, 'uploads', file.filename);
+    console.log('=== S3 FILE DOWNLOAD DEBUG ===');
+    console.log('File ID:', id);
+    console.log('S3 Key:', file.filename);
+    console.log('Original name:', file.originalName);
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found on disk' });
-    }
-
-    res.download(filePath, file.originalName);
+    // Generate presigned URL for secure download
+    const downloadUrl = await generatePresignedDownloadUrl(file.filename, file.originalName);
+    
+    console.log('Generated presigned URL for download');
+    res.redirect(downloadUrl);
+    
   } catch (error) {
+    console.error('S3 download error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1614,11 +1727,32 @@ app.delete('/api/uploaded-files/:id', async (req, res) => {
       });
     }
 
-    // Proceed with deletion if not assigned
+    console.log('=== DELETING FILE FROM S3 AND DATABASE ===');
+    console.log('File ID:', id);
+    console.log('S3 Key:', fileToDelete.filename);
+    console.log('Clone Name:', fileToDelete.cloneName);
+
+    // Delete from S3 first
+    try {
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: fileToDelete.filename
+      });
+
+      await s3Client.send(deleteCommand);
+      console.log('Successfully deleted file from S3:', fileToDelete.filename);
+    } catch (s3Error) {
+      console.error('Error deleting from S3 (continuing with database deletion):', s3Error);
+      // Continue with database deletion even if S3 deletion fails
+      // This prevents orphaned database records
+    }
+
+    // Delete from database
     await prisma.uploadedFile.delete({
       where: { id: parseInt(id) }
     });
 
+    console.log('Successfully deleted file from database');
     res.status(204).send();
   } catch (error) {
     console.error('Delete error:', error);
@@ -3497,7 +3631,7 @@ app.post('/api/practice-clones/upload', upload.array('files'), async (req, res) 
       const practiceClone = await prisma.practiceClone.create({
         data: {
           cloneName: cloneName,
-          filename: file.filename,
+          filename: file.key, // S3 key instead of local filename
           originalName: file.originalname,
           description: `Practice clone: ${cloneName}`,
           isActive: true
@@ -3537,21 +3671,65 @@ app.delete('/api/practice-clones/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Delete associated files and progress records
+    // Get practice clone info before deletion
+    const practiceCloneToDelete = await prisma.practiceClone.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!practiceCloneToDelete) {
+      return res.status(404).json({ error: 'Practice clone not found' });
+    }
+
+    console.log('=== DELETING PRACTICE CLONE FROM S3 AND DATABASE ===');
+    console.log('Practice Clone ID:', id);
+    console.log('S3 Key:', practiceCloneToDelete.filename);
+    console.log('Clone Name:', practiceCloneToDelete.cloneName);
+
+    // Delete from S3 first
+    try {
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: practiceCloneToDelete.filename
+      });
+
+      await s3Client.send(deleteCommand);
+      console.log('Successfully deleted practice clone from S3:', practiceCloneToDelete.filename);
+    } catch (s3Error) {
+      console.error('Error deleting practice clone from S3 (continuing with database deletion):', s3Error);
+      // Continue with database deletion even if S3 deletion fails
+    }
+
+    // Delete associated database records
+    console.log('Deleting associated database records...');
+
     await prisma.practiceAnswer.deleteMany({
       where: { practiceCloneId: parseInt(id) }
     });
+    console.log('Deleted practice answers');
 
     await prisma.userPracticeProgress.deleteMany({
       where: { practiceCloneId: parseInt(id) }
     });
+    console.log('Deleted user practice progress');
 
+    // Delete any associated clone discussions
+    await prisma.cloneDiscussion.deleteMany({
+      where: { practiceCloneId: parseInt(id) }
+    });
+    console.log('Deleted associated discussions');
+
+    // Finally delete the practice clone record
     await prisma.practiceClone.delete({
       where: { id: parseInt(id) }
     });
+    console.log('Deleted practice clone from database');
 
-    res.json({ message: 'Practice clone deleted successfully' });
+    res.json({ 
+      message: 'Practice clone and associated file deleted successfully',
+      deletedClone: practiceCloneToDelete.cloneName
+    });
   } catch (error) {
+    console.error('Error deleting practice clone:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -3745,7 +3923,7 @@ app.get('/api/practice-clones/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log('=== PRACTICE CLONE DOWNLOAD DEBUG ===');
+    console.log('=== PRACTICE CLONE S3 DOWNLOAD DEBUG ===');
     console.log('Requested practice clone ID:', id);
 
     const practiceClone = await prisma.practiceClone.findUnique({
@@ -3758,70 +3936,20 @@ app.get('/api/practice-clones/:id/download', async (req, res) => {
     }
 
     console.log('Found practice clone:', practiceClone.cloneName);
-    console.log('Filename:', practiceClone.filename);
+    console.log('S3 Key:', practiceClone.filename);
     console.log('Original name:', practiceClone.originalName);
 
-    const filePath = path.join(__dirname, 'uploads', practiceClone.filename);
-    console.log('File path:', filePath);
-
-    if (!fs.existsSync(filePath)) {
-      console.log('ERROR: File not found on disk at path:', filePath);
-
-      // List all files in uploads directory for debugging
-      const uploadDir = path.join(__dirname, 'uploads');
-      if (fs.existsSync(uploadDir)) {
-        const files = fs.readdirSync(uploadDir);
-        console.log('Files in uploads directory:', files);
-        console.log('Looking for file:', practiceClone.filename);
-
-        // Check if there's a similar filename
-        const matchingFiles = files.filter(f => f.includes(practiceClone.cloneName));
-        if (matchingFiles.length > 0) {
-          console.log('Found similar files:', matchingFiles);
-        }
-      } else {
-        console.log('ERROR: Uploads directory does not exist:', uploadDir);
-      }
-
-      return res.status(404).json({ error: 'File not found on disk' });
-    }
-
-    // Check file stats
-    const stats = fs.statSync(filePath);
-    console.log('File stats:');
-    console.log('- Size:', stats.size, 'bytes');
-    console.log('- Modified:', stats.mtime);
-    console.log('- Is file:', stats.isFile());
-
-    if (stats.size === 0) {
-      console.log('ERROR: File is empty (0 bytes)');
-      return res.status(500).json({ error: 'File is empty' });
-    }
-
-    // Check if it's a valid .ab1 file by reading first few bytes
-    const buffer = fs.readFileSync(filePath, { start: 0, end: 16 });
-    console.log('First 16 bytes (hex):', buffer.toString('hex'));
-    console.log('First 4 bytes as string:', buffer.slice(0, 4).toString());
-
-    const isValidAB1 = buffer.slice(0, 4).toString() === 'ABIF' ||
-      (buffer[0] === 0x41 && buffer[1] === 0x42);
-    console.log('Appears to be valid .ab1 file:', isValidAB1);
-
-    if (!isValidAB1) {
-      console.log('WARNING: File does not appear to be a valid .ab1 file');
-    }
-
-    console.log('Sending file download...');
-    res.download(filePath, practiceClone.originalName, (err) => {
-      if (err) {
-        console.log('ERROR during file download:', err);
-      } else {
-        console.log('File download completed successfully');
-      }
-    });
-
+    // Generate presigned URL for secure download
+    const downloadUrl = await generatePresignedDownloadUrl(
+      practiceClone.filename, 
+      practiceClone.originalName
+    );
+    
+    console.log('Generated presigned URL for download');
+    res.redirect(downloadUrl);
+    
   } catch (error) {
-    console.error('=== ERROR IN PRACTICE CLONE DOWNLOAD ===');
+    console.error('=== ERROR IN PRACTICE CLONE S3 DOWNLOAD ===');
     console.error('Error:', error);
     res.status(500).json({ error: error.message });
   }
@@ -5617,6 +5745,7 @@ app.get('/api/users/:id/demographics', authenticateToken, async (req, res) => {
 
 // Temporary fix for sequence reset - REMOVE after running once
 app.post('/api/admin/fix-sequences', async (req, res) => {
+  console.log("=== fixing sequences ===");
   try {
     await prisma.$executeRaw`SELECT setval('CloneDiscussion_id_seq', (SELECT MAX(id) FROM "CloneDiscussion") + 1)`;
     await prisma.$executeRaw`SELECT setval('LoginLog_id_seq', (SELECT MAX(id) FROM "LoginLog") + 1)`;
