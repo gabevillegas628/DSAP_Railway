@@ -1669,7 +1669,7 @@ app.put('/api/uploaded-files/:id', async (req, res) => {
   }
 });
 
-// Download file
+// Download file (stream from S3)
 app.get('/api/uploaded-files/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1687,14 +1687,26 @@ app.get('/api/uploaded-files/:id/download', async (req, res) => {
     console.log('S3 Key:', file.filename);
     console.log('Original name:', file.originalName);
 
-    // Generate presigned URL for secure download
-    const downloadUrl = await generatePresignedDownloadUrl(file.filename, file.originalName);
+    // Get the file from S3
+    const getObjectCommand = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: file.filename
+    });
+
+    const s3Response = await s3Client.send(getObjectCommand);
     
-    console.log('Generated presigned URL for download');
-    res.redirect(downloadUrl);
+    // Set the appropriate headers for file download
+    res.setHeader('Content-Type', s3Response.ContentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+    res.setHeader('Content-Length', s3Response.ContentLength);
+    
+    console.log('Streaming file from S3...');
+    
+    // Stream the file from S3 to the client
+    s3Response.Body.pipe(res);
     
   } catch (error) {
-    console.error('S3 download error:', error);
+    console.error('S3 download error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -3919,38 +3931,44 @@ app.put('/api/practice-submissions/:id/review', validateStatusMiddleware, async 
 
 //Practice clone download endpoint
 //Practice clone download endpoint with enhanced debugging
+//Stream from S3
 app.get('/api/practice-clones/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
-
-    console.log('=== PRACTICE CLONE S3 DOWNLOAD DEBUG ===');
-    console.log('Requested practice clone ID:', id);
 
     const practiceClone = await prisma.practiceClone.findUnique({
       where: { id: parseInt(id) }
     });
 
     if (!practiceClone) {
-      console.log('ERROR: Practice clone not found in database with ID:', id);
       return res.status(404).json({ error: 'Practice clone not found' });
     }
 
-    console.log('Found practice clone:', practiceClone.cloneName);
+    console.log('=== PRACTICE CLONE S3 DOWNLOAD DEBUG ===');
+    console.log('Practice Clone ID:', id);
     console.log('S3 Key:', practiceClone.filename);
     console.log('Original name:', practiceClone.originalName);
 
-    // Generate presigned URL for secure download
-    const downloadUrl = await generatePresignedDownloadUrl(
-      practiceClone.filename, 
-      practiceClone.originalName
-    );
+    // Get the file from S3
+    const getObjectCommand = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: practiceClone.filename
+    });
+
+    const s3Response = await s3Client.send(getObjectCommand);
     
-    console.log('Generated presigned URL for download');
-    res.redirect(downloadUrl);
+    // Set the appropriate headers for file download
+    res.setHeader('Content-Type', s3Response.ContentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${practiceClone.originalName}"`);
+    res.setHeader('Content-Length', s3Response.ContentLength);
+    
+    console.log('Streaming practice clone file from S3...');
+    
+    // Stream the file from S3 to the client
+    s3Response.Body.pipe(res);
     
   } catch (error) {
-    console.error('=== ERROR IN PRACTICE CLONE S3 DOWNLOAD ===');
-    console.error('Error:', error);
+    console.error('Practice clone S3 download error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
