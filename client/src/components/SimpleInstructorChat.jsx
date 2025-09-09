@@ -3,11 +3,11 @@ import { MessageCircle, Send, User, FileText, Clock, Users, Trash2 } from 'lucid
 import { useDNAContext } from '../context/DNAContext';
 import apiService from '../services/apiService';
 
-const SimpleInstructorChat = ({ 
+const SimpleInstructorChat = ({
     onMessageRead = null
 }) => {
     const { currentUser } = useDNAContext();
-    
+
     // States
     const [discussions, setDiscussions] = useState([]);
     const [selectedDiscussion, setSelectedDiscussion] = useState(null);
@@ -16,12 +16,12 @@ const SimpleInstructorChat = ({
     const [loading, setLoading] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [sending, setSending] = useState(false);
-    
+
     // Delete modal states
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [discussionToDelete, setDiscussionToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
-    
+
     const messagesEndRef = useRef(null);
 
     // Load discussions on mount
@@ -53,26 +53,26 @@ const SimpleInstructorChat = ({
 
     const selectDiscussion = async (discussion) => {
         console.log('Selecting discussion:', discussion.id);
-        
+
         setSelectedDiscussion(discussion);
         setLoadingMessages(true);
-        
+
         try {
             // Load messages for this discussion
             const response = await apiService.get(`/clone-discussions/${discussion.id}/messages`);
             setMessages(response.messages || []);
-            
+
             // Mark as read if there are unread messages
             if (discussion.unreadCount > 0) {
                 await apiService.patch(`/clone-discussions/${discussion.id}/mark-read`, {
                     userId: currentUser.id
                 });
-                
+
                 // Update local state
-                setDiscussions(prev => prev.map(d => 
+                setDiscussions(prev => prev.map(d =>
                     d.id === discussion.id ? { ...d, unreadCount: 0 } : d
                 ));
-                
+
                 // Notify parent
                 if (onMessageRead) {
                     onMessageRead();
@@ -87,7 +87,7 @@ const SimpleInstructorChat = ({
 
     const sendMessage = async () => {
         if (!newMessage.trim() || !selectedDiscussion || sending) return;
-        
+
         setSending(true);
         try {
             const message = await apiService.post(`/clone-discussions/${selectedDiscussion.id}/messages`, {
@@ -95,17 +95,17 @@ const SimpleInstructorChat = ({
                 content: newMessage.trim(),
                 messageType: 'message'
             });
-            
+
             // Add to local messages
             setMessages(prev => [...prev, message]);
-            
+
             // Update discussion in list
-            setDiscussions(prev => prev.map(d => 
-                d.id === selectedDiscussion.id 
+            setDiscussions(prev => prev.map(d =>
+                d.id === selectedDiscussion.id
                     ? { ...d, lastMessageAt: new Date().toISOString(), messageCount: (d.messageCount || 0) + 1 }
                     : d
             ));
-            
+
             setNewMessage('');
         } catch (error) {
             console.error('Error sending message:', error);
@@ -166,7 +166,7 @@ const SimpleInstructorChat = ({
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[800px] bg-gray-50 rounded-xl">
+            <div className="flex items-center justify-center h-[800px] max-h-[800px] bg-gray-50 rounded-xl">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-700 font-medium">Loading student discussions...</p>
@@ -177,9 +177,9 @@ const SimpleInstructorChat = ({
     }
 
     return (
-        <div className="h-[800px] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
+        <div className="h-[800px] max-h-[800px] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
             {/* Left Panel - Discussions */}
-            <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gray-50">
+            <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gray-50 h-full">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-200 bg-indigo-600 text-white">
                     <div className="flex items-center space-x-3 mb-3">
@@ -196,7 +196,7 @@ const SimpleInstructorChat = ({
                 </div>
 
                 {/* Discussions List */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                     {discussions.length === 0 ? (
                         <div className="p-6 text-center">
                             <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -213,11 +213,10 @@ const SimpleInstructorChat = ({
                                 <div
                                     key={discussion.id}
                                     onClick={() => selectDiscussion(discussion)}
-                                    className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${
-                                        selectedDiscussion?.id === discussion.id
+                                    className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${selectedDiscussion?.id === discussion.id
                                             ? 'bg-indigo-50 border-2 border-indigo-200 shadow-md'
                                             : 'hover:bg-white border-2 border-transparent'
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center space-x-3">
@@ -268,7 +267,7 @@ const SimpleInstructorChat = ({
             </div>
 
             {/* Right Panel - Messages */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col h-full">
                 {selectedDiscussion ? (
                     <>
                         {/* Header */}
@@ -301,7 +300,7 @@ const SimpleInstructorChat = ({
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 min-h-0">
                             {loadingMessages ? (
                                 <div className="flex items-center justify-center py-12">
                                     <div className="text-center">
@@ -327,20 +326,17 @@ const SimpleInstructorChat = ({
                                         key={message.id}
                                         className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                                     >
-                                        <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${
-                                            message.sender.id === currentUser.id
+                                        <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${message.sender.id === currentUser.id
                                                 ? 'bg-blue-600 text-white'
                                                 : 'bg-white text-gray-900 border border-gray-200'
-                                        }`}>
+                                            }`}>
                                             <div className="flex items-center space-x-2 mb-2">
-                                                <span className={`text-xs font-medium ${
-                                                    message.sender.id === currentUser.id ? 'text-blue-100' : 'text-gray-600'
-                                                }`}>
+                                                <span className={`text-xs font-medium ${message.sender.id === currentUser.id ? 'text-blue-100' : 'text-gray-600'
+                                                    }`}>
                                                     {message.sender.name}
                                                 </span>
-                                                <span className={`text-xs ${
-                                                    message.sender.id === currentUser.id ? 'text-blue-200' : 'text-gray-400'
-                                                }`}>
+                                                <span className={`text-xs ${message.sender.id === currentUser.id ? 'text-blue-200' : 'text-gray-400'
+                                                    }`}>
                                                     {formatFullDate(message.createdAt)}
                                                 </span>
                                             </div>
