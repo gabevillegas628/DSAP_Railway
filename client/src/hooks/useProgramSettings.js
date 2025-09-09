@@ -1,7 +1,6 @@
 // hooks/useProgramSettings.js
 import { useState, useEffect } from 'react';
-
-const API_BASE = 'http://localhost:5000/api';
+import apiService from '../services/apiService'; // Use your existing apiService
 
 const useProgramSettings = () => {
   const [settings, setSettings] = useState(null);
@@ -11,18 +10,14 @@ const useProgramSettings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch(`${API_BASE}/program-settings`);
-        if (response.ok) {
-          const data = await response.json();
-          setSettings(data);
-        } else {
-          throw new Error('Failed to fetch program settings');
-        }
+        // Use apiService instead of raw fetch - this handles the base URL automatically
+        const data = await apiService.get('/program-settings');
+        setSettings(data);
       } catch (err) {
-        console.error('Error fetching program settings:', err);
+        console.error('Error fetching program settings for title:', err);
         setError(err.message);
-        // Set default settings on error
-        setSettings({ projectHeader: 'DNA Analysis Program' });
+        // Don't set default settings here - let TitleManager handle the fallback
+        setSettings(null);
       } finally {
         setLoading(false);
       }
