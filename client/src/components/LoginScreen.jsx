@@ -349,12 +349,12 @@ const LoginScreen = ({ onLogin }) => {
           {/* Header */}
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-100 to-indigo-200 bg-clip-text text-transparent mb-3">
-              Waksman Student Schollars Program
+              Waksman Student Scholars Program
             </h1>
             <p className="text-slate-300 font-medium text-lg">DNA Sequence Analysis Platform</p>
             {programSettings?.projectName && (
               <div className="text-white/80 text-lg font-medium z-20">
-                {programSettings.projectName}
+                WSSP Development
               </div>
             )}
             <div className="h-0.5 w-20 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full mx-auto mt-4"></div>
