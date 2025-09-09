@@ -162,7 +162,7 @@ const SimpleStudentChat = ({
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[800px] bg-gray-50 rounded-xl">
+            <div className="flex items-center justify-center h-[800px] max-h-[800px] bg-gray-50 rounded-xl">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-700 font-medium">Loading your discussions...</p>
@@ -173,9 +173,9 @@ const SimpleStudentChat = ({
     }
 
     return (
-        <div className="h-[800px] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
+        <div className="h-[800px] max-h-[800px] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex">
             {/* Left Panel - Discussions */}
-            <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gray-50">
+            <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gray-50 h-full">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-200 bg-blue-600 text-white">
                     <div className="flex items-center space-x-3 mb-3">
@@ -192,7 +192,7 @@ const SimpleStudentChat = ({
                 </div>
 
                 {/* Discussions List */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                     {discussions.length === 0 ? (
                         <div className="p-6 text-center">
                             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -268,7 +268,8 @@ const SimpleStudentChat = ({
             </div>
 
             {/* Right Panel - Messages */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col h-full">
+
                 {selectedDiscussion ? (
                     <>
                         {/* Header */}
@@ -291,7 +292,7 @@ const SimpleStudentChat = ({
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 min-h-0">
                             {loadingMessages ? (
                                 <div className="flex items-center justify-center py-12">
                                     <div className="text-center">
