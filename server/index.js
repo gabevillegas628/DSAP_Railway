@@ -6060,6 +6060,146 @@ app.get('/api/clone-discussions/instructor/:instructorId', async (req, res) => {
   }
 });
 
+// Get all discussions for an instructor's school students
+app.get('/api/clone-discussions/instructor/:instructorId', async (req, res) => {
+  try {
+    const { instructorId } = req.params;
+
+    console.log('=== GETTING INSTRUCTOR DISCUSSIONS ===');
+    console.log('Instructor ID:', instructorId);
+
+    // First, get the instructor to find their school
+    const instructor = await prisma.user.findUnique({
+      where: { id: parseInt(instructorId) },
+      select: { schoolId: true, role: true }
+    });
+
+    if (!instructor) {
+      return res.status(404).json({ error: 'Instructor not found' });
+    }
+
+    if (instructor.role !== 'instructor') {
+      return res.status(403).json({ error: 'User is not an instructor' });
+    }
+
+    if (!instructor.schoolId) {
+      console.log('Instructor has no school assigned');
+      return res.json([]);
+    }
+
+    console.log('Instructor school ID:', instructor.schoolId);
+
+    // Get all students from the same school as the instructor
+    const schoolStudents = await prisma.user.findMany({
+      where: {
+        role: 'student',
+        schoolId: instructor.schoolId // Same school as instructor
+      },
+      select: { id: true }
+    });
+
+    const studentIds = schoolStudents.map(student => student.id);
+    console.log('School student IDs:', studentIds);
+
+    if (studentIds.length === 0) {
+      console.log('No students at this school');
+      return res.json([]);
+    }
+
+    // Get discussions only for students at this instructor's school
+    const discussions = await prisma.cloneDiscussion.findMany({
+      where: {
+        studentId: { in: studentIds } // Only students from instructor's school
+      },
+      include: {
+        student: {
+          select: { 
+            id: true, 
+            name: true, 
+            email: true, 
+            role: true,
+            school: {
+              select: { name: true }
+            }
+          }
+        },
+        clone: {
+          select: { id: true, cloneName: true, originalName: true }
+        },
+        practiceClone: {
+          select: { id: true, cloneName: true, originalName: true }
+        },
+        messages: {
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            sender: {
+              select: { id: true, name: true, role: true }
+            }
+          }
+        },
+        _count: {
+          select: { messages: true }
+        }
+      },
+      orderBy: { lastMessageAt: 'desc' }
+    });
+
+    console.log('Found school discussions:', discussions.length);
+
+    // Add unread count for each discussion
+    const discussionsWithUnread = await Promise.all(
+      discussions.map(async (discussion) => {
+        const messagesFromStudents = await prisma.discussionMessage.findMany({
+          where: {
+            discussionId: discussion.id,
+            senderId: { not: parseInt(instructorId) } // Messages not from this instructor
+          },
+          select: {
+            id: true,
+            readBy: true
+          }
+        });
+
+        let unreadCount = 0;
+        for (const message of messagesFromStudents) {
+          let readByArray = [];
+          if (message.readBy) {
+            try {
+              readByArray = JSON.parse(message.readBy);
+              if (!Array.isArray(readByArray)) {
+                readByArray = [];
+              }
+            } catch (e) {
+              readByArray = [];
+            }
+          }
+          
+          if (!readByArray.includes(parseInt(instructorId))) {
+            unreadCount++;
+          }
+        }
+
+        return {
+          ...discussion,
+          unreadCount,
+          lastMessage: discussion.messages[0] || null,
+          messageCount: discussion._count.messages
+        };
+      })
+    );
+
+    console.log('Final school discussions with unread counts:', discussionsWithUnread.length);
+    res.json(discussionsWithUnread);
+
+  } catch (error) {
+    console.error('=== ERROR GETTING INSTRUCTOR DISCUSSIONS ===');
+    console.error('Error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all discussions for directors (all discussions across all students)
 app.get('/api/clone-discussions/director', async (req, res) => {
   try {

@@ -41,7 +41,7 @@ const SimpleInstructorChat = ({
     const loadDiscussions = async () => {
         try {
             setLoading(true);
-            const data = await apiService.get('/clone-discussions/director'); // Using existing director endpoint
+            const data = await apiService.get(`/clone-discussions/instructor/${currentUser.id}`);
             console.log('Loaded instructor discussions:', data);
             setDiscussions(data);
         } catch (error) {
@@ -214,8 +214,8 @@ const SimpleInstructorChat = ({
                                     key={discussion.id}
                                     onClick={() => selectDiscussion(discussion)}
                                     className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${selectedDiscussion?.id === discussion.id
-                                            ? 'bg-indigo-50 border-2 border-indigo-200 shadow-md'
-                                            : 'hover:bg-white border-2 border-transparent'
+                                        ? 'bg-indigo-50 border-2 border-indigo-200 shadow-md'
+                                        : 'hover:bg-white border-2 border-transparent'
                                         }`}
                                 >
                                     <div className="flex items-start justify-between mb-3">
@@ -327,8 +327,8 @@ const SimpleInstructorChat = ({
                                         className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                                     >
                                         <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${message.sender.id === currentUser.id
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-white text-gray-900 border border-gray-200'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white text-gray-900 border border-gray-200'
                                             }`}>
                                             <div className="flex items-center space-x-2 mb-2">
                                                 <span className={`text-xs font-medium ${message.sender.id === currentUser.id ? 'text-blue-100' : 'text-gray-600'
