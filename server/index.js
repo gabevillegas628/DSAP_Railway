@@ -6643,11 +6643,10 @@ app.delete('/api/clone-discussions/:discussionId', async (req, res) => {
 });
 
 
-// Get or create a specific discussion for student + clone - FIXED VERSION
+// Get or create a specific discussion for student + clone - FIXED VERSION FOR PRACTICE CLONES
 app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
   try {
     const { studentId, cloneId } = req.params;
-
 
     // ADD VALIDATION
     if (!studentId || isNaN(parseInt(studentId))) {
@@ -6658,13 +6657,47 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
     // Handle 'general' or 'null' cloneId
     const cloneIdValue = (cloneId === 'general' || cloneId === 'null') ? null : parseInt(cloneId);
 
-    // Find existing discussion
-    let discussion = await prisma.cloneDiscussion.findFirst({
-      where: {
+    // NEW: Determine if this is a practice clone or regular clone
+    let isePracticeClone = false;
+    let practiceClone = null;
+    let regularClone = null;
+
+    if (cloneIdValue) {
+      // First check if it's a practice clone
+      practiceClone = await prisma.practiceClone.findUnique({
+        where: { id: cloneIdValue },
+        select: { id: true, cloneName: true, originalName: true }
+      });
+
+      if (practiceClone) {
+        isPracticeClone = true;
+      } else {
+        // Check if it's a regular clone
+        regularClone = await prisma.uploadedFile.findUnique({
+          where: { id: cloneIdValue },
+          select: { id: true, cloneName: true, originalName: true }
+        });
+      }
+    }
+
+    // Find existing discussion with correct foreign key
+    let whereClause;
+    if (isPracticeClone) {
+      whereClause = {
+        studentId: parseInt(studentId),
+        practiceCloneId: cloneIdValue,
+        cloneId: null // must be null for practice clones
+      };
+    } else {
+      whereClause = {
         studentId: parseInt(studentId),
         cloneId: cloneIdValue,
-        practiceCloneId: null // must be null for general discussions
-      },
+        practiceCloneId: null // must be null for regular clones
+      };
+    }
+
+    let discussion = await prisma.cloneDiscussion.findFirst({
+      where: whereClause,
       include: {
         student: {
           select: { id: true, name: true, email: true, role: true }
@@ -6672,7 +6705,7 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
         clone: {
           select: { id: true, cloneName: true, originalName: true }
         },
-        practiceClone: {  // ADD THIS
+        practiceClone: {
           select: { id: true, cloneName: true, originalName: true }
         },
         messages: {
@@ -6686,9 +6719,7 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
       }
     });
 
-
     if (!discussion) {
-
       // Create new discussion if it doesn't exist
       const student = await prisma.user.findUnique({
         where: { id: parseInt(studentId) },
@@ -6699,29 +6730,33 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
         return res.status(404).json({ error: 'Student not found' });
       }
 
-      let clone = null;
       let title = `General Discussion with ${student.name}`;
 
-      if (cloneIdValue) {
-        clone = await prisma.uploadedFile.findUnique({
-          where: { id: cloneIdValue },
-          select: { id: true, cloneName: true, originalName: true }
-        });
-
-        if (clone) {
-          title = `Discussion: ${clone.cloneName}`;
-        }
+      if (isPracticeClone && practiceClone) {
+        title = `Discussion: ${practiceClone.cloneName} (Practice)`;
+      } else if (regularClone) {
+        title = `Discussion: ${regularClone.cloneName}`;
       }
 
       console.log('Creating new discussion:', title);
+      console.log('isPracticeClone:', isPracticeClone);
+
+      // Create discussion with correct foreign key
+      let createData = {
+        studentId: parseInt(studentId),
+        title
+      };
+
+      if (isPracticeClone) {
+        createData.practiceCloneId = cloneIdValue;
+        createData.cloneId = null;
+      } else {
+        createData.cloneId = cloneIdValue;
+        createData.practiceCloneId = null;
+      }
 
       discussion = await prisma.cloneDiscussion.create({
-        data: {
-          studentId: parseInt(studentId),
-          cloneId: cloneIdValue,
-          title: title,
-          status: 'active'
-        },
+        data: createData,
         include: {
           student: {
             select: { id: true, name: true, email: true, role: true }
@@ -6729,7 +6764,7 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
           clone: {
             select: { id: true, cloneName: true, originalName: true }
           },
-          practiceClone: {  // ADD THIS
+          practiceClone: {
             select: { id: true, cloneName: true, originalName: true }
           },
           messages: {
@@ -6742,11 +6777,16 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
           }
         }
       });
-
-      console.log(`Created new discussion: ${discussion.title}`);
     }
 
-    console.log('Returning discussion:', discussion.id, discussion.title);
+    console.log('Discussion result:', {
+      id: discussion.id,
+      studentId: discussion.studentId,
+      cloneId: discussion.cloneId,
+      practiceCloneId: discussion.practiceCloneId,
+      isPracticeClone
+    });
+
     res.json(discussion);
 
   } catch (error) {
