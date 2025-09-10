@@ -1183,12 +1183,77 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   // Function to handle step navigation (reset group when changing steps)
   const handleStepChange = (stepId) => {
     setCurrentStep(stepId);
-    setCurrentGroup(null); // Reset to show all groups in new step
+
+    // Set to the first group in the new step (if groups exist)
+    const stepGroups = getGroupsForStep(stepId);
+    if (stepGroups.length > 0) {
+      setCurrentGroup(stepGroups[0].name);
+    } else {
+      setCurrentGroup(null); // No groups, show all
+    }
   };
 
   // Function to handle group navigation
   const handleGroupChange = (groupName) => {
     setCurrentGroup(currentGroup === groupName ? null : groupName); // Toggle group selection
+  };
+
+  // Get all groups across all steps in sequential order
+  const getAllGroupsInOrder = () => {
+    const allGroups = [];
+    steps.forEach(step => {
+      const stepGroups = getGroupsForStep(step.id);
+      if (stepGroups.length > 0) {
+        stepGroups.forEach(group => {
+          allGroups.push({
+            stepId: step.id,
+            groupName: group.name
+          });
+        });
+      } else {
+        // If no groups in step, add a placeholder for the step itself
+        allGroups.push({
+          stepId: step.id,
+          groupName: null // Represents "show all" for this step
+        });
+      }
+    });
+    return allGroups;
+  };
+
+  // Find current position in the group sequence
+  const getCurrentGroupIndex = () => {
+    const allGroups = getAllGroupsInOrder();
+    return allGroups.findIndex(g =>
+      g.stepId === currentStep && g.groupName === currentGroup
+    );
+  };
+
+  // Navigate to next or previous group
+  const navigateToGroup = (direction) => {
+    const allGroups = getAllGroupsInOrder();
+    const currentIndex = getCurrentGroupIndex();
+
+    if (currentIndex === -1) return; // Current position not found
+
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = Math.min(currentIndex + 1, allGroups.length - 1);
+    } else {
+      newIndex = Math.max(currentIndex - 1, 0);
+    }
+
+    if (newIndex === currentIndex) return; // Already at boundary
+
+    const targetGroup = allGroups[newIndex];
+
+    // Change step if needed
+    if (targetGroup.stepId !== currentStep) {
+      setCurrentStep(targetGroup.stepId);
+    }
+
+    // Set the group
+    setCurrentGroup(targetGroup.groupName);
   };
 
   // Get progress for a specific group
@@ -1877,7 +1942,8 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                               );
                             })}
 
-                            {/* "Show All" option */}
+
+                            {/* 
                             <div
                               onClick={() => setCurrentGroup(null)}
                               className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${currentGroup === null
@@ -1890,6 +1956,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                 <p className="text-sm font-medium">Show All Groups</p>
                               </div>
                             </div>
+                            */}
                           </div>
                         )}
                       </div>
@@ -2179,30 +2246,20 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                 })()}
               </div>
 
-              {/* Step Navigation */}
+              {/* Group Navigation */}
               {canEdit() && (
                 <div className="mt-8 flex justify-between">
                   <button
-                    onClick={() => {
-                      const currentIndex = steps.findIndex(s => s.id === currentStep);
-                      if (currentIndex > 0) {
-                        setCurrentStep(steps[currentIndex - 1].id);
-                      }
-                    }}
-                    disabled={steps.findIndex(s => s.id === currentStep) === 0}
-                    className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => navigateToGroup('previous')}
+                    disabled={getCurrentGroupIndex() <= 0}
+                    className="px-4 py-2 text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous Step
                   </button>
 
                   <button
-                    onClick={() => {
-                      const currentIndex = steps.findIndex(s => s.id === currentStep);
-                      if (currentIndex < steps.length - 1) {
-                        setCurrentStep(steps[currentIndex + 1].id);
-                      }
-                    }}
-                    disabled={steps.findIndex(s => s.id === currentStep) === steps.length - 1}
+                    onClick={() => navigateToGroup('next')}
+                    disabled={getCurrentGroupIndex() >= getAllGroupsInOrder().length - 1}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next Step
