@@ -1087,10 +1087,14 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   };
 
   const getStepProgress = (stepId) => {
-    // Only count rendered questions (using shouldShowQuestion filter)
+    // Define which types don't require answers
+    const nonQuestionTypes = ['text_header', 'section_divider', 'info_text', 'blast_comparison'];
+
+    // Only count actual questions (excluding display-only types)
     const stepQuestions = analysisQuestions
       .filter(q => q.step === stepId)
-      .filter(q => shouldShowQuestion(q));
+      .filter(q => shouldShowQuestion(q))
+      .filter(q => !nonQuestionTypes.includes(q.type));
 
     if (stepQuestions.length === 0) return 0;
 
@@ -1178,6 +1182,22 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     console.log('Found comments for this question:', questionComments.length);
     console.log('Is question marked correct:', isCorrect);
     console.log('reviewComments state length:', reviewComments.length);
+
+
+    // Render special types first
+    if (question.type === 'blast_comparison') {
+      return renderBlastComparison(question);
+    }
+
+    if (question.type === 'text_header') {
+      return (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+            {question.text}
+          </h3>
+        </div>
+      );
+    }
 
     return (
       <div>
@@ -1451,6 +1471,128 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     );
   };
 
+  const renderBlastComparison = (question) => {
+    const { blastQuestion1Id, blastQuestion2Id } = question.options || {};
+
+    // Get the answers for both BLAST questions
+    const blast1Answer = answers[blastQuestion1Id];
+    const blast2Answer = answers[blastQuestion2Id];
+
+    // Find the question titles for headers
+    const blast1Question = analysisQuestions.find(q => q.id === blastQuestion1Id);
+    const blast2Question = analysisQuestions.find(q => q.id === blastQuestion2Id);
+
+    // Parse BLAST results (assuming they're stored as JSON arrays)
+    let blast1Results = [];
+    let blast2Results = [];
+
+    try {
+      blast1Results = blast1Answer ? JSON.parse(blast1Answer) : [];
+    } catch (e) {
+      console.log('Error parsing BLAST 1 results:', e);
+    }
+
+    try {
+      blast2Results = blast2Answer ? JSON.parse(blast2Answer) : [];
+    } catch (e) {
+      console.log('Error parsing BLAST 2 results:', e);
+    }
+
+    return (
+      <div className="mb-6">
+        <h4 className="text-lg font-medium text-gray-800 mb-4">{question.text}</h4>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* First BLAST Results Table */}
+          <div>
+            <h5 className="font-medium text-gray-700 mb-3">
+              {blast1Question?.options?.blastTitle || `BLAST Results 1`}
+            </h5>
+            {!blast1Answer ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                Results will appear here once you complete the previous BLAST question.
+              </div>
+            ) : blast1Results.length === 0 ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                No BLAST results found.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Accession #
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        E-value
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {blast1Results.map((result, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.accession || result.id || 'N/A'}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.evalue || result.e_value || 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Second BLAST Results Table */}
+          <div>
+            <h5 className="font-medium text-gray-700 mb-3">
+              {blast2Question?.options?.blastTitle || `BLAST Results 2`}
+            </h5>
+            {!blast2Answer ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                Results will appear here once you complete the previous BLAST question.
+              </div>
+            ) : blast2Results.length === 0 ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                No BLAST results found.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Accession #
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        E-value
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {blast2Results.map((result, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.accession || result.id || 'N/A'}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.evalue || result.e_value || 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (!cloneData) {
     return (
       <div className="bg-white rounded-xl shadow-sm border">
@@ -1521,17 +1663,17 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                         key={step.id}
                         onClick={() => setCurrentStep(step.id)}
                         className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentStep
-                            ? 'bg-indigo-600 text-white shadow-lg'
-                            : 'bg-white text-gray-700 hover:bg-indigo-50 border border-gray-200'
+                          ? 'bg-indigo-600 text-white shadow-lg'
+                          : 'bg-white text-gray-700 hover:bg-indigo-50 border border-gray-200'
                           }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isCurrentStep
-                                ? 'bg-white text-indigo-600'
-                                : isCompleted
-                                  ? 'bg-green-100 text-green-600'
-                                  : 'bg-gray-100 text-gray-600'
+                              ? 'bg-white text-indigo-600'
+                              : isCompleted
+                                ? 'bg-green-100 text-green-600'
+                                : 'bg-gray-100 text-gray-600'
                               }`}>
                               {isCompleted ? (
                                 <CheckCircle className="w-5 h-5" />

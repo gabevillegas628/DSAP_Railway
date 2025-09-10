@@ -46,7 +46,11 @@ const DirectorEditQuestions = () => {
             newAnalysisQuestion.type === 'blast' ? {
               blastResultsCount: newAnalysisQuestion.blastResultsCount,
               blastTitle: newAnalysisQuestion.blastTitle
-            } : undefined
+            } :
+              newAnalysisQuestion.type === 'blast_comparison' ? {
+                blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
+                blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+              } : undefined
         };
 
         const newQuestionData = await apiService.post('/analysis-questions', questionData);
@@ -260,6 +264,7 @@ const DirectorEditQuestions = () => {
                         <option value="number">Number</option>
                         <option value="select">Multiple Choice</option>
                         <option value="blast">BLAST Results</option>
+                        <option value="blast_comparison">BLAST Table Comparison</option>
                       </select>
                     </div>
 
@@ -361,6 +366,72 @@ const DirectorEditQuestions = () => {
                       ))}
                       {newAnalysisQuestion.options.length === 0 && (
                         <p className="text-sm text-gray-500 italic">Click "Add Option" to create multiple choice answers</p>
+                      )}
+                    </div>
+                  )}
+
+                  {newAnalysisQuestion.type === 'blast_comparison' && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h5 className="font-medium text-gray-700">BLAST Comparison Configuration</h5>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First BLAST Question
+                          </label>
+                          <select
+                            value={newAnalysisQuestion.options?.blastQuestion1Id || ''}
+                            onChange={(e) => setNewAnalysisQuestion({
+                              ...newAnalysisQuestion,
+                              options: {
+                                ...newAnalysisQuestion.options,
+                                blastQuestion1Id: parseInt(e.target.value) || null
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          >
+                            <option value="">Select a BLAST question...</option>
+                            {analysisQuestions
+                              .filter(q => q.type === 'blast')
+                              .map(q => (
+                                <option key={q.id} value={q.id}>
+                                  {q.text.length > 50 ? `${q.text.substring(0, 50)}...` : q.text}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Second BLAST Question
+                          </label>
+                          <select
+                            value={newAnalysisQuestion.options?.blastQuestion2Id || ''}
+                            onChange={(e) => setNewAnalysisQuestion({
+                              ...newAnalysisQuestion,
+                              options: {
+                                ...newAnalysisQuestion.options,
+                                blastQuestion2Id: parseInt(e.target.value) || null
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          >
+                            <option value="">Select a BLAST question...</option>
+                            {analysisQuestions
+                              .filter(q => q.type === 'blast' && q.id !== newAnalysisQuestion.options?.blastQuestion1Id)
+                              .map(q => (
+                                <option key={q.id} value={q.id}>
+                                  {q.text.length > 50 ? `${q.text.substring(0, 50)}...` : q.text}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {newAnalysisQuestion.options?.blastQuestion1Id && newAnalysisQuestion.options?.blastQuestion2Id && (
+                        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                          ✓ Comparison will show results from these two BLAST questions side by side
+                        </div>
                       )}
                     </div>
                   )}
