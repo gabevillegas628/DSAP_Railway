@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Eye, EyeOff, Dna, Microscope, Atom, Mail, Info, X } from 'lucide-react';
 import apiService from './apiService';
 import TermsOfServiceModal from './TermsOfServiceModal';
+const rutgersLogo = "/images/RSUNJ_H_RED_WHITE_RGB.png";
+const waksmanLogo = "/images/wssp-banner-bldg.png";
 
 const LoginScreen = ({ onLogin }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -878,6 +880,27 @@ const LoginScreen = ({ onLogin }) => {
         isOpen={showTOSModal}
         onClose={() => setShowTOSModal(false)}
       />
+
+      {/* University Branding Logos */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        {/* Rutgers Logo - Lower Left */}
+        <div className="absolute bottom-4 left-4">
+          <img
+            src={rutgersLogo}
+            alt="Rutgers University"
+            className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300"
+          />
+        </div>
+
+        {/* Waksman Logo - Lower Right - LARGER */}
+        <div className="absolute bottom-4 right-4">
+          <img
+            src={waksmanLogo}
+            alt="Waksman Institute"
+            className="h-24 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300"
+          />
+        </div>
+      </div>
     </div>
   );
 };
