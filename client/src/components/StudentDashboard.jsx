@@ -10,6 +10,7 @@ import StudentClones from './StudentClones';
 import StudentHelp from './StudentHelp.jsx';
 import SimpleStudentChat from './SimpleStudentChat.jsx';
 import { CLONE_STATUSES, validateAndWarnStatus } from '../statusConstraints.js';
+import { getDisplayFilename } from '../utils/fileUtils.js';
 import apiService from '../services/apiService'; // Updated import
 
 const StudentDashboard = () => {
@@ -143,7 +144,7 @@ const StudentDashboard = () => {
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = clone.filename || clone.originalName || 'download.ab1';
+      a.download = getDisplayFilename(clone) || 'download.ab1';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

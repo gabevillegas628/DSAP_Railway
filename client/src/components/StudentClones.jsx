@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { getStatusConfig, CLONE_STATUSES } from '../statusConstraints';
 import { Star, CheckCircle } from 'lucide-react';
 import ClaimClonesModal from './ClaimClonesModal';
+import { getDisplayFilename } from '../utils/fileUtils';
 import apiService from '../services/apiService';
 
 const StudentClones = ({
@@ -140,9 +141,9 @@ const StudentClones = ({
                           <button
                             onClick={() => downloadFile(clone)}
                             className="font-mono text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0 transition-colors"
-                            title={`Download ${clone.filename || clone.originalName}`}
+                            title={`Download ${getDisplayFilename(clone)}`}
                           >
-                            {clone.filename || clone.originalName}
+                            {getDisplayFilename(clone)}
                           </button>
                         </td>
                         <td className="py-3 px-4">
