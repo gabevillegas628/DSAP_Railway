@@ -18,7 +18,9 @@ const DirectorEditQuestions = () => {
     conditionalLogic: null,
     options: [],
     blastResultsCount: 3,
-    blastTitle: ''
+    blastTitle: '',
+    questionGroup: '',
+    groupOrder: 0
   });
 
   // Fetch analysis questions from API
@@ -50,23 +52,27 @@ const DirectorEditQuestions = () => {
               newAnalysisQuestion.type === 'blast_comparison' ? {
                 blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
                 blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
-              } : undefined
+              } : undefined,
+          questionGroup: newAnalysisQuestion.questionGroup || null, // NEW
+          groupOrder: newAnalysisQuestion.groupOrder || 0          // NEW
         };
 
-        const newQuestionData = await apiService.post('/analysis-questions', questionData);
-        setAnalysisQuestions(prev => [...prev, newQuestionData]);
+        const question = await apiService.post('/analysis-questions', questionData);
+        setAnalysisQuestions(prev => [...prev, question]);
+        setShowAnalysisQuestionForm(false);
         setNewAnalysisQuestion({
           step: 'clone-editing',
           text: '',
-          type: 'yes_no',
+          type: 'text',
           required: true,
           order: 1,
           conditionalLogic: null,
           options: [],
-          blastResultsCount: 3,
-          blastTitle: ''
+          blastResultsCount: 5,
+          blastTitle: '',
+          questionGroup: '', // NEW
+          groupOrder: 0      // NEW
         });
-        setShowAnalysisQuestionForm(false);
       } catch (error) {
         console.error('Error adding analysis question:', error);
       }
@@ -123,7 +129,6 @@ const DirectorEditQuestions = () => {
   const editAnalysisQuestion = (question) => {
     setEditingAnalysisQuestion(question.id);
 
-    // Handle different option structures based on question type
     let optionsToSet = {};
     if (question.type === 'blast_comparison' && question.options) {
       optionsToSet = {
@@ -145,7 +150,9 @@ const DirectorEditQuestions = () => {
       conditionalLogic: question.conditionalLogic,
       options: optionsToSet,
       blastResultsCount: question.options?.blastResultsCount || 5,
-      blastTitle: question.options?.blastTitle || ''
+      blastTitle: question.options?.blastTitle || '',
+      questionGroup: question.questionGroup || '',
+      groupOrder: question.groupOrder || 0
     });
     setShowAnalysisQuestionForm(true);
   };
@@ -162,20 +169,23 @@ const DirectorEditQuestions = () => {
             newAnalysisQuestion.type === 'blast_comparison' ? {
               blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
               blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
-            } : undefined
+            } : undefined,
+        questionGroup: newAnalysisQuestion.questionGroup || null, // NEW
+        groupOrder: newAnalysisQuestion.groupOrder || 0          // NEW
       });
       setShowAnalysisQuestionForm(false);
-      setEditingAnalysisQuestion(null);
       setNewAnalysisQuestion({
         step: 'clone-editing',
         text: '',
-        type: 'yes_no',
+        type: 'text',
         required: true,
         order: 1,
         conditionalLogic: null,
         options: [],
-        blastResultsCount: 3,
-        blastTitle: ''
+        blastResultsCount: 5,
+        blastTitle: '',
+        questionGroup: '', // NEW
+        groupOrder: 0      // NEW
       });
     }
   };
@@ -255,20 +265,70 @@ const DirectorEditQuestions = () => {
                     {editingAnalysisQuestion ? 'Edit Analysis Question' : 'Add New Analysis Question'}
                   </h4>
                   <div className="flex items-center space-x-4">
-                    <div className="flex items-center">
-                      <label htmlFor="step-analysis" className="text-sm font-medium text-gray-700 mr-2">Step:</label>
-                      <select
-                        id="step-analysis"
-                        value={newAnalysisQuestion.step}
-                        onChange={(e) => setNewAnalysisQuestion({ ...newAnalysisQuestion, step: e.target.value })}
-                        className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="clone-editing">Clone Editing</option>
-                        <option value="blast">BLAST</option>
-                        <option value="analysis-submission">Analysis Submission</option>
-                        <option value="review">Review</option>
-                      </select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Step</label>
+                        <select
+                          value={newAnalysisQuestion.step}
+                          onChange={(e) => setNewAnalysisQuestion(prev => ({ ...prev, step: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="clone-editing">Clone Editing</option>
+                          <option value="blast">BLAST Analysis</option>
+                          <option value="analysis-submission">Analysis Submission</option>
+                          <option value="review">Review</option>
+                        </select>
+                      </div>
+
+                      {/* NEW: Question Group */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Question Group (optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={newAnalysisQuestion.questionGroup}
+                          onChange={(e) => setNewAnalysisQuestion(prev => ({ ...prev, questionGroup: e.target.value }))}
+                          placeholder="e.g., Quality Assessment, Results Analysis"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Leave blank for ungrouped questions
+                        </p>
+                      </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Question Order</label>
+                        <input
+                          type="number"
+                          value={newAnalysisQuestion.order}
+                          onChange={(e) => setNewAnalysisQuestion(prev => ({ ...prev, order: parseInt(e.target.value) }))}
+                          min="1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {/* NEW: Group Order */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Group Order
+                        </label>
+                        <input
+                          type="number"
+                          value={newAnalysisQuestion.groupOrder}
+                          onChange={(e) => setNewAnalysisQuestion(prev => ({ ...prev, groupOrder: parseInt(e.target.value) }))}
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Controls the order of groups within each step
+                        </p>
+                      </div>
+                    </div>
+
+
 
                     <div className="flex items-center">
                       <label htmlFor="type-analysis" className="text-sm font-medium text-gray-700 mr-2">Type:</label>
@@ -589,62 +649,79 @@ const DirectorEditQuestions = () => {
               </div>
             )}
 
-            {/* Existing Questions by Step */}
-            {['clone-editing', 'blast', 'analysis-submission', 'review'].map(step => (
-              <div key={step} className="border border-gray-200 rounded-lg">
-                <div className="p-4 bg-gray-50 border-b border-gray-200">
-                  <h4 className="font-medium text-gray-900 capitalize">
-                    {step.replace('-', ' ')} Questions
-                  </h4>
-                </div>
-                <div className="p-4 space-y-3">
-                  {analysisQuestions
-                    .filter(q => q.step === step)
-                    .sort((a, b) => a.order - b.order)
-                    .map(question => (
-                      <div key={question.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{question.text}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{question.type}</span>
-                            {question.required && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">Required</span>}
-                            {question.conditionalLogic && (
-                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                                Conditional
-                              </span>
-                            )}
-                            <span className="text-xs text-gray-500">Order: {question.order}</span>
-                          </div>
-                          {question.conditionalLogic && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Shows if "{question.conditionalLogic.showIf.questionId}" = "{question.conditionalLogic.showIf.answer}"
-                            </p>
+            {/* Existing Questions by Step grouped by question group*/}
+            {['clone-editing', 'blast', 'analysis-submission', 'review'].map(step => {
+              // Group questions by questionGroup within this step
+              const stepQuestions = analysisQuestions.filter(q => q.step === step);
+              const groupedQuestions = stepQuestions.reduce((groups, question) => {
+                const group = question.questionGroup || 'Ungrouped';
+                if (!groups[group]) groups[group] = [];
+                groups[group].push(question);
+                return groups;
+              }, {});
+
+              return (
+                <div key={step} className="border border-gray-200 rounded-lg">
+                  <div className="p-4 bg-gray-50 border-b border-gray-200">
+                    <h4 className="font-medium text-gray-900 capitalize">
+                      {step.replace('-', ' ')} Questions
+                    </h4>
+                  </div>
+                  <div className="p-4">
+                    {Object.entries(groupedQuestions).map(([groupName, questions]) => (
+                      <div key={groupName} className="mb-6 last:mb-0">
+                        <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                          {groupName !== 'Ungrouped' && (
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">
+                              Group
+                            </span>
                           )}
-                        </div>
-                        <div className="flex space-x-2 ml-4">
-                          <button
-                            onClick={() => editAnalysisQuestion(question)}
-                            className="text-blue-600 hover:text-blue-800 p-1"
-                            title="Edit question"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteAnalysisQuestion(question.id)}
-                            className="text-red-600 hover:text-red-800 p-1"
-                            title="Delete question"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {groupName}
+                        </h5>
+                        <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+                          {questions
+                            .sort((a, b) => a.order - b.order)
+                            .map(question => (
+                              <div key={question.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded">
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">{question.text}</p>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{question.type}</span>
+                                    {question.required && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">Required</span>}
+                                    {question.conditionalLogic && (
+                                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                        Conditional
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-gray-500">Order: {question.order}</span>
+                                    {question.questionGroup && (
+                                      <span className="text-xs text-gray-500">Group Order: {question.groupOrder}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex space-x-2 ml-4">
+                                  <button
+                                    onClick={() => editAnalysisQuestion(question)}
+                                    className="text-indigo-600 hover:text-indigo-800"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteAnalysisQuestion(question.id)}
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
                         </div>
                       </div>
                     ))}
-                  {analysisQuestions.filter(q => q.step === step).length === 0 && (
-                    <p className="text-gray-500 text-center py-4">No questions added for this step yet</p>
-                  )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

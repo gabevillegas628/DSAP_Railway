@@ -874,11 +874,11 @@ app.get('/api/analysis-questions', async (req, res) => {
     const questions = await prisma.analysisQuestion.findMany({
       orderBy: [
         { step: 'asc' },
-        { order: 'asc' }
+        { groupOrder: 'asc' }, // NEW: Order by group first
+        { order: 'asc' }       // Then by question order within group
       ]
     });
 
-    // Parse JSON fields
     const parsedQuestions = questions.map(q => ({
       ...q,
       options: q.options ? JSON.parse(q.options) : undefined,
@@ -893,7 +893,11 @@ app.get('/api/analysis-questions', async (req, res) => {
 
 app.post('/api/analysis-questions', async (req, res) => {
   try {
-    const { step, text, type, options, required, order, conditionalLogic } = req.body;
+    const {
+      step, text, type, options, required, order, conditionalLogic,
+      questionGroup, groupOrder // NEW FIELDS
+    } = req.body;
+
     const question = await prisma.analysisQuestion.create({
       data: {
         step,
@@ -902,11 +906,12 @@ app.post('/api/analysis-questions', async (req, res) => {
         options: options ? JSON.stringify(options) : null,
         required,
         order,
-        conditionalLogic: conditionalLogic ? JSON.stringify(conditionalLogic) : null
+        conditionalLogic: conditionalLogic ? JSON.stringify(conditionalLogic) : null,
+        questionGroup, // NEW
+        groupOrder     // NEW
       }
     });
 
-    // Parse JSON fields for response
     const parsedQuestion = {
       ...question,
       options: question.options ? JSON.parse(question.options) : undefined,
@@ -922,7 +927,10 @@ app.post('/api/analysis-questions', async (req, res) => {
 app.put('/api/analysis-questions/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { step, text, type, options, required, order, conditionalLogic } = req.body;
+    const {
+      step, text, type, options, required, order, conditionalLogic,
+      questionGroup, groupOrder // NEW FIELDS
+    } = req.body;
 
     const question = await prisma.analysisQuestion.update({
       where: { id },
@@ -933,11 +941,12 @@ app.put('/api/analysis-questions/:id', async (req, res) => {
         options: options ? JSON.stringify(options) : null,
         required,
         order,
-        conditionalLogic: conditionalLogic ? JSON.stringify(conditionalLogic) : null
+        conditionalLogic: conditionalLogic ? JSON.stringify(conditionalLogic) : null,
+        questionGroup, // NEW
+        groupOrder     // NEW
       }
     });
 
-    // Parse JSON fields for response
     const parsedQuestion = {
       ...question,
       options: question.options ? JSON.parse(question.options) : undefined,
@@ -1533,7 +1542,7 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
 
     console.log('Found files:', files.length);
     console.log('Files with status REVIEWED_BY_TEACHER:', files.filter(f => f.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
-    
+
     res.json(files);
   } catch (error) {
     console.error('Error in uploaded-files endpoint:', error);

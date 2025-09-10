@@ -1471,7 +1471,18 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
     return analysisQuestions
       .filter(q => q.step === sectionId)
       .filter(q => answers[q.id] !== undefined && answers[q.id] !== '')
-      .sort((a, b) => a.order - b.order);
+      .sort((a, b) => {
+        // First sort by groupOrder (treating null/undefined as 0)
+        const aGroupOrder = a.groupOrder || 0;
+        const bGroupOrder = b.groupOrder || 0;
+
+        if (aGroupOrder !== bGroupOrder) {
+          return aGroupOrder - bGroupOrder;
+        }
+
+        // Then sort by question order within the group
+        return a.order - b.order;
+      });
   };
 
 

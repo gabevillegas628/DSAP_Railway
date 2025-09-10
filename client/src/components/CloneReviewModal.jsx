@@ -40,114 +40,114 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
   }, [isOpen, cloneId]);
 
   const fetchCloneData = async () => {
-  try {
-    setLoading(true);
-    console.log('🔍 Fetching clone data for ID:', cloneId, 'Type:', cloneType);
+    try {
+      setLoading(true);
+      console.log('🔍 Fetching clone data for ID:', cloneId, 'Type:', cloneType);
 
-    let fileData = null;
+      let fileData = null;
 
-    if (cloneType === 'practice') {
-      // For practice clones, we need to get the UserPracticeProgress
-      const progressData = await apiService.get(`/practice-clones/${cloneId}/progress/${studentId}`);
+      if (cloneType === 'practice') {
+        // For practice clones, we need to get the UserPracticeProgress
+        const progressData = await apiService.get(`/practice-clones/${cloneId}/progress/${studentId}`);
 
-      // Also get the practice clone info
-      const practiceClones = await apiService.get('/practice-clones');
-      const practiceClone = practiceClones.find(pc => pc.id === parseInt(cloneId));
+        // Also get the practice clone info
+        const practiceClones = await apiService.get('/practice-clones');
+        const practiceClone = practiceClones.find(pc => pc.id === parseInt(cloneId));
 
-      if (!practiceClone) {
-        throw new Error(`Practice clone with ID ${cloneId} not found`);
+        if (!practiceClone) {
+          throw new Error(`Practice clone with ID ${cloneId} not found`);
+        }
+
+        // Create a structure similar to regular clones
+        fileData = {
+          id: cloneId,
+          cloneName: practiceClone.cloneName,
+          originalName: practiceClone.originalName,
+          progress: progressData.progress || 0,
+          status: progressData.status || 'Available',
+          analysisData: JSON.stringify({
+            answers: progressData.answers || {},
+            currentStep: progressData.currentStep || 'clone-editing',
+            reviewComments: progressData.reviewComments || [],
+            reviewScore: progressData.reviewScore || 0,
+            submittedAt: progressData.submittedAt,
+            lastReviewed: progressData.lastReviewed
+          }),
+          type: 'practice'
+        };
+
+      } else {
+        // Regular clone logic (existing)
+        const allFiles = await apiService.get('/uploaded-files');
+        fileData = allFiles.find(file => file.id === parseInt(cloneId));
+
+        if (!fileData) {
+          throw new Error(`File with ID ${cloneId} not found`);
+        }
+
+        fileData.type = 'regular';
       }
 
-      // Create a structure similar to regular clones
-      fileData = {
-        id: cloneId,
-        cloneName: practiceClone.cloneName,
-        originalName: practiceClone.originalName,
-        progress: progressData.progress || 0,
-        status: progressData.status || 'Available',
-        analysisData: JSON.stringify({
-          answers: progressData.answers || {},
-          currentStep: progressData.currentStep || 'clone-editing',
-          reviewComments: progressData.reviewComments || [],
-          reviewScore: progressData.reviewScore || 0,
-          submittedAt: progressData.submittedAt,
-          lastReviewed: progressData.lastReviewed
-        }),
-        type: 'practice'
+      console.log('🎯 Found file data:', fileData);
+
+      // Parse analysis data
+      let parsedAnalysis = {};
+      try {
+        if (fileData.analysisData) {
+          parsedAnalysis = JSON.parse(fileData.analysisData);
+          console.log('📊 Parsed analysis data:', parsedAnalysis);
+        }
+      } catch (e) {
+        console.error('⚠️ Error parsing analysis data:', e);
+      }
+
+      const enrichedSubmission = {
+        ...fileData,
+        answers: parsedAnalysis.answers || {},
+        currentStep: parsedAnalysis.currentStep || 'clone-editing',
+        submittedAt: parsedAnalysis.submittedAt || fileData.updatedAt,
+        lastReviewed: parsedAnalysis.lastReviewed,
+        reviewComments: parsedAnalysis.reviewComments || [],
+        reviewScore: parsedAnalysis.reviewScore || 0
       };
 
-    } else {
-      // Regular clone logic (existing)
-      const allFiles = await apiService.get('/uploaded-files');
-      fileData = allFiles.find(file => file.id === parseInt(cloneId));
+      console.log('🎯 Final submission object:', enrichedSubmission);
 
-      if (!fileData) {
-        throw new Error(`File with ID ${cloneId} not found`);
-      }
+      setSubmission(enrichedSubmission);
+      setReviewData({
+        score: enrichedSubmission.reviewScore || 0,
+        comments: enrichedSubmission.reviewComments || [],
+        overallFeedback: ''
+      });
 
-      fileData.type = 'regular';
+    } catch (error) {
+      console.error('⚠️ Error fetching clone data:', error);
+
+      setSubmission({
+        id: cloneId,
+        cloneName: 'Error loading data',
+        progress: 0,
+        status: 'Error',
+        answers: {},
+        analysisData: null,
+        type: cloneType
+      });
+    } finally {
+      setLoading(false);
     }
-
-    console.log('🎯 Found file data:', fileData);
-
-    // Parse analysis data
-    let parsedAnalysis = {};
-    try {
-      if (fileData.analysisData) {
-        parsedAnalysis = JSON.parse(fileData.analysisData);
-        console.log('📊 Parsed analysis data:', parsedAnalysis);
-      }
-    } catch (e) {
-      console.error('⚠️ Error parsing analysis data:', e);
-    }
-
-    const enrichedSubmission = {
-      ...fileData,
-      answers: parsedAnalysis.answers || {},
-      currentStep: parsedAnalysis.currentStep || 'clone-editing',
-      submittedAt: parsedAnalysis.submittedAt || fileData.updatedAt,
-      lastReviewed: parsedAnalysis.lastReviewed,
-      reviewComments: parsedAnalysis.reviewComments || [],
-      reviewScore: parsedAnalysis.reviewScore || 0
-    };
-
-    console.log('🎯 Final submission object:', enrichedSubmission);
-
-    setSubmission(enrichedSubmission);
-    setReviewData({
-      score: enrichedSubmission.reviewScore || 0,
-      comments: enrichedSubmission.reviewComments || [],
-      overallFeedback: ''
-    });
-
-  } catch (error) {
-    console.error('⚠️ Error fetching clone data:', error);
-
-    setSubmission({
-      id: cloneId,
-      cloneName: 'Error loading data',
-      progress: 0,
-      status: 'Error',
-      answers: {},
-      analysisData: null,
-      type: cloneType
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const fetchAnalysisQuestions = async () => {
-  try {
-    console.log('🔍 Fetching analysis questions...');
-    const questions = await apiService.get('/analysis-questions');
-    console.log('📋 Analysis questions loaded:', questions.length, 'questions');
-    console.log('📋 Questions:', questions);
-    setAnalysisQuestions(questions);
-  } catch (error) {
-    console.error('⚠️ Error fetching analysis questions:', error);
-  }
-};
+    try {
+      console.log('🔍 Fetching analysis questions...');
+      const questions = await apiService.get('/analysis-questions');
+      console.log('📋 Analysis questions loaded:', questions.length, 'questions');
+      console.log('📋 Questions:', questions);
+      setAnalysisQuestions(questions);
+    } catch (error) {
+      console.error('⚠️ Error fetching analysis questions:', error);
+    }
+  };
 
   const getQuestionText = (questionId) => {
     const question = analysisQuestions.find(q => q.id === questionId);
@@ -175,7 +175,18 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
     return analysisQuestions
       .filter(q => q.step === sectionId)
       .filter(q => answers[q.id] !== undefined && answers[q.id] !== '')
-      .sort((a, b) => a.order - b.order);
+      .sort((a, b) => {
+        // First sort by groupOrder (treating null/undefined as 0)
+        const aGroupOrder = a.groupOrder || 0;
+        const bGroupOrder = b.groupOrder || 0;
+
+        if (aGroupOrder !== bGroupOrder) {
+          return aGroupOrder - bGroupOrder;
+        }
+
+        // Then sort by question order within the group
+        return a.order - b.order;
+      });
   };
 
   const toggleSection = (sectionId) => {
@@ -319,52 +330,52 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
   };
 
   const saveReview = async () => {
-  if (!submission) return;
+    if (!submission) return;
 
-  setSaving(true);
-  try {
-    if (submission.type === 'practice') {
-      // For practice clones, save to UserPracticeProgress
-      await apiService.put(`/practice-clones/${cloneId}/progress/${studentId}`, {
-        progress: submission.progress,
-        answers: submission.answers,
-        currentStep: submission.currentStep,
-        reviewComments: reviewData.comments,
-        reviewScore: reviewData.score,
-        lastReviewed: new Date().toISOString()
-      });
+    setSaving(true);
+    try {
+      if (submission.type === 'practice') {
+        // For practice clones, save to UserPracticeProgress
+        await apiService.put(`/practice-clones/${cloneId}/progress/${studentId}`, {
+          progress: submission.progress,
+          answers: submission.answers,
+          currentStep: submission.currentStep,
+          reviewComments: reviewData.comments,
+          reviewScore: reviewData.score,
+          lastReviewed: new Date().toISOString()
+        });
 
-    } else {
-      // Regular clone logic (existing)
-      const updatedAnalysisData = {
-        ...JSON.parse(submission.analysisData || '{}'),
-        reviewComments: reviewData.comments,
-        reviewScore: reviewData.score,
-        lastReviewed: new Date().toISOString()
-      };
+      } else {
+        // Regular clone logic (existing)
+        const updatedAnalysisData = {
+          ...JSON.parse(submission.analysisData || '{}'),
+          reviewComments: reviewData.comments,
+          reviewScore: reviewData.score,
+          lastReviewed: new Date().toISOString()
+        };
 
-      await apiService.put(`/uploaded-files/${submission.id}/progress`, {
-        progress: submission.progress,
-        answers: submission.answers,
-        currentStep: submission.currentStep,
-        reviewComments: reviewData.comments,
-        reviewScore: reviewData.score,
-        lastReviewed: new Date().toISOString(),
-        analysisData: JSON.stringify(updatedAnalysisData)
-      });
+        await apiService.put(`/uploaded-files/${submission.id}/progress`, {
+          progress: submission.progress,
+          answers: submission.answers,
+          currentStep: submission.currentStep,
+          reviewComments: reviewData.comments,
+          reviewScore: reviewData.score,
+          lastReviewed: new Date().toISOString(),
+          analysisData: JSON.stringify(updatedAnalysisData)
+        });
+      }
+
+      alert('Review saved successfully!');
+      // Optionally refresh the data
+      await fetchCloneData();
+
+    } catch (error) {
+      console.error('Error saving review:', error);
+      alert('Failed to save review: ' + error.message);
+    } finally {
+      setSaving(false);
     }
-
-    alert('Review saved successfully!');
-    // Optionally refresh the data
-    await fetchCloneData();
-
-  } catch (error) {
-    console.error('Error saving review:', error);
-    alert('Failed to save review: ' + error.message);
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
   if (!isOpen) return null;
 

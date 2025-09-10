@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Download, ChevronRight, CheckCircle, AlertCircle, Save, Eye, AlertTriangle, X, BarChart3, ZoomIn, ZoomOut, RotateCcw, MessageCircle, Clock, XCircle, RefreshCw, User, Dna, HelpCircle } from 'lucide-react';
+import { FileText, Download, ChevronDown, CheckCircle, AlertCircle, Save, Eye, AlertTriangle, X, BarChart3, ZoomIn, ZoomOut, RotateCcw, MessageCircle, Clock, XCircle, RefreshCw, User, Dna, HelpCircle } from 'lucide-react';
 import MessageModal from './MessageModal';
 import ChromatogramViewer from './ChromatogramViewer';
 import ORFTranslator from './ORFTranslator';
@@ -533,6 +533,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   const [messageModalPrepopulatedContent, setMessageModalPrepopulatedContent] = useState('');
   const [messageModalPrepopulatedSubject, setMessageModalPrepopulatedSubject] = useState('');
   const [stepHelp, setStepHelp] = useState({});
+  const [currentGroup, setCurrentGroup] = useState(null);
 
 
   const steps = [
@@ -1115,10 +1116,98 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   };
 
   const getCurrentStepQuestions = () => {
-    return analysisQuestions
+    let stepQuestions = analysisQuestions
       .filter(q => q.step === currentStep)
-      .sort((a, b) => a.order - b.order)
       .filter(q => shouldShowQuestion(q));
+
+    // If a specific group is selected, filter to only that group
+    if (currentGroup) {
+      stepQuestions = stepQuestions.filter(q =>
+        (q.questionGroup || 'General') === currentGroup
+      );
+    }
+
+    return stepQuestions.sort((a, b) => {
+      if (a.groupOrder !== b.groupOrder) {
+        return a.groupOrder - b.groupOrder;
+      }
+      return a.order - b.order;
+    });
+  };
+
+  const getGroupedStepQuestions = () => {
+    const stepQuestions = getCurrentStepQuestions();
+
+    // Group questions by questionGroup
+    const grouped = stepQuestions.reduce((groups, question) => {
+      const groupName = question.questionGroup || 'General';
+      if (!groups[groupName]) {
+        groups[groupName] = [];
+      }
+      groups[groupName].push(question);
+      return groups;
+    }, {});
+
+    // Sort groups by the minimum groupOrder of questions in each group
+    const sortedGroups = Object.entries(grouped).sort(([, questionsA], [, questionsB]) => {
+      const minOrderA = Math.min(...questionsA.map(q => q.groupOrder || 0));
+      const minOrderB = Math.min(...questionsB.map(q => q.groupOrder || 0));
+      return minOrderA - minOrderB;
+    });
+
+    return sortedGroups;
+  };
+
+  const getGroupsForStep = (stepId) => {
+    const stepQuestions = analysisQuestions
+      .filter(q => q.step === stepId)
+      .filter(q => shouldShowQuestion(q));
+
+    const grouped = stepQuestions.reduce((groups, question) => {
+      const groupName = question.questionGroup || 'General';
+      if (!groups[groupName]) {
+        groups[groupName] = {
+          name: groupName,
+          questions: [],
+          groupOrder: question.groupOrder || 0
+        };
+      }
+      groups[groupName].questions.push(question);
+      return groups;
+    }, {});
+
+    // Sort groups by groupOrder
+    return Object.values(grouped).sort((a, b) => a.groupOrder - b.groupOrder);
+  };
+
+  // Function to handle step navigation (reset group when changing steps)
+  const handleStepChange = (stepId) => {
+    setCurrentStep(stepId);
+    setCurrentGroup(null); // Reset to show all groups in new step
+  };
+
+  // Function to handle group navigation
+  const handleGroupChange = (groupName) => {
+    setCurrentGroup(currentGroup === groupName ? null : groupName); // Toggle group selection
+  };
+
+  // Get progress for a specific group
+  const getGroupProgress = (stepId, groupName) => {
+    const nonQuestionTypes = ['text_header', 'section_divider', 'info_text', 'blast_comparison'];
+
+    const groupQuestions = analysisQuestions
+      .filter(q => q.step === stepId)
+      .filter(q => (q.questionGroup || 'General') === groupName)
+      .filter(q => shouldShowQuestion(q))
+      .filter(q => !nonQuestionTypes.includes(q.type));
+
+    if (groupQuestions.length === 0) return 100;
+
+    const answeredQuestions = groupQuestions.filter(q =>
+      answers[q.id] !== undefined && answers[q.id] !== ''
+    );
+
+    return Math.round((answeredQuestions.length / groupQuestions.length) * 100);
   };
 
   const getSaveButtonText = () => {
@@ -1685,65 +1774,124 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
           {/* Main Content Area */}
           <div className="flex">
-            {/* Step Navigation Sidebar */}
+            {/* Step Navigation Sidebar - UPDATED with group navigation */}
             <div className="w-64 bg-gray-50 border-r border-gray-200">
               <div className="p-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-4">Analysis Steps</h4>
-                {/* In your existing step navigation section */}
                 <div className="space-y-2">
                   {steps.map((step, index) => {
                     const isCurrentStep = step.id === currentStep;
                     const isCompleted = getStepProgress(step.id) === 100;
                     const hasStepHelp = stepHelp[step.id];
+                    const stepGroups = getGroupsForStep(step.id);
+                    const hasGroups = stepGroups.length > 1 || (stepGroups.length === 1 && stepGroups[0].name !== 'General');
 
                     return (
-                      <div
-                        key={step.id}
-                        onClick={() => setCurrentStep(step.id)}
-                        className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentStep
-                          ? 'bg-indigo-600 text-white shadow-lg'
-                          : 'bg-white text-gray-700 hover:bg-indigo-50 border border-gray-200'
-                          }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isCurrentStep
-                              ? 'bg-white text-indigo-600'
-                              : isCompleted
-                                ? 'bg-green-100 text-green-600'
-                                : 'bg-gray-100 text-gray-600'
-                              }`}>
-                              {isCompleted ? (
-                                <CheckCircle className="w-5 h-5" />
-                              ) : (
-                                <span className="text-sm font-medium">{index + 1}</span>
+                      <div key={step.id} className="space-y-1">
+                        {/* Main Step Button */}
+                        <div
+                          onClick={() => handleStepChange(step.id)}
+                          className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentStep
+                            ? 'bg-indigo-600 text-white shadow-lg'
+                            : 'bg-white text-gray-700 hover:bg-indigo-50 border border-gray-200'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isCurrentStep
+                                ? 'bg-white text-indigo-600'
+                                : isCompleted
+                                  ? 'bg-green-100 text-green-600'
+                                  : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                {isCompleted ? (
+                                  <CheckCircle className="w-5 h-5" />
+                                ) : (
+                                  <span className="text-sm font-medium">{index + 1}</span>
+                                )}
+                              </div>
+                              <div>
+                                <h4 className="font-medium">{step.name}</h4>
+                                <p className={`text-sm ${isCurrentStep ? 'text-indigo-200' : 'text-gray-500'}`}>
+                                  {getStepProgress(step.id)}% complete
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {hasStepHelp && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openStepHelp(step.id);
+                                  }}
+                                  className={`p-1 rounded ${isCurrentStep ? 'text-white hover:bg-indigo-500' : 'text-gray-400 hover:text-gray-600'}`}
+                                  title="Step help"
+                                >
+                                  <HelpCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              {hasGroups && isCurrentStep && (
+                                <ChevronDown className="w-4 h-4" />
                               )}
                             </div>
-                            <div>
-                              <h4 className="font-medium">{step.name}</h4>
-                              <p className={`text-sm ${isCurrentStep ? 'text-indigo-200' : 'text-gray-500'}`}>
-                                {step.description}
-                              </p>
-                            </div>
                           </div>
-
-                          {/* Help Circle for Step */}
-                          {hasStepHelp && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent step selection
-                                openStepHelp(step.id);
-                              }}
-                              className={`p-1 rounded-full hover:bg-opacity-20 hover:bg-gray-500 transition-colors ${isCurrentStep ? 'text-white' : 'text-blue-600'
-                                }`}
-                              title={`Get help with ${step.name}`}
-                            >
-                              <HelpCircle className="w-5 h-5" />
-                            </button>
-                          )}
                         </div>
 
-                        {/* Your existing progress bar code stays the same */}
+                        {/* Group Navigation - Show when step is current and has groups */}
+                        {isCurrentStep && hasGroups && (
+                          <div className="ml-4 space-y-1">
+                            {stepGroups.map((group) => {
+                              const isCurrentGroup = currentGroup === group.name;
+                              const groupProgress = getGroupProgress(step.id, group.name);
+                              const isGroupCompleted = groupProgress === 100;
+
+                              return (
+                                <div
+                                  key={group.name}
+                                  onClick={() => handleGroupChange(group.name)}
+                                  className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentGroup
+                                    ? 'bg-indigo-500 text-white shadow-md'
+                                    : 'bg-white text-gray-600 hover:bg-indigo-100 border border-gray-200'
+                                    }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <div className={`w-3 h-3 rounded-full ${isCurrentGroup
+                                        ? 'bg-white'
+                                        : isGroupCompleted
+                                          ? 'bg-green-500'
+                                          : 'bg-gray-300'
+                                        }`}></div>
+                                      <div>
+                                        <p className="text-sm font-medium">{group.name}</p>
+                                        <p className={`text-xs ${isCurrentGroup ? 'text-indigo-200' : 'text-gray-500'}`}>
+                                          {group.questions.length} question{group.questions.length !== 1 ? 's' : ''} • {groupProgress}%
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {isGroupCompleted && (
+                                      <CheckCircle className={`w-4 h-4 ${isCurrentGroup ? 'text-white' : 'text-green-600'}`} />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {/* "Show All" option */}
+                            <div
+                              onClick={() => setCurrentGroup(null)}
+                              className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${currentGroup === null
+                                ? 'bg-indigo-500 text-white shadow-md'
+                                : 'bg-white text-gray-600 hover:bg-indigo-100 border border-gray-200'
+                                }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-3 h-3 rounded-full ${currentGroup === null ? 'bg-white' : 'bg-gray-300'}`}></div>
+                                <p className="text-sm font-medium">Show All Groups</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1843,62 +1991,192 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                 )}
               </div>
 
-              {/* Questions Section */}
+              {/* Questions Section - UPDATED to work with group filtering */}
               <div className="space-y-6">
-                {currentStepQuestions.length > 0 ? (
-                  currentStepQuestions.map((question, index) => {
-                    const isCorrect = isQuestionCorrect(question.id);
+                {(() => {
+                  const currentStepQuestions = getCurrentStepQuestions(); // This now respects currentGroup filter
 
+                  if (currentStepQuestions.length === 0) {
                     return (
-                      <div
-                        key={question.id}
-                        className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
-                          isCorrect ? 'bg-green-50 border-green-200' :
-                            'border-gray-200'
-                          }`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <h5 className="text-sm font-medium text-gray-900 flex items-center space-x-2">
-                            <span>
-                              Question {index + 1}
-                              {question.required && <span className="text-red-500 ml-1">*</span>}
-                            </span>
-                            {helpTopics[question.id] && (
-                              <button
-                                onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
-                                className="text-blue-600 hover:text-blue-800"
-                                title="Get help with this question"
-                              >
-                                <HelpCircle className="w-4 h-4" />
-                              </button>
-                            )}
-                            {isCorrect && (
-                              <CheckCircle className="w-4 h-4 text-green-600" title="Marked correct by instructor" />
-                            )}
-                          </h5>
-                          <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
-                            answers[question.id] ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-600'
-                            }`}>
-                            {isCorrect ? 'Correct' :
-                              answers[question.id] ? 'Answered' :
-                                'Pending'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 mb-3">{question.text}</p>
-                        {renderQuestion(question)}
+                      <div className="text-center py-8">
+                        <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <h5 className="text-lg font-medium text-gray-900 mb-2">
+                          {currentGroup ? `No Questions in "${currentGroup}"` : 'No Questions Yet'}
+                        </h5>
+                        <p className="text-gray-600">
+                          {currentGroup
+                            ? `No questions have been set up for the "${currentGroup}" group in this step.`
+                            : 'No questions have been set up for this step. Contact your instructor if this seems incorrect.'
+                          }
+                        </p>
                       </div>
                     );
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h5 className="text-lg font-medium text-gray-900 mb-2">No Questions Yet</h5>
-                    <p className="text-gray-600">
-                      No questions have been set up for this step. Contact your instructor if this seems incorrect.
-                    </p>
-                  </div>
-                )}
+                  }
+
+                  // If showing a specific group, display questions normally (not grouped)
+                  if (currentGroup) {
+                    return currentStepQuestions.map((question, index) => {
+                      const isCorrect = isQuestionCorrect(question.id);
+                      return (
+                        <div
+                          key={question.id}
+                          className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
+                            isCorrect ? 'bg-green-50 border-green-200' :
+                              'border-gray-200'
+                            }`}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <h5 className="text-sm font-medium text-gray-900 flex items-center space-x-2">
+                              <span>
+                                Question {index + 1}
+                                {question.required && <span className="text-red-500 ml-1">*</span>}
+                              </span>
+                              {helpTopics[question.id] && (
+                                <button
+                                  onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                  title="Get help with this question"
+                                >
+                                  <HelpCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              {isCorrect && (
+                                <CheckCircle className="w-4 h-4 text-green-600" title="Marked correct by instructor" />
+                              )}
+                            </h5>
+                            <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
+                              answers[question.id] ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                              {isCorrect ? 'Correct' :
+                                answers[question.id] ? 'Answered' :
+                                  'Pending'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-3">{question.text}</p>
+                          {renderQuestion(question)}
+                        </div>
+                      );
+                    });
+                  }
+
+                  // If showing all groups, use the previous grouped display logic
+                  const groupedQuestions = getGroupedStepQuestions();
+
+                  // If there's only one group or all questions are ungrouped, display normally
+                  if (groupedQuestions.length === 1 && (groupedQuestions[0][0] === 'General' || !groupedQuestions[0][0])) {
+                    const questions = groupedQuestions[0][1];
+                    return questions.map((question, index) => {
+                      const isCorrect = isQuestionCorrect(question.id);
+                      return (
+                        <div
+                          key={question.id}
+                          className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
+                            isCorrect ? 'bg-green-50 border-green-200' :
+                              'border-gray-200'
+                            }`}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <h5 className="text-sm font-medium text-gray-900 flex items-center space-x-2">
+                              <span>
+                                Question {index + 1}
+                                {question.required && <span className="text-red-500 ml-1">*</span>}
+                              </span>
+                              {helpTopics[question.id] && (
+                                <button
+                                  onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                  title="Get help with this question"
+                                >
+                                  <HelpCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              {isCorrect && (
+                                <CheckCircle className="w-4 h-4 text-green-600" title="Marked correct by instructor" />
+                              )}
+                            </h5>
+                            <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
+                              answers[question.id] ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                              {isCorrect ? 'Correct' :
+                                answers[question.id] ? 'Answered' :
+                                  'Pending'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-3">{question.text}</p>
+                          {renderQuestion(question)}
+                        </div>
+                      );
+                    });
+                  }
+
+                  // Display grouped questions
+                  let globalQuestionIndex = 0;
+                  return groupedQuestions.map(([groupName, questions]) => (
+                    <div key={groupName} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Group Header */}
+                      <div className="bg-indigo-50 border-b border-indigo-200 px-4 py-3">
+                        <h4 className="font-medium text-indigo-900 flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                          <span>{groupName}</span>
+                          <span className="text-sm text-indigo-700 bg-indigo-200 px-2 py-1 rounded-full">
+                            {questions.length} question{questions.length !== 1 ? 's' : ''}
+                          </span>
+                        </h4>
+                      </div>
+
+                      {/* Group Questions */}
+                      <div className="p-4 space-y-4 bg-white">
+                        {questions.map((question) => {
+                          globalQuestionIndex++;
+                          const isCorrect = isQuestionCorrect(question.id);
+
+                          return (
+                            <div
+                              key={question.id}
+                              className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
+                                isCorrect ? 'bg-green-50 border-green-200' :
+                                  'border-gray-200'
+                                }`}
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <h5 className="text-sm font-medium text-gray-900 flex items-center space-x-2">
+                                  <span>
+                                    Question {globalQuestionIndex}
+                                    {question.required && <span className="text-red-500 ml-1">*</span>}
+                                  </span>
+                                  {helpTopics[question.id] && (
+                                    <button
+                                      onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
+                                      className="text-blue-600 hover:text-blue-800"
+                                      title="Get help with this question"
+                                    >
+                                      <HelpCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {isCorrect && (
+                                    <CheckCircle className="w-4 h-4 text-green-600" title="Marked correct by instructor" />
+                                  )}
+                                </h5>
+                                <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
+                                  answers[question.id] ? 'bg-green-100 text-green-800' :
+                                    'bg-gray-100 text-gray-600'
+                                  }`}>
+                                  {isCorrect ? 'Correct' :
+                                    answers[question.id] ? 'Answered' :
+                                      'Pending'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 mb-3">{question.text}</p>
+                              {renderQuestion(question)}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
 
               {/* Step Navigation */}

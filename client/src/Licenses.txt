@@ -66,6 +66,21 @@ Node.js built-in modules (fs, path, console) are part of Node.js
 License: MIT (Node.js)
 Full license: https://github.com/nodejs/node/blob/main/LICENSE
 
+NODE-FETCH
+License: MIT
+Copyright (c) 2016 David Frank
+Full license: https://github.com/node-fetch/node-fetch/blob/main/LICENSE.md
+
+NODEMAILER
+License: MIT
+Copyright (c) 2011-2019 Andris Reinman
+Full license: https://github.com/nodemailer/nodemailer/blob/master/LICENSE
+
+BCRYPT
+License: MIT
+Copyright (c) 2010 Nicholas Campbell
+Full license: https://github.com/kelektiv/node.bcrypt.js/blob/master/LICENSE
+
 DEVELOPMENT NOTES
 - This application may use additional transitive dependencies
 - Complete dependency information can be found in package.json files
