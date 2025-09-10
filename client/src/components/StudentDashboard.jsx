@@ -1,5 +1,5 @@
 // Refactored StudentDashboard.jsx - Updated to use apiService
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FileText, AlertTriangle, Save, X } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import DNAAnalysisInterface from './DNAAnalysisInterface';
@@ -21,6 +21,8 @@ const StudentDashboard = () => {
   const [unreadRepliesCount, setUnreadRepliesCount] = useState(0);
   const [openHelpTabs, setOpenHelpTabs] = useState([]); // Track open help tabs
   const [prePopulatedReplyText, setPrePopulatedReplyText] = useState('');
+
+
 
   // Track which tabs have unsaved changes
   const [tabsWithUnsavedChanges, setTabsWithUnsavedChanges] = useState(new Set());
@@ -325,6 +327,7 @@ const StudentDashboard = () => {
     };
   }, [tabsWithUnsavedChanges]); // Add dependency to recreate when unsaved changes update
 
+
   // Combine practice clones with assigned files
   const allClones = [...practiceClones, ...assignedFiles];
 
@@ -504,7 +507,7 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0">
           {renderTabContent()}
         </div>
       </div>
