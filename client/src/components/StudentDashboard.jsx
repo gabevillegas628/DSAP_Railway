@@ -409,11 +409,11 @@ const StudentDashboard = () => {
           />
         </div>
 
-        <div className="h-full"  style={{ display: activeTab === 'software' ? 'block' : 'none' }}>
+        <div className="h-full" style={{ display: activeTab === 'software' ? 'block' : 'none' }}>
           <StudentSoftware />
         </div>
 
-        <div className="h-full"  style={{ display: activeTab === 'messages' ? 'block' : 'none' }}>
+        <div className="h-full" style={{ display: activeTab === 'messages' ? 'block' : 'none' }}>
           <SimpleStudentChat
             selectedCloneId={selectedCloneForMessages}
             onMessageRead={fetchUnreadRepliesCount}
@@ -422,7 +422,7 @@ const StudentDashboard = () => {
           />
         </div>
 
-        <div className="h-full"  style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+        <div className="h-full" style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
           <StudentSettings currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         </div>
 
@@ -458,7 +458,7 @@ const StudentDashboard = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-8">
+        <div className="sticky top-0 bg-gray-50 z-10 mb-8">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               {studentTabs.map(tab => (
@@ -504,7 +504,7 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {renderTabContent()}
         </div>
       </div>
