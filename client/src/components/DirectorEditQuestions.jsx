@@ -670,7 +670,7 @@ const DirectorEditQuestions = () => {
                   <div className="p-4">
                     {Object.entries(groupedQuestions).map(([groupName, questions]) => (
                       <div key={groupName} className="mb-6 last:mb-0">
-                        <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                        <h5 className="text-lg font-bold text-indigo-800 mb-4 flex items-center">
                           {groupName !== 'Ungrouped' && (
                             <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">
                               Group
@@ -678,7 +678,7 @@ const DirectorEditQuestions = () => {
                           )}
                           {groupName}
                         </h5>
-                        <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+                        <div className="space-y-3 pl-8 border-l-8 border-indigo-200">
                           {questions
                             .sort((a, b) => a.order - b.order)
                             .map(question => (
