@@ -81,7 +81,11 @@ const DirectorEditQuestions = () => {
           updates.type === 'blast' ? {
             blastResultsCount: updates.blastResultsCount,
             blastTitle: updates.blastTitle
-          } : undefined
+          } :
+            updates.type === 'blast_comparison' ? {
+              blastQuestion1Id: updates.options?.blastQuestion1Id,
+              blastQuestion2Id: updates.options?.blastQuestion2Id
+            } : undefined
       };
 
       const updatedQuestion = await apiService.put(`/analysis-questions/${questionId}`, updateData);
@@ -118,6 +122,20 @@ const DirectorEditQuestions = () => {
 
   const editAnalysisQuestion = (question) => {
     setEditingAnalysisQuestion(question.id);
+
+    // Handle different option structures based on question type
+    let optionsToSet = {};
+    if (question.type === 'blast_comparison' && question.options) {
+      optionsToSet = {
+        blastQuestion1Id: question.options.blastQuestion1Id,
+        blastQuestion2Id: question.options.blastQuestion2Id
+      };
+    } else if (question.type === 'select') {
+      optionsToSet = question.options || [];
+    } else {
+      optionsToSet = {};
+    }
+
     setNewAnalysisQuestion({
       step: question.step,
       text: question.text,
@@ -125,7 +143,7 @@ const DirectorEditQuestions = () => {
       required: question.required,
       order: question.order,
       conditionalLogic: question.conditionalLogic,
-      options: question.options || [],
+      options: optionsToSet,
       blastResultsCount: question.options?.blastResultsCount || 5,
       blastTitle: question.options?.blastTitle || ''
     });
@@ -140,7 +158,11 @@ const DirectorEditQuestions = () => {
           newAnalysisQuestion.type === 'blast' ? {
             blastResultsCount: newAnalysisQuestion.blastResultsCount,
             blastTitle: newAnalysisQuestion.blastTitle
-          } : undefined
+          } :
+            newAnalysisQuestion.type === 'blast_comparison' ? {
+              blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
+              blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+            } : undefined
       });
       setShowAnalysisQuestionForm(false);
       setEditingAnalysisQuestion(null);

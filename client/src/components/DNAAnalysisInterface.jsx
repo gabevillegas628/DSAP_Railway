@@ -1472,164 +1472,164 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   };
 
   const renderBlastComparison = (question) => {
-  const { blastQuestion1Id, blastQuestion2Id } = question.options || {};
-  
-  // Get the answers for both BLAST questions
-  let blast1Answer = answers[blastQuestion1Id];
-  let blast2Answer = answers[blastQuestion2Id];
-  
-  // Find the question titles for headers
-  const blast1Question = analysisQuestions.find(q => q.id === blastQuestion1Id);
-  const blast2Question = analysisQuestions.find(q => q.id === blastQuestion2Id);
-  
-  // Parse BLAST results if they're JSON strings
-  let blast1Data = {};
-  let blast2Data = {};
-  
-  try {
-    // BLAST answers might be stored as JSON strings, so parse them
-    if (typeof blast1Answer === 'string' && blast1Answer.trim().startsWith('{')) {
-      blast1Data = JSON.parse(blast1Answer);
-    } else if (typeof blast1Answer === 'object' && blast1Answer) {
-      blast1Data = blast1Answer;
-    }
-  } catch (e) {
-    console.log('Error parsing BLAST 1 results:', e);
-  }
-  
-  try {
-    if (typeof blast2Answer === 'string' && blast2Answer.trim().startsWith('{')) {
-      blast2Data = JSON.parse(blast2Answer);
-    } else if (typeof blast2Answer === 'object' && blast2Answer) {
-      blast2Data = blast2Answer;
-    }
-  } catch (e) {
-    console.log('Error parsing BLAST 2 results:', e);
-  }
+    const { blastQuestion1Id, blastQuestion2Id } = question.options || {};
 
-  // Convert the object format to arrays for table display
-  const convertBlastDataToArray = (data) => {
-    const results = [];
-    let index = 0;
-    
-    // BLAST data is stored as accession_0, evalue_0, accession_1, evalue_1, etc.
-    while (data[`accession_${index}`] !== undefined || data[`evalue_${index}`] !== undefined) {
-      results.push({
-        accession: data[`accession_${index}`] || 'N/A',
-        evalue: data[`evalue_${index}`] || 'N/A'
-      });
-      index++;
+    // Get the answers for both BLAST questions
+    let blast1Answer = answers[blastQuestion1Id];
+    let blast2Answer = answers[blastQuestion2Id];
+
+    // Find the question titles for headers
+    const blast1Question = analysisQuestions.find(q => q.id === blastQuestion1Id);
+    const blast2Question = analysisQuestions.find(q => q.id === blastQuestion2Id);
+
+    // Parse BLAST results if they're JSON strings
+    let blast1Data = {};
+    let blast2Data = {};
+
+    try {
+      // BLAST answers might be stored as JSON strings, so parse them
+      if (typeof blast1Answer === 'string' && blast1Answer.trim().startsWith('{')) {
+        blast1Data = JSON.parse(blast1Answer);
+      } else if (typeof blast1Answer === 'object' && blast1Answer) {
+        blast1Data = blast1Answer;
+      }
+    } catch (e) {
+      console.log('Error parsing BLAST 1 results:', e);
     }
-    
-    return results;
-  };
-  
-  const blast1Results = convertBlastDataToArray(blast1Data);
-  const blast2Results = convertBlastDataToArray(blast2Data);
-  
-  console.log('BLAST Comparison Debug:', {
-    blast1Question: blast1Question?.text,
-    blast2Question: blast2Question?.text,
-    blast1Answer: blast1Answer,
-    blast2Answer: blast2Answer,
-    blast1Results,
-    blast2Results
-  });
-  
-  return (
-    <div className="mb-6">
-      <h4 className="text-lg font-medium text-gray-800 mb-4">{question.text}</h4>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* First BLAST Results Table */}
-        <div>
-          <h5 className="font-medium text-gray-700 mb-3">
-            {blast1Question?.options?.blastTitle || blast1Question?.text?.substring(0, 50) || 'BLAST Results 1'}
-          </h5>
-          {!blast1Answer ? (
-            <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
-              Results will appear here once you complete the previous BLAST question.
-            </div>
-          ) : blast1Results.length === 0 ? (
-            <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
-              No BLAST results found.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Accession #
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      E-value
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {blast1Results.map((result, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm font-mono text-gray-900">
-                        {result.accession}
-                      </td>
-                      <td className="px-4 py-2 text-sm font-mono text-gray-900">
-                        {result.evalue}
-                      </td>
+
+    try {
+      if (typeof blast2Answer === 'string' && blast2Answer.trim().startsWith('{')) {
+        blast2Data = JSON.parse(blast2Answer);
+      } else if (typeof blast2Answer === 'object' && blast2Answer) {
+        blast2Data = blast2Answer;
+      }
+    } catch (e) {
+      console.log('Error parsing BLAST 2 results:', e);
+    }
+
+    // Convert the object format to arrays for table display
+    const convertBlastDataToArray = (data) => {
+      const results = [];
+      let index = 0;
+
+      // BLAST data is stored as accession_0, evalue_0, accession_1, evalue_1, etc.
+      while (data[`accession_${index}`] !== undefined || data[`evalue_${index}`] !== undefined) {
+        results.push({
+          accession: data[`accession_${index}`] || 'N/A',
+          evalue: data[`evalue_${index}`] || 'N/A'
+        });
+        index++;
+      }
+
+      return results;
+    };
+
+    const blast1Results = convertBlastDataToArray(blast1Data);
+    const blast2Results = convertBlastDataToArray(blast2Data);
+
+    console.log('BLAST Comparison Debug:', {
+      blast1Question: blast1Question?.text,
+      blast2Question: blast2Question?.text,
+      blast1Answer: blast1Answer,
+      blast2Answer: blast2Answer,
+      blast1Results,
+      blast2Results
+    });
+
+    return (
+      <div className="mb-6">
+        <h4 className="text-lg font-medium text-gray-800 mb-4">{question.text}</h4>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* First BLAST Results Table */}
+          <div>
+            <h5 className="font-medium text-gray-700 mb-3">
+              {blast1Question?.options?.blastTitle || blast1Question?.text?.substring(0, 50) || 'BLAST Results 1'}
+            </h5>
+            {!blast1Answer ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                Results will appear here once you complete the previous BLAST question.
+              </div>
+            ) : blast1Results.length === 0 ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                No BLAST results found.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Accession #
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        E-value
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        
-        {/* Second BLAST Results Table */}
-        <div>
-          <h5 className="font-medium text-gray-700 mb-3">
-            {blast2Question?.options?.blastTitle || blast2Question?.text?.substring(0, 50) || 'BLAST Results 2'}
-          </h5>
-          {!blast2Answer ? (
-            <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
-              Results will appear here once you complete the previous BLAST question.
-            </div>
-          ) : blast2Results.length === 0 ? (
-            <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
-              No BLAST results found.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Accession #
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      E-value
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {blast2Results.map((result, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm font-mono text-gray-900">
-                        {result.accession}
-                      </td>
-                      <td className="px-4 py-2 text-sm font-mono text-gray-900">
-                        {result.evalue}
-                      </td>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {blast1Results.map((result, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.accession}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.evalue}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Second BLAST Results Table */}
+          <div>
+            <h5 className="font-medium text-gray-700 mb-3">
+              {blast2Question?.options?.blastTitle || blast2Question?.text?.substring(0, 50) || 'BLAST Results 2'}
+            </h5>
+            {!blast2Answer ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                Results will appear here once you complete the previous BLAST question.
+              </div>
+            ) : blast2Results.length === 0 ? (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+                No BLAST results found.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Accession #
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        E-value
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {blast2Results.map((result, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.accession}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                          {result.evalue}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   if (!cloneData) {
     return (
