@@ -275,8 +275,14 @@ const DirectorEditQuestions = () => {
                       <select
                         id="type-analysis"
                         value={newAnalysisQuestion.type}
-                        onChange={(e) => setNewAnalysisQuestion({ ...newAnalysisQuestion, type: e.target.value, options: [] })}
-                        className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          setNewAnalysisQuestion({
+                            ...newAnalysisQuestion,
+                            type: newType,
+                            options: newType === 'blast_comparison' ? {} : []
+                          });
+                        }} className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       >
                         <option value="yes_no">Yes/No</option>
                         <option value="text">Text</option>
