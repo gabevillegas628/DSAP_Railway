@@ -57,49 +57,39 @@ const DirectorDashboard = () => {
   }, [fetchMessageCount]);
 
   // Fetch analysis review count
+
+  const fetchReviewCount = async () => {
+    try {
+      // Use the same API calls as DirectorAnalysisReview (WITH includeTeacherReviewed=true)
+      const [files, practiceSubmissions] = await Promise.all([
+        apiService.get('/uploaded-files?reviewReady=true&includeTeacherReviewed=true'),
+        apiService.get('/practice-submissions?reviewReady=true&includeTeacherReviewed=true')
+      ]);
+
+      console.log('=== DASHBOARD REVIEW COUNT DEBUG ===');
+      console.log('Regular submissions awaiting review:', files.length);
+      console.log('Practice submissions awaiting review:', practiceSubmissions.length);
+
+      // Count ALL files returned (since API already filtered to only director-reviewable items)
+      const totalNeedsReview = files.length + practiceSubmissions.length;
+
+      console.log('Total director review count:', totalNeedsReview);
+      setReviewCount(totalNeedsReview);
+    } catch (error) {
+      console.error('Error fetching review count:', error);
+      setReviewCount(0);
+    }
+  };
+
+
+  // In DirectorDashboard.jsx, update this function:
   useEffect(() => {
     if (!currentUser) return;
-
-    const fetchReviewCount = async () => {
-      try {
-        // Fetch both regular and practice submissions (just like DirectorAnalysisReview.jsx does)
-        const [files, practiceSubmissions] = await Promise.all([
-          apiService.get('/uploaded-files?reviewReady=true'),
-          apiService.get('/practice-submissions?reviewReady=true')
-        ]);
-
-        console.log('=== DASHBOARD REVIEW COUNT DEBUG ===');
-        console.log('Regular submissions awaiting review:', files.length);
-        console.log('Practice submissions awaiting review:', practiceSubmissions.length);
-
-        // Count regular files that need review (pending or resubmitted)
-        const regularNeedsReview = files.filter(file => {
-          return getReviewStatus(file.status) !== null;
-        });
-
-        // Count practice submissions that need review (pending or resubmitted)
-        const practiceNeedsReview = practiceSubmissions.filter(submission => {
-          return getReviewStatus(submission.status) !== null;
-        });
-
-        const totalNeedsReview = regularNeedsReview.length + practiceNeedsReview.length;
-
-        console.log('Regular files needing review:', regularNeedsReview.length);
-        console.log('Practice submissions needing review:', practiceNeedsReview.length);
-        console.log('Total awaiting review:', totalNeedsReview);
-
-        setReviewCount(totalNeedsReview);
-      } catch (error) {
-        console.error('Error fetching review count:', error);
-        setReviewCount(0);
-      }
-    };
 
     fetchReviewCount();
 
     // Poll for updates every 60 seconds (less frequent than messages)
     const interval = setInterval(fetchReviewCount, 60000);
-
     return () => clearInterval(interval);
   }, [currentUser]);
 

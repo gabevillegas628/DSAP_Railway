@@ -1459,7 +1459,12 @@ function generateCloneName(filename) {
 // Get all uploaded files
 app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
   try {
-    const { reviewReady, schoolId, schoolName } = req.query;
+    const { reviewReady, schoolId, schoolName, includeTeacherReviewed } = req.query;
+
+    console.log('=== UPLOADED FILES QUERY DEBUG ===');
+    console.log('reviewReady:', reviewReady);
+    console.log('includeTeacherReviewed:', includeTeacherReviewed);
+    console.log('schoolName:', schoolName);
 
     let whereClause = {};
 
@@ -1473,21 +1478,32 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
 
     // Build complete where clause
     if (reviewReady === 'true') {
-      // ✅ FIXED: Properly combine school filtering with review filtering
+      const reviewStatuses = [
+        CLONE_STATUSES.COMPLETED_WAITING_REVIEW,
+        CLONE_STATUSES.CORRECTED_WAITING_REVIEW
+      ];
+
+      // Only include teacher-reviewed items for directors
+      if (includeTeacherReviewed === 'true') {
+        reviewStatuses.push(CLONE_STATUSES.REVIEWED_BY_TEACHER);
+        console.log('✅ Including REVIEWED_BY_TEACHER status for directors');
+      } else {
+        console.log('❌ NOT including REVIEWED_BY_TEACHER status (instructor view)');
+      }
+
+      console.log('Review statuses being searched:', reviewStatuses);
+
       whereClause = {
         AND: [
           { assignedToId: { not: null } },
           { analysisData: { not: null } },
           {
             status: {
-              in: [
-                CLONE_STATUSES.COMPLETED_WAITING_REVIEW,
-                CLONE_STATUSES.CORRECTED_WAITING_REVIEW
-              ]
+              in: reviewStatuses
             }
           },
-          // ✅ Add school filtering as a separate AND condition
-          ...(Object.keys(assignedToClause).length > 0 ? [{ assignedTo: assignedToClause }] : [])
+          ...(Object.keys(assignedToClause).length > 0 ?
+            [{ assignedTo: assignedToClause }] : [])
         ]
       };
     } else {
@@ -1497,9 +1513,6 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
       }
     }
 
-    console.log('=== UPLOADED FILES QUERY DEBUG ===');
-    console.log('schoolName:', schoolName);
-    console.log('reviewReady:', reviewReady);
     console.log('Final whereClause:', JSON.stringify(whereClause, null, 2));
 
     const files = await prisma.uploadedFile.findMany({
@@ -1518,7 +1531,9 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    console.log('Found files for instructor:', files.length);
+    console.log('Found files:', files.length);
+    console.log('Files with status REVIEWED_BY_TEACHER:', files.filter(f => f.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
+    
     res.json(files);
   } catch (error) {
     console.error('Error in uploaded-files endpoint:', error);
@@ -3796,7 +3811,12 @@ app.delete('/api/practice-clones/:id', async (req, res) => {
 // Get practice submissions ready for review
 app.get('/api/practice-submissions', async (req, res) => {
   try {
-    const { reviewReady, schoolId, schoolName } = req.query;
+    const { reviewReady, schoolId, schoolName, includeTeacherReviewed } = req.query;
+
+    console.log('=== PRACTICE SUBMISSIONS QUERY DEBUG ===');
+    console.log('reviewReady:', reviewReady);
+    console.log('includeTeacherReviewed:', includeTeacherReviewed);
+    console.log('schoolName:', schoolName);
 
     let whereClause = {};
 
@@ -3808,25 +3828,42 @@ app.get('/api/practice-submissions', async (req, res) => {
       userWhereClause.school = { name: schoolName };
     }
 
-    if (Object.keys(userWhereClause).length > 0) {
-      whereClause.user = userWhereClause;
-    }
-
-    // Review ready filtering
+    // Build complete where clause
     if (reviewReady === 'true') {
-      whereClause.status = {
-        in: [
-          CLONE_STATUSES.COMPLETED_WAITING_REVIEW,
-          CLONE_STATUSES.CORRECTED_WAITING_REVIEW
+      const reviewStatuses = [
+        CLONE_STATUSES.COMPLETED_WAITING_REVIEW,
+        CLONE_STATUSES.CORRECTED_WAITING_REVIEW
+      ];
+
+      // Only include teacher-reviewed items for directors
+      if (includeTeacherReviewed === 'true') {
+        reviewStatuses.push(CLONE_STATUSES.REVIEWED_BY_TEACHER);
+        console.log('✅ Including REVIEWED_BY_TEACHER status for directors (practice)');
+      } else {
+        console.log('❌ NOT including REVIEWED_BY_TEACHER status (instructor view - practice)');
+      }
+
+      console.log('Practice review statuses being searched:', reviewStatuses);
+
+      whereClause = {
+        AND: [
+          {
+            status: {
+              in: reviewStatuses
+            }
+          },
+          ...(Object.keys(userWhereClause).length > 0 ?
+            [{ user: userWhereClause }] : [])
         ]
       };
-      whereClause.answers = { not: null };
+    } else {
+      // For non-reviewReady requests, just apply school filtering if present
+      if (Object.keys(userWhereClause).length > 0) {
+        whereClause.user = userWhereClause;
+      }
     }
 
-    console.log('=== PRACTICE SUBMISSIONS QUERY DEBUG ===');
-    console.log('schoolName:', schoolName);
-    console.log('reviewReady:', reviewReady);
-    console.log('whereClause:', JSON.stringify(whereClause, null, 2));
+    console.log('Final practice whereClause:', JSON.stringify(whereClause, null, 2));
 
     const submissions = await prisma.userPracticeProgress.findMany({
       where: whereClause,
@@ -3848,15 +3885,16 @@ app.get('/api/practice-submissions', async (req, res) => {
           }
         }
       },
-      orderBy: { submittedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' }
     });
 
     console.log('Found practice submissions:', submissions.length);
+    console.log('Practice submissions with REVIEWED_BY_TEACHER:', submissions.filter(s => s.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
 
-    // ✅ FIXED: Actually format the submissions
+    // Format the submissions to match expected structure
     const formattedSubmissions = submissions.map(submission => ({
       id: submission.id,
-      practiceCloneId: submission.practiceClone.id,
+      practiceCloneId: submission.practiceCloneId,
       cloneName: submission.practiceClone.cloneName,
       filename: submission.practiceClone.filename,
       originalName: submission.practiceClone.originalName,
@@ -5372,7 +5410,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       }
     }
     frontendUrl = frontendUrl.replace(/\/$/, '');
-    
+
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
     console.log('Final reset URL:', resetUrl);
 
@@ -5423,7 +5461,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     // SendGrid-specific error handling
     let errorMessage = 'Error processing request';
-    
+
     if (error.code === 401) {
       errorMessage = 'SendGrid authentication failed. Check API key.';
     } else if (error.code === 403) {
@@ -6113,10 +6151,10 @@ app.get('/api/clone-discussions/instructor/:instructorId', async (req, res) => {
       },
       include: {
         student: {
-          select: { 
-            id: true, 
-            name: true, 
-            email: true, 
+          select: {
+            id: true,
+            name: true,
+            email: true,
             role: true,
             school: {
               select: { name: true }
@@ -6174,7 +6212,7 @@ app.get('/api/clone-discussions/instructor/:instructorId', async (req, res) => {
               readByArray = [];
             }
           }
-          
+
           if (!readByArray.includes(parseInt(instructorId))) {
             unreadCount++;
           }

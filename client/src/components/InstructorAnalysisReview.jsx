@@ -1355,8 +1355,8 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
             console.log('Review data:', reviewData);
 
             const statusMap = {
-                'approved': CLONE_STATUSES.REVIEWED_CORRECT,
-                'rejected': CLONE_STATUSES.NEEDS_REANALYSIS  // Changed from NEEDS_CORRECTIONS for better revision flow
+                'approved': CLONE_STATUSES.REVIEWED_BY_TEACHER,  // Changed from REVIEWED_CORRECT
+                'rejected': CLONE_STATUSES.NEEDS_REANALYSIS
             };
 
             // Validate status transition

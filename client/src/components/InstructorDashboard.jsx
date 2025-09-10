@@ -43,34 +43,25 @@ const InstructorDashboard = () => {
   }, [currentUser]);
 
   // Fetch review count for instructor's students only
+  // In InstructorDashboard.jsx, update this function:
   const fetchReviewCount = useCallback(async () => {
     if (!currentUser?.school?.id) return;
 
     try {
       console.log('=== INSTRUCTOR REVIEW COUNT DEBUG ===');
 
-      // Get submissions only from students in instructor's school
-      const files = await apiService.get(`/uploaded-files?schoolId=${currentUser.school.id}&status=pending,resubmitted`);
-      const practiceSubmissions = await apiService.get(`/practice-submissions?schoolId=${currentUser.school.id}&status=pending,resubmitted`);
+      // Use the same API calls as InstructorAnalysisReview (WITHOUT includeTeacherReviewed)
+      const schoolName = currentUser.school.name;
+      const files = await apiService.get(`/uploaded-files?reviewReady=true&schoolName=${encodeURIComponent(schoolName)}`);
+      const practiceSubmissions = await apiService.get(`/practice-submissions?reviewReady=true&schoolName=${encodeURIComponent(schoolName)}`);
 
       console.log('Regular submissions from my school awaiting review:', files.length);
       console.log('Practice submissions from my school awaiting review:', practiceSubmissions.length);
 
-      // Count files that need review from instructor's school
-      const regularNeedsReview = files.filter(file => {
-        return getReviewStatus(file.status) !== null;
-      });
+      // Count ALL files returned (since API already filtered to only instructor-reviewable items)
+      const totalNeedsReview = files.length + practiceSubmissions.length;
 
-      const practiceNeedsReview = practiceSubmissions.filter(submission => {
-        return getReviewStatus(submission.status) !== null;
-      });
-
-      const totalNeedsReview = regularNeedsReview.length + practiceNeedsReview.length;
-
-      console.log('Regular files from my school needing review:', regularNeedsReview.length);
-      console.log('Practice submissions from my school needing review:', practiceNeedsReview.length);
-      console.log('Total from my school awaiting review:', totalNeedsReview);
-
+      console.log('Total instructor review count:', totalNeedsReview);
       setReviewCount(totalNeedsReview);
     } catch (error) {
       console.error('Error fetching instructor review count:', error);

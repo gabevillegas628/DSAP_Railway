@@ -19,7 +19,8 @@ import {
   Award,
   ChevronDown,
   ChevronRight,
-  ChevronUp
+  ChevronUp,
+  Settings
 } from 'lucide-react';
 
 import { CheckCircle2 } from 'lucide-react';
@@ -30,9 +31,11 @@ import apiService from '../services/apiService';
 // Add these imports after your existing imports
 import {
   CLONE_STATUSES,
+  DIRECTOR_STATUS_OPTIONS,
   getReviewStatus,
   REVIEW_ACTION_MAP,
   isValidStatusTransition,
+  isDirectorReviewReady,
   validateAndWarnStatus
 } from '../statusConstraints.js';
 
@@ -138,6 +141,8 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
   const [showSequenceModal, setShowSequenceModal] = useState(false);
   const [selectedSequenceData, setSelectedSequenceData] = useState(null);
   const [sendingMessages, setSendingMessages] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [statusChangeLoading, setStatusChangeLoading] = useState(false);
 
 
 
@@ -905,18 +910,17 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
     try {
       setLoading(true);
 
-      // Fetch regular submissions using apiService
-      const reviewReadyFiles = await apiService.get('/uploaded-files?reviewReady=true');
+      // Directors should see teacher-reviewed items, so add the parameter
+      const reviewReadyFiles = await apiService.get('/uploaded-files?reviewReady=true&includeTeacherReviewed=true');
+      const practiceSubmissions = await apiService.get('/practice-submissions?reviewReady=true&includeTeacherReviewed=true');
 
-      // Fetch practice submissions using apiService
-      const practiceSubmissions = await apiService.get('/practice-submissions?reviewReady=true');
+      // ... rest of your existing code
 
       console.log('=== FETCH SUBMISSIONS DEBUG ===');
       console.log('Regular submissions count:', reviewReadyFiles.length);
       console.log('Practice submissions count:', practiceSubmissions.length);
-      console.log('Practice submissions data:', practiceSubmissions);
 
-      // Process regular submissions
+      // Process regular submissions - UPDATED to include director review ready items
       const processedRegularFiles = reviewReadyFiles.map(file => {
         let parsedAnalysis = {};
         try {
@@ -925,22 +929,27 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
           console.error('Error parsing analysis data for file:', file.id);
         }
 
+        // Check both instructor review ready AND director review ready
+        const instructorReviewStatus = getReviewStatus(file.status);
+        const directorReviewReady = isDirectorReviewReady(file.status);
+
         return {
           ...file,
           type: 'regular',
           answers: parsedAnalysis.answers || {},
           currentStep: parsedAnalysis.currentStep || 'clone-editing',
           submittedAt: parsedAnalysis.submittedAt || file.updatedAt,
-          reviewStatus: getReviewStatus(file.status),
+          reviewStatus: instructorReviewStatus || (directorReviewReady ? 'teacher_reviewed' : null),
           lastReviewed: parsedAnalysis.lastReviewed,
           reviewComments: parsedAnalysis.reviewComments || [],
           reviewScore: parsedAnalysis.reviewScore
         };
       });
 
-      // Process practice submissions
+      // Process practice submissions - UPDATED to include director review ready items  
       const processedPracticeFiles = practiceSubmissions.map(submission => {
-        console.log('Processing practice submission:', submission);
+        const instructorReviewStatus = getReviewStatus(submission.status);
+        const directorReviewReady = isDirectorReviewReady(submission.status);
 
         return {
           id: submission.id,
@@ -955,22 +964,20 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
           status: submission.status,
           practiceCloneId: submission.practiceCloneId,
           submittedAt: submission.submittedAt,
-          reviewStatus: getReviewStatus(submission.status),
+          reviewStatus: instructorReviewStatus || (directorReviewReady ? 'teacher_reviewed' : null),
           reviewComments: submission.reviewComments || [],
           reviewScore: submission.reviewScore,
           lastReviewed: submission.lastReviewed
         };
       });
 
-      // Combine both types
+      // Combine both types and filter to include both instructor and director review queues
       const allSubmissions = [
         ...processedRegularFiles,
         ...processedPracticeFiles
       ].filter(file => file.reviewStatus !== null);
 
       console.log('All processed submissions:', allSubmissions);
-      console.log('Practice submissions with IDs:', allSubmissions.filter(s => s.type === 'practice').map(s => ({ id: s.id, cloneName: s.cloneName })));
-
       setSubmissions(allSubmissions);
       setLoading(false);
     } catch (error) {
@@ -1006,6 +1013,50 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
           return new Date(b.submittedAt) - new Date(a.submittedAt);
       }
     });
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (!selectedSubmission) return;
+
+    if (!isValidStatusTransition(selectedSubmission.status, newStatus)) {
+      alert('Invalid status transition');
+      return;
+    }
+
+    setStatusChangeLoading(true);
+    try {
+      const endpoint = selectedSubmission.type === 'practice'
+        ? `/practice-submissions/${selectedSubmission.id}/status`
+        : `/uploaded-files/${selectedSubmission.id}/status`;
+
+      await apiService.put(endpoint, { status: newStatus });
+
+      // Update local state
+      setSubmissions(prev => prev.map(sub =>
+        sub.id === selectedSubmission.id
+          ? { ...sub, status: newStatus, reviewStatus: getReviewStatus(newStatus) || (isDirectorReviewReady(newStatus) ? 'teacher_reviewed' : null) }
+          : sub
+      ));
+
+      setSelectedSubmission(prev => ({
+        ...prev,
+        status: newStatus,
+        reviewStatus: getReviewStatus(newStatus) || (isDirectorReviewReady(newStatus) ? 'teacher_reviewed' : null)
+      }));
+
+      setShowStatusDropdown(false);
+
+      if (onReviewCompleted) {
+        onReviewCompleted();
+      }
+
+      console.log(`Status updated to: ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Failed to update status');
+    } finally {
+      setStatusChangeLoading(false);
+    }
   };
 
   const selectSubmission = async (submission) => {
@@ -1723,6 +1774,7 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
     return {
       pending: filteredByType.filter(s => s.reviewStatus === 'pending').length,
       resubmitted: filteredByType.filter(s => s.reviewStatus === 'resubmitted').length,
+      teacher_reviewed: filteredByType.filter(s => s.reviewStatus === 'teacher_reviewed').length,
       all: filteredByType.length,
       practice: submissions.filter(s => s.type === 'practice').length,
       regular: submissions.filter(s => s.type === 'regular').length
@@ -1787,6 +1839,7 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
             >
               <option value="pending" className="text-gray-900">Pending Review ({counts.pending})</option>
               <option value="resubmitted" className="text-gray-900">Resubmitted ({counts.resubmitted})</option>
+              <option value="teacher_reviewed" className="text-gray-900">Teacher Reviewed ({counts.teacher_reviewed})</option>
               <option value="all" className="text-gray-900">All Submissions ({counts.all})</option>
             </select>
 
@@ -1834,11 +1887,13 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
                         <h4 className="font-semibold text-gray-900 text-sm truncate flex-1 mr-2">{submission.cloneName}</h4>
                         <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${submission.reviewStatus === 'pending' ? 'bg-amber-100 text-amber-800' :
                           submission.reviewStatus === 'resubmitted' ? 'bg-purple-100 text-purple-800' :
-                            'bg-gray-100 text-gray-600'
+                            submission.reviewStatus === 'teacher_reviewed' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-600'
                           }`}>
                           {submission.reviewStatus === 'pending' ? 'Pending' :
                             submission.reviewStatus === 'resubmitted' ? 'Resubmitted' :
-                              'Unknown'}
+                              submission.reviewStatus === 'teacher_reviewed' ? 'Teacher Reviewed' :
+                                'Unknown'}
                         </span>
                       </div>
 
@@ -2286,6 +2341,56 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
                         <span>Request Revision</span>
                       </button>
                     </div>
+
+                    {/* Director Status Controls - Only show for teacher-reviewed items */}
+                    {selectedSubmission?.reviewStatus === 'teacher_reviewed' && (
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mt-6">
+                        <h4 className="text-lg font-bold text-gray-900 flex items-center space-x-2 mb-4">
+                          <Settings className="w-5 h-5 text-indigo-600" />
+                          <span>Director Actions</span>
+                        </h4>
+
+                        <div className="space-y-3">
+                          <p className="text-sm text-gray-600 mb-3">
+                            This submission has been reviewed and approved by the instructor.
+                            Select the appropriate next action:
+                          </p>
+
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                              disabled={statusChangeLoading}
+                              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-xl hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors flex items-center justify-between font-medium"
+                            >
+                              <span>Change Status</span>
+                              <ChevronDown className={`w-4 h-4 transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showStatusDropdown && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                                {DIRECTOR_STATUS_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    onClick={() => handleStatusChange(option.value)}
+                                    disabled={statusChangeLoading}
+                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-50 transition-colors first:rounded-t-xl last:rounded-b-xl border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <div className="font-medium text-gray-900">{option.label}</div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {statusChangeLoading && (
+                            <div className="flex items-center justify-center py-2">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                              <span className="ml-2 text-sm text-gray-600">Updating status...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {saving && (
                       <div className="text-center">
