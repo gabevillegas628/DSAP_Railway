@@ -18,13 +18,13 @@ const TermsOfServiceModal = ({ isOpen, onClose }) => {
 
   const loadContent = async () => {
     setLoading(true);
-    
+
     try {
       // Import the text files
       const tosModule = await import('../TOS.txt');
       const privacyModule = await import('../Privacy.txt');
       const licensesModule = await import('../Licenses.txt');
-      
+
       // Fetch the actual content
       const [tosResponse, privacyResponse, licensesResponse] = await Promise.all([
         fetch(tosModule.default),
@@ -60,20 +60,20 @@ const TermsOfServiceModal = ({ isOpen, onClose }) => {
 
   const sections = {
     terms: 'Terms of Service',
-    privacy: 'Privacy Policy', 
+    privacy: 'Privacy Policy',
     licenses: 'Open Source Licenses'
   };
 
   const formatContent = (text) => {
     if (!text) return null;
-    
+
     return text.split('\n').map((line, index) => {
       const trimmedLine = line.trim();
-      
+
       if (trimmedLine === '') {
         return <div key={index} className="h-4" />;
       }
-      
+
       // Headers (lines that are all caps or start with numbers)
       if (/^\d+\./.test(trimmedLine) || (trimmedLine === trimmedLine.toUpperCase() && trimmedLine.length > 3)) {
         return (
@@ -82,7 +82,7 @@ const TermsOfServiceModal = ({ isOpen, onClose }) => {
           </div>
         );
       }
-      
+
       // Bullet points
       if (trimmedLine.startsWith('-')) {
         return (
@@ -92,7 +92,7 @@ const TermsOfServiceModal = ({ isOpen, onClose }) => {
           </div>
         );
       }
-      
+
       // Regular content
       return (
         <div key={index} className="text-gray-700 leading-relaxed mb-3">
@@ -105,8 +105,8 @@ const TermsOfServiceModal = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onClick={onClose}></div>
-      
-      <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+
+      <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] md:mx-0 mx-4 overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center justify-between">
@@ -133,11 +133,10 @@ const TermsOfServiceModal = ({ isOpen, onClose }) => {
               <button
                 key={key}
                 onClick={() => setActiveSection(key)}
-                className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors duration-200 ${
-                  activeSection === key
+                className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors duration-200 ${activeSection === key
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {title}
               </button>

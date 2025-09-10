@@ -1,11 +1,11 @@
-// components/Navigation.jsx - Updated with logos at absolute edges
+// components/Navigation.jsx - Updated with mobile fixes for your current version
 import React from 'react';
 import { User, FileText } from 'lucide-react';
 
 const Navigation = ({ currentUser, onLogout }) => {
   // Logo imports (adjust path based on your setup)
   const rutgersLogo = "/images/RSUNJ_H_RED_BLACK_RGB.png";
-const waksmanLogo = "/images/wssp-banner-bldg.png";
+  const waksmanLogo = "/images/wssp-banner-bldg.png";
 
   const handleLogoutClick = () => {
     console.log('Logout button clicked');
@@ -25,34 +25,46 @@ const waksmanLogo = "/images/wssp-banner-bldg.png";
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 relative">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Logos at absolute edges */}
+        {/* Logos at absolute edges - hidden on mobile, smaller on tablet */}
         <img 
           src={rutgersLogo} 
           alt="Rutgers University" 
-          className="absolute left-2 top-1/2 transform -translate-y-1/2 h-10 w-auto z-10"
+          className="absolute left-1 md:left-2 top-1/2 transform -translate-y-1/2 h-6 md:h-8 lg:h-10 w-auto z-10 hidden sm:block"
         />
         <img 
           src={waksmanLogo} 
           alt="Waksman Institute" 
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 h-12 w-auto z-10"
+          className="absolute right-1 md:right-2 top-1/2 transform -translate-y-1/2 h-8 md:h-10 lg:h-12 w-auto z-10 hidden sm:block"
         />
         
-        {/* Original layout unchanged */}
-        <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-4 ml-14"> {/* Added left margin to avoid logo overlap */}
-            <FileText className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-xl font-semibold text-gray-900">WSSP DNA Sequence Analysis Platform</h1>
+        {/* Main navigation content */}
+        <div className="flex justify-between items-center h-16 min-h-[64px]">
+          {/* Left side - Icon and title with responsive margins */}
+          <div className="flex items-center space-x-2 md:space-x-4 ml-0 sm:ml-10 md:ml-12 lg:ml-14 flex-1 min-w-0">
+            <FileText className="w-6 h-6 md:w-8 md:h-8 text-indigo-600 flex-shrink-0" />
+            <h1 className="font-semibold text-gray-900 truncate">
+              {/* Responsive title text */}
+              <span className="hidden lg:inline text-xl">WSSP DNA Sequence Analysis Platform</span>
+              <span className="hidden md:inline lg:hidden text-lg">WSSP Analysis Platform</span>
+              <span className="md:hidden text-base">WSSP</span>
+            </h1>
           </div>
 
-          <div className="flex items-center space-x-4 mr-16"> {/* Added right margin to avoid logo overlap */}
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <User className="w-4 h-4" />
-              <span>{currentUser?.name}</span>
-              <span className="text-indigo-600 font-medium capitalize">({currentUser?.role})</span>
+          {/* Right side - User info and logout with responsive margins */}
+          <div className="flex items-center space-x-2 md:space-x-4 mr-0 sm:mr-12 md:mr-14 lg:mr-16 flex-shrink-0">
+            <div className="flex items-center space-x-1 md:space-x-2 text-xs md:text-sm text-gray-600">
+              <User className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+              {/* Hide full name on very small screens */}
+              <span className="hidden sm:inline truncate max-w-[120px] lg:max-w-none">
+                {currentUser?.name}
+              </span>
+              <span className="text-indigo-600 font-medium capitalize">
+                ({currentUser?.role})
+              </span>
             </div>
             <button
               onClick={handleLogoutClick}
-              className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
+              className="text-gray-500 hover:text-gray-700 px-2 md:px-3 py-2 rounded-md text-xs md:text-sm font-medium min-h-[44px] md:min-h-auto"
             >
               Logout
             </button>
