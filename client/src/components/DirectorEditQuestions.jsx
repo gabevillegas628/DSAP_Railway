@@ -402,6 +402,13 @@ const DirectorEditQuestions = () => {
                     <div className="space-y-4 border-t pt-4">
                       <h5 className="font-medium text-gray-700">BLAST Comparison Configuration</h5>
 
+                      {/* Debug info */}
+                      <div className="text-xs text-gray-500 bg-yellow-50 p-2 rounded">
+                        Debug: options = {JSON.stringify(newAnalysisQuestion.options)}<br />
+                        blastQuestion1Id = {newAnalysisQuestion.options?.blastQuestion1Id}<br />
+                        blastQuestion2Id = {newAnalysisQuestion.options?.blastQuestion2Id}
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -409,13 +416,18 @@ const DirectorEditQuestions = () => {
                           </label>
                           <select
                             value={newAnalysisQuestion.options?.blastQuestion1Id || ''}
-                            onChange={(e) => setNewAnalysisQuestion({
-                              ...newAnalysisQuestion,
-                              options: {
-                                ...newAnalysisQuestion.options,
-                                blastQuestion1Id: parseInt(e.target.value) || null
-                              }
-                            })}
+                            onChange={(e) => {
+                              console.log('First BLAST dropdown changed:', e.target.value);
+                              console.log('Current options before change:', newAnalysisQuestion.options);
+
+                              setNewAnalysisQuestion({
+                                ...newAnalysisQuestion,
+                                options: {
+                                  ...newAnalysisQuestion.options,
+                                  blastQuestion1Id: e.target.value || null
+                                }
+                              });
+                            }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                           >
                             <option value="">Select a BLAST question...</option>
@@ -439,7 +451,7 @@ const DirectorEditQuestions = () => {
                               ...newAnalysisQuestion,
                               options: {
                                 ...newAnalysisQuestion.options,
-                                blastQuestion2Id: parseInt(e.target.value) || null
+                                blastQuestion2Id: e.target.value || null
                               }
                             })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
