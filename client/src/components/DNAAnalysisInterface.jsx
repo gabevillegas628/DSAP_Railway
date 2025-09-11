@@ -2023,8 +2023,8 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                   key={group.name}
                                   onClick={() => handleGroupChange(group.name)}
                                   className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentGroup
-                                    ? 'bg-indigo-500 text-white shadow-md'
-                                    : 'bg-white text-gray-600 hover:bg-indigo-100 border border-gray-200'
+                                    ? 'bg-emerald-500 text-white shadow-md'
+                                    : 'bg-white text-gray-600 hover:bg-emerald-100 border border-gray-200'
                                     }`}
                                 >
                                   <div className="flex items-center justify-between">
@@ -2037,7 +2037,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                         }`}></div>
                                       <div>
                                         <p className="text-sm font-medium">{group.name}</p>
-                                        <p className={`text-xs ${isCurrentGroup ? 'text-indigo-200' : 'text-gray-500'}`}>
+                                        <p className={`text-xs ${isCurrentGroup ? 'text-emerald-200' : 'text-gray-500'}`}>  
                                           {group.questions.length} question{group.questions.length !== 1 ? 's' : ''} • {groupProgress}%
                                         </p>
                                       </div>

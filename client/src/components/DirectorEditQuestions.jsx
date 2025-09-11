@@ -40,77 +40,77 @@ const DirectorEditQuestions = () => {
   };
 
   const addAnalysisQuestion = async () => {
-  if (newAnalysisQuestion.text.trim()) {
-    try {
-      const questionData = {
-        ...newAnalysisQuestion,
-        options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
-          newAnalysisQuestion.type === 'blast' ? {
-            blastResultsCount: newAnalysisQuestion.blastResultsCount,
-            blastTitle: newAnalysisQuestion.blastTitle
-          } :
-            newAnalysisQuestion.type === 'blast_comparison' ? {
-              blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
-              blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+    if (newAnalysisQuestion.text.trim()) {
+      try {
+        const questionData = {
+          ...newAnalysisQuestion,
+          options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
+            newAnalysisQuestion.type === 'blast' ? {
+              blastResultsCount: newAnalysisQuestion.blastResultsCount,
+              blastTitle: newAnalysisQuestion.blastTitle
             } :
-              newAnalysisQuestion.type === 'sequence_range' ? {
-                label1: newAnalysisQuestion.options?.label1 || 'Begin',
-                label2: newAnalysisQuestion.options?.label2 || 'End'
-              } : undefined,
-        questionGroup: newAnalysisQuestion.questionGroup || null,
-        groupOrder: newAnalysisQuestion.groupOrder || 0
-      };
+              newAnalysisQuestion.type === 'blast_comparison' ? {
+                blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
+                blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+              } :
+                newAnalysisQuestion.type === 'sequence_range' ? {
+                  label1: newAnalysisQuestion.options?.label1 || 'Begin',
+                  label2: newAnalysisQuestion.options?.label2 || 'End'
+                } : undefined,
+          questionGroup: newAnalysisQuestion.questionGroup || null,
+          groupOrder: newAnalysisQuestion.groupOrder || 0
+        };
 
-      const question = await apiService.post('/analysis-questions', questionData);
-      setAnalysisQuestions(prev => [...prev, question]);
-      setShowAnalysisQuestionForm(false);
-      setNewAnalysisQuestion({
-        step: 'clone-editing',
-        text: '',
-        type: 'text',
-        required: true,
-        order: 1,
-        conditionalLogic: null,
-        options: [],
-        blastResultsCount: 5,
-        blastTitle: '',
-        questionGroup: '',
-        groupOrder: 0
-      });
-    } catch (error) {
-      console.error('Error adding analysis question:', error);
+        const question = await apiService.post('/analysis-questions', questionData);
+        setAnalysisQuestions(prev => [...prev, question]);
+        setShowAnalysisQuestionForm(false);
+        setNewAnalysisQuestion({
+          step: 'clone-editing',
+          text: '',
+          type: 'text',
+          required: true,
+          order: 1,
+          conditionalLogic: null,
+          options: [],
+          blastResultsCount: 5,
+          blastTitle: '',
+          questionGroup: '',
+          groupOrder: 0
+        });
+      } catch (error) {
+        console.error('Error adding analysis question:', error);
+      }
     }
-  }
-};
+  };
 
   const updateAnalysisQuestion = async (questionId, updates) => {
-  try {
-    const updateData = {
-      ...updates,
-      options: updates.type === 'select' ? updates.options :
-        updates.type === 'blast' ? {
-          blastResultsCount: updates.blastResultsCount,
-          blastTitle: updates.blastTitle
-        } :
-          updates.type === 'blast_comparison' ? {
-            blastQuestion1Id: updates.options?.blastQuestion1Id,
-            blastQuestion2Id: updates.options?.blastQuestion2Id
+    try {
+      const updateData = {
+        ...updates,
+        options: updates.type === 'select' ? updates.options :
+          updates.type === 'blast' ? {
+            blastResultsCount: updates.blastResultsCount,
+            blastTitle: updates.blastTitle
           } :
-            updates.type === 'sequence_range' ? {
-              label1: updates.options?.label1 || 'Begin',
-              label2: updates.options?.label2 || 'End'
-            } : undefined
-    };
+            updates.type === 'blast_comparison' ? {
+              blastQuestion1Id: updates.options?.blastQuestion1Id,
+              blastQuestion2Id: updates.options?.blastQuestion2Id
+            } :
+              updates.type === 'sequence_range' ? {
+                label1: updates.options?.label1 || 'Begin',
+                label2: updates.options?.label2 || 'End'
+              } : undefined
+      };
 
-    const updatedQuestion = await apiService.put(`/analysis-questions/${questionId}`, updateData);
-    setAnalysisQuestions(prev => prev.map(q =>
-      q.id === questionId ? updatedQuestion : q
-    ));
-    setEditingAnalysisQuestion(null);
-  } catch (error) {
-    console.error('Error updating analysis question:', error);
-  }
-};
+      const updatedQuestion = await apiService.put(`/analysis-questions/${questionId}`, updateData);
+      setAnalysisQuestions(prev => prev.map(q =>
+        q.id === questionId ? updatedQuestion : q
+      ));
+      setEditingAnalysisQuestion(null);
+    } catch (error) {
+      console.error('Error updating analysis question:', error);
+    }
+  };
 
   const deleteAnalysisQuestion = async (questionId) => {
     // Check if other questions depend on this one
@@ -145,6 +145,11 @@ const DirectorEditQuestions = () => {
       };
     } else if (question.type === 'select') {
       optionsToSet = question.options || [];
+    } else if (question.type === 'sequence_range' && question.options) {
+      optionsToSet = {
+        label1: question.options.label1 || '',
+        label2: question.options.label2 || ''
+      };
     } else {
       optionsToSet = {};
     }
@@ -166,41 +171,41 @@ const DirectorEditQuestions = () => {
   };
 
   const saveEditedQuestion = async () => {
-  if (newAnalysisQuestion.text.trim()) {
-    await updateAnalysisQuestion(editingAnalysisQuestion, {
-      ...newAnalysisQuestion,
-      options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
-        newAnalysisQuestion.type === 'blast' ? {
-          blastResultsCount: newAnalysisQuestion.blastResultsCount,
-          blastTitle: newAnalysisQuestion.blastTitle
-        } :
-          newAnalysisQuestion.type === 'blast_comparison' ? {
-            blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
-            blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+    if (newAnalysisQuestion.text.trim()) {
+      await updateAnalysisQuestion(editingAnalysisQuestion, {
+        ...newAnalysisQuestion,
+        options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
+          newAnalysisQuestion.type === 'blast' ? {
+            blastResultsCount: newAnalysisQuestion.blastResultsCount,
+            blastTitle: newAnalysisQuestion.blastTitle
           } :
-            newAnalysisQuestion.type === 'sequence_range' ? {
-              label1: newAnalysisQuestion.options?.label1 || 'Begin',
-              label2: newAnalysisQuestion.options?.label2 || 'End'
-            } : undefined,
-      questionGroup: newAnalysisQuestion.questionGroup || null,
-      groupOrder: newAnalysisQuestion.groupOrder || 0
-    });
-    setShowAnalysisQuestionForm(false);
-    setNewAnalysisQuestion({
-      step: 'clone-editing',
-      text: '',
-      type: 'yes_no',
-      required: true,
-      order: 1,
-      conditionalLogic: null,
-      options: [],
-      blastResultsCount: 5,
-      blastTitle: '',
-      questionGroup: '',
-      groupOrder: 0
-    });
-  }
-};
+            newAnalysisQuestion.type === 'blast_comparison' ? {
+              blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
+              blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+            } :
+              newAnalysisQuestion.type === 'sequence_range' ? {
+                label1: newAnalysisQuestion.options?.label1 || 'Begin',
+                label2: newAnalysisQuestion.options?.label2 || 'End'
+              } : undefined,
+        questionGroup: newAnalysisQuestion.questionGroup || null,
+        groupOrder: newAnalysisQuestion.groupOrder || 0
+      });
+      setShowAnalysisQuestionForm(false);
+      setNewAnalysisQuestion({
+        step: 'clone-editing',
+        text: '',
+        type: 'yes_no',
+        required: true,
+        order: 1,
+        conditionalLogic: null,
+        options: [],
+        blastResultsCount: 5,
+        blastTitle: '',
+        questionGroup: '',
+        groupOrder: 0
+      });
+    }
+  };
 
   const addOption = () => {
     setNewAnalysisQuestion(prev => ({
