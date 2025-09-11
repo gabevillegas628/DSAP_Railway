@@ -5021,20 +5021,10 @@ app.post('/api/export-v2', async (req, res) => {
       }
 
       // Export Common Feedback
+      // Export Common Feedback - FIXED VERSION
       if (exportCommonFeedback) {
         exportData.analysisContent.commonFeedback = await prisma.commonFeedback.findMany({
           where: { isActive: true },
-          include: {
-            // We'll need to include question info for relationship rebuilding
-            question: {
-              select: {
-                id: true,
-                text: true,
-                step: true,
-                order: true
-              }
-            }
-          },
           orderBy: [
             { questionId: 'asc' },
             { title: 'asc' }
