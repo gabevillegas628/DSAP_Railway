@@ -2037,7 +2037,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                         }`}></div>
                                       <div>
                                         <p className="text-sm font-medium">{group.name}</p>
-                                        <p className={`text-xs ${isCurrentGroup ? 'text-emerald-200' : 'text-gray-500'}`}>  
+                                        <p className={`text-xs ${isCurrentGroup ? 'text-emerald-200' : 'text-gray-500'}`}>
                                           {group.questions.length} question{group.questions.length !== 1 ? 's' : ''} • {groupProgress}%
                                         </p>
                                       </div>
@@ -2228,7 +2228,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                   'Pending'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-700 mb-3">{question.text}</p>
+                          <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap">{question.text}</p>
                           {renderQuestion(question)}
                         </div>
                       );
@@ -2279,7 +2279,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                   'Pending'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-700 mb-3">{question.text}</p>
+                          <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap">{question.text}</p>
                           {renderQuestion(question)}
                         </div>
                       );
@@ -2343,7 +2343,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                       'Pending'}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-700 mb-3">{question.text}</p>
+                              <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap">{question.text}</p>
                               {renderQuestion(question)}
                             </div>
                           );
