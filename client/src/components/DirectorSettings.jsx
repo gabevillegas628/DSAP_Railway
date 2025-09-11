@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProgramSettingsContext } from '../context/ProgramSettingsContext';
-import { Plus, Edit2, Trash2, Save, X, MessageSquare, Download, Upload, Database, AlertCircle, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, MessageSquare, Download, Upload, Database, AlertCircle, CheckCircle, ChevronDown, ChevronRight, ProjectIcon, Users, Building, BookOpen, Settings, FlaskConical } from 'lucide-react';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import apiService from '../services/apiService';
@@ -43,8 +43,8 @@ if (typeof document !== 'undefined' && !document.querySelector('#director-settin
   document.head.appendChild(styleSheet);
 }
 
-// Project icon component - add this OUTSIDE the DirectorSettings component
-const ProjectIcon = () => (
+// Project icon component
+const ProjectIconComponent = () => (
   <div className="w-5 h-5 bg-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold">P</div>
 );
 
@@ -84,7 +84,6 @@ const CollapsibleSection = ({ sectionKey, title, description, icon: Icon, childr
 };
 
 const DirectorSettings = () => {
-  //const { settings, loading: contextLoading, updateSettings } = useProgramSettingsContext();
   const [settings, setSettings] = useState(null);
   const [contextLoading, setContextLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -130,93 +129,65 @@ const DirectorSettings = () => {
     text: ''
   });
 
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
-
-  // Add this function to fetch settings directly
-  const fetchSettings = async () => {
+  const loadInitialData = async () => {
     try {
-      setContextLoading(true);
-      const data = await apiService.get('/program-settings');
-      setSettings(data);
-      setContextLoading(false);
+      await Promise.all([
+        loadProgramSettings(),
+        loadDirectors(),
+        loadAnalysisQuestions(),
+        loadCommonFeedback()
+      ]);
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      console.error('Error loading initial data:', error);
+    } finally {
       setContextLoading(false);
     }
   };
 
-  // Load directors on component mount
-  // Load directors on component mount
-  useEffect(() => {
-    const loadDirectors = async () => {
-      try {
-        const data = await apiService.get('/directors');
-        setDirectors(data);
-      } catch (error) {
-        console.error('Error loading directors:', error);
+  const loadProgramSettings = async () => {
+    try {
+      const response = await apiService.get('/program-settings');
+      if (response) {
+        setSettings(response);
+        setFormData({
+          projectHeader: response.projectHeader || 'DNA Analysis Program',
+          principalInvestigator: response.principalInvestigator || '',
+          projectName: response.projectName || '',
+          staffEmail: response.staffEmail || '',
+          organismName: response.organismName || '',
+          orfContactInformation: response.orfContactInformation || '',
+          cloningVector: response.cloningVector || '',
+          sequencePrimer: response.sequencePrimer || '',
+          libraryName: response.libraryName || '',
+          restrictionEnzyme: response.restrictionEnzyme || '',
+          description: response.description || '',
+          welcomeText: response.welcomeText || '',
+          overview: response.overview || '',
+          collectDemographics: response.collectDemographics || false
+        });
       }
-    };
-
-    fetchSettings();
-    loadDirectors();
-    loadAnalysisQuestions();
-    loadCommonFeedback();
-  }, []);
-
-  // Update local state when context settings change
-  // Update local state when context settings change - ENHANCED VERSION
-  useEffect(() => {
-    console.log('Settings useEffect triggered, settings:', settings);
-
-    if (settings && Object.keys(settings).length > 0) {
-      console.log('Updating formData with settings');
-      setFormData({
-        projectHeader: settings.projectHeader || 'DNA Analysis Program',
-        principalInvestigator: settings.principalInvestigator || '',
-        projectName: settings.projectName || '',
-        staffEmail: settings.staffEmail || '',
-        organismName: settings.organismName || '',
-        orfContactInformation: settings.orfContactInformation || '',
-        cloningVector: settings.cloningVector || '',
-        sequencePrimer: settings.sequencePrimer || '',
-        libraryName: settings.libraryName || '',
-        restrictionEnzyme: settings.restrictionEnzyme || '',
-        description: settings.description || '',
-        welcomeText: settings.welcomeText || '',
-        overview: settings.overview || '',
-        collectDemographics: settings.collectDemographics || false
-      });
+    } catch (error) {
+      console.error('Error loading program settings:', error);
     }
-  }, [settings, contextLoading]); // Added contextLoading as dependency
+  };
 
-  // Add this useEffect to force populate fields if they're still empty after context loads
-  useEffect(() => {
-    // If context is not loading, and we have settings, but formData is still empty - force update
-    if (!contextLoading && settings && Object.keys(settings).length > 0 && !formData.projectName) {
-      console.log('Fallback: Force updating formData because fields are empty');
-      setFormData({
-        projectHeader: settings.projectHeader || 'DNA Analysis Program',
-        principalInvestigator: settings.principalInvestigator || '',
-        projectName: settings.projectName || '',
-        staffEmail: settings.staffEmail || '',
-        organismName: settings.organismName || '',
-        orfContactInformation: settings.orfContactInformation || '',
-        cloningVector: settings.cloningVector || '',
-        sequencePrimer: settings.sequencePrimer || '',
-        libraryName: settings.libraryName || '',
-        restrictionEnzyme: settings.restrictionEnzyme || '',
-        description: settings.description || '',
-        welcomeText: settings.welcomeText || '',
-        overview: settings.overview || ''
-      });
+  const loadDirectors = async () => {
+    try {
+      const response = await apiService.get('/directors');
+      setDirectors(response);
+    } catch (error) {
+      console.error('Error loading directors:', error);
     }
-  }, [contextLoading, settings, formData.projectName]);
-
+  };
 
   const loadAnalysisQuestions = async () => {
     try {
-      const questions = await apiService.get('/analysis-questions');
-      setAnalysisQuestions(questions);
+      const response = await apiService.get('/analysis-questions');
+      setAnalysisQuestions(response);
     } catch (error) {
       console.error('Error loading analysis questions:', error);
     }
@@ -224,39 +195,31 @@ const DirectorSettings = () => {
 
   const loadCommonFeedback = async () => {
     try {
-      console.log('Loading common feedback...');
-      const feedback = await apiService.get('/common-feedback');
-      console.log('Common feedback response:', feedback);
-      console.log('Number of feedback items:', feedback?.length || 0);
-      setCommonFeedback(feedback);
+      const response = await apiService.get('/common-feedback');
+      setCommonFeedback(response);
     } catch (error) {
       console.error('Error loading common feedback:', error);
-      console.error('Error details:', error.message);
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  // Replace your handleSave function:
   const handleSave = async () => {
     setLoading(true);
-    setSaveStatus('');
-
     try {
-      const response = await apiService.post('/program-settings', formData);
-      setSettings(response); // Update local settings
+      await apiService.post('/program-settings', formData);
       setSaveStatus('Settings saved successfully!');
       setTimeout(() => setSaveStatus(''), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
       setSaveStatus('Error saving settings. Please try again.');
     }
-
     setLoading(false);
   };
 
@@ -267,7 +230,11 @@ const DirectorSettings = () => {
     if (result.success) {
       loadAnalysisQuestions();
       loadCommonFeedback();
-      // You might want to refresh other data as well
+      loadProgramSettings();
+      // Auto-hide the result after 10 seconds
+      setTimeout(() => {
+        setLastImportResult(null);
+      }, 10000);
     }
     console.log('Import completed:', result);
   };
@@ -280,7 +247,6 @@ const DirectorSettings = () => {
     }));
   };
 
-
   // Common Feedback functions
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
@@ -292,7 +258,7 @@ const DirectorSettings = () => {
 
     try {
       if (editingFeedback) {
-        await apiService.put(`/api/common-feedback/${editingFeedback.id}`, newFeedback);
+        await apiService.put(`/common-feedback/${editingFeedback.id}`, newFeedback);
       } else {
         await apiService.post('/common-feedback', newFeedback);
       }
@@ -323,7 +289,7 @@ const DirectorSettings = () => {
     }
 
     try {
-      await apiService.delete(`/api/common-feedback/${feedbackId}`);
+      await apiService.delete(`/common-feedback/${feedbackId}`);
       await loadCommonFeedback();
     } catch (error) {
       console.error('Error deleting feedback:', error);
@@ -339,333 +305,299 @@ const DirectorSettings = () => {
 
   const getQuestionText = (questionId) => {
     const question = analysisQuestions.find(q => q.id === questionId);
-    return question ? question.text : 'Unknown Question';
+    return question ? `[${question.step}] ${question.text}` : 'Unknown Question';
   };
 
-  const getStepName = (step) => {
-    return step.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  // Group feedback by question for better organization
-  const groupedFeedback = commonFeedback.reduce((groups, feedback) => {
-    const questionId = feedback.questionId;
-    if (!groups[questionId]) {
-      groups[questionId] = [];
+  // Group feedback by question
+  const groupedFeedback = commonFeedback.reduce((acc, feedback) => {
+    if (!acc[feedback.questionId]) {
+      acc[feedback.questionId] = [];
     }
-    groups[questionId].push(feedback);
-    return groups;
+    acc[feedback.questionId].push(feedback);
+    return acc;
   }, {});
 
-  // Show loading state if context is still loading
   if (contextLoading) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading settings...</p>
-        </div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
-
+  // Replace the return statement container in DirectorSettings.jsx
   return (
-
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Program Settings</h2>
-        <p className="text-gray-600 mt-1">Configure program information, manage data, and set up common feedback options</p>
+    <div className="w-full space-y-6">
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Program Settings</h2>
+        <p className="text-gray-600">Configure your DNA Analysis Program settings and manage data.</p>
       </div>
 
       {/* Project Information Section */}
       <CollapsibleSection
         sectionKey="projectInfo"
         title="Project Information"
-        description="Configure basic project settings and details"
-        icon={ProjectIcon}
+        description="Configure basic project details and program information"
+        icon={ProjectIconComponent}
         expandedSections={expandedSections}
         toggleSection={toggleSection}
       >
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label htmlFor="projectHeader" className="block text-sm font-medium text-gray-700 mb-2">
+        {/* ... rest of the content stays the same ... */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Project Header
             </label>
             <input
               type="text"
-              id="projectHeader"
+              name="projectHeader"
               value={formData.projectHeader}
-              onChange={(e) => handleInputChange('projectHeader', e.target.value)}
-              placeholder="Enter project header"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Principal Investigator
+            </label>
+            <input
+              type="text"
+              name="principalInvestigator"
+              value={formData.principalInvestigator}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Project Name
             </label>
             <input
               type="text"
-              id="projectName"
+              name="projectName"
               value={formData.projectName}
-              onChange={(e) => handleInputChange('projectName', e.target.value)}
-              placeholder="Enter project name"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="principalInvestigator" className="block text-sm font-medium text-gray-700 mb-2">
-              Principal Investigator
-            </label>
-            <select
-              id="principalInvestigator"
-              value={formData.principalInvestigator}
-              onChange={(e) => handleInputChange('principalInvestigator', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            >
-              <option value="">Select Principal Investigator</option>
-              {directors.map(director => (
-                <option key={director.id} value={director.name}>
-                  {director.name} ({director.email})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="staffEmail" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Staff Email
             </label>
             <input
               type="email"
-              id="staffEmail"
+              name="staffEmail"
               value={formData.staffEmail}
-              onChange={(e) => handleInputChange('staffEmail', e.target.value)}
-              placeholder="Enter staff email"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="organismName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Organism Name
             </label>
             <input
               type="text"
-              id="organismName"
+              name="organismName"
               value={formData.organismName}
-              onChange={(e) => handleInputChange('organismName', e.target.value)}
-              placeholder="Enter organism name"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="orfContactInformation" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               ORF Contact Information
             </label>
             <input
               type="text"
-              id="orfContactInformation"
+              name="orfContactInformation"
               value={formData.orfContactInformation}
-              onChange={(e) => handleInputChange('orfContactInformation', e.target.value)}
-              placeholder="Enter ORF contact information"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="cloningVector" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Cloning Vector
             </label>
             <input
               type="text"
-              id="cloningVector"
+              name="cloningVector"
               value={formData.cloningVector}
-              onChange={(e) => handleInputChange('cloningVector', e.target.value)}
-              placeholder="Enter cloning vector"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="sequencePrimer" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Sequence Primer
             </label>
             <input
               type="text"
-              id="sequencePrimer"
+              name="sequencePrimer"
               value={formData.sequencePrimer}
-              onChange={(e) => handleInputChange('sequencePrimer', e.target.value)}
-              placeholder="Enter sequence primer"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="libraryName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Library Name
             </label>
             <input
               type="text"
-              id="libraryName"
+              name="libraryName"
               value={formData.libraryName}
-              onChange={(e) => handleInputChange('libraryName', e.target.value)}
-              placeholder="Enter library name"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
-          <div className="sm:col-span-2">
-            <label htmlFor="restrictionEnzyme" className="block text-sm font-medium text-gray-700 mb-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Restriction Enzyme
             </label>
             <input
               type="text"
-              id="restrictionEnzyme"
+              name="restrictionEnzyme"
               value={formData.restrictionEnzyme}
-              onChange={(e) => handleInputChange('restrictionEnzyme', e.target.value)}
-              placeholder="Enter restriction enzyme"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
+        </div>
 
-          <div className="sm:col-span-2">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Project Description
-            </label>
-            <textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Enter project description"
-              rows="4"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Description
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
 
-          <div className="sm:col-span-2">
-            <label htmlFor="welcomeText" className="block text-sm font-medium text-gray-700 mb-2">
-              Welcome Text
-            </label>
-            <textarea
-              id="welcomeText"
-              value={formData.welcomeText}
-              onChange={(e) => handleInputChange('welcomeText', e.target.value)}
-              placeholder="Enter welcome message for students and instructors"
-              rows="3"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Welcome Text
+          </label>
+          <textarea
+            name="welcomeText"
+            value={formData.welcomeText}
+            onChange={handleInputChange}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Welcome message shown to students when they log in..."
+          />
+        </div>
 
-          <div className="sm:col-span-2">
-            <label htmlFor="overview" className="block text-sm font-medium text-gray-700 mb-2">
-              Project Overview
-            </label>
-            <textarea
-              id="overview"
-              value={formData.overview}
-              onChange={(e) => handleInputChange('overview', e.target.value)}
-              placeholder="Enter detailed project overview"
-              rows="4"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Overview
+          </label>
+          <textarea
+            name="overview"
+            value={formData.overview}
+            onChange={handleInputChange}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Program overview and instructions..."
+          />
+        </div>
+
+        <div className="mt-6">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              name="collectDemographics"
+              checked={formData.collectDemographics}
+              onChange={handleInputChange}
+              className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
             />
-          </div>
-          {/* Demographics Collection Toggle */}
-          <div className="sm:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <label className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                checked={formData.collectDemographics}
-                onChange={(e) => handleInputChange('collectDemographics', e.target.checked)}
-                className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-900">
-                  Collect Demographics During Registration
-                </span>
-                <p className="text-xs text-gray-600 mt-1">
-                  When enabled, students will be asked to provide demographic information during account creation.
-                  This data is optional and stored securely for research and analysis purposes.
-                </p>
-              </div>
-            </label>
-          </div>
+            <span className="text-sm font-medium text-gray-700">
+              Collect demographic information from students during registration
+            </span>
+          </label>
         </div>
       </CollapsibleSection>
 
-      {/* Common Feedback Management Section */}
+      {/* Common Feedback Section */}
       <CollapsibleSection
         sectionKey="commonFeedback"
-        title="Common Feedback Options"
-        description="Create reusable feedback responses for common issues in student submissions"
+        title="Common Feedback"
+        description="Create reusable feedback templates for grading and reviewing student work"
         icon={MessageSquare}
         expandedSections={expandedSections}
         toggleSection={toggleSection}
       >
-        <div className="flex justify-end mb-4">
+        <div className="mb-6">
           <button
             onClick={() => setShowFeedbackForm(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center space-x-2"
+            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <Plus size={16} />
             <span>Add Feedback</span>
           </button>
         </div>
 
         {/* Feedback Form */}
         {showFeedbackForm && (
-          <div className="bg-gray-50 border rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-gray-900 mb-3">
-              {editingFeedback ? 'Edit Feedback Option' : 'Add New Feedback Option'}
-            </h4>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
             <form onSubmit={handleFeedbackSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Question
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Analysis Question
                 </label>
                 <select
                   value={newFeedback.questionId}
                   onChange={(e) => setNewFeedback({ ...newFeedback, questionId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
                 >
                   <option value="">Select a question...</option>
                   {analysisQuestions.map(question => (
                     <option key={question.id} value={question.id}>
-                      [{getStepName(question.step)}] {question.text.substring(0, 80)}
-                      {question.text.length > 80 ? '...' : ''}
+                      [{question.step}] {question.text}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Feedback Title
                 </label>
                 <input
                   type="text"
                   value={newFeedback.title}
                   onChange={(e) => setNewFeedback({ ...newFeedback, title: e.target.value })}
-                  placeholder="e.g., Missing units, Incorrect calculation, etc."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="e.g., 'Missing units', 'Incomplete analysis'..."
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Feedback Text
                 </label>
                 <textarea
                   value={newFeedback.text}
                   onChange={(e) => setNewFeedback({ ...newFeedback, text: e.target.value })}
-                  placeholder="Enter the feedback message that will be shown to students..."
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="The detailed feedback message to show to students..."
                   required
                 />
               </div>
@@ -673,17 +605,17 @@ const DirectorSettings = () => {
               <div className="flex space-x-3">
                 <button
                   type="submit"
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center space-x-2"
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
-                  <Save className="w-4 h-4" />
+                  <Save size={16} />
                   <span>{editingFeedback ? 'Update' : 'Save'} Feedback</span>
                 </button>
                 <button
                   type="button"
                   onClick={cancelFeedbackForm}
-                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 flex items-center space-x-2"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
                 >
-                  <X className="w-4 h-4" />
+                  <X size={16} />
                   <span>Cancel</span>
                 </button>
               </div>
@@ -691,7 +623,7 @@ const DirectorSettings = () => {
           </div>
         )}
 
-        {/* Existing Feedback List */}
+        {/* Feedback List */}
         <div className="space-y-4">
           {Object.keys(groupedFeedback).length === 0 ? (
             <p className="text-gray-500 text-center py-8">
@@ -744,11 +676,11 @@ const DirectorSettings = () => {
         </div>
       </CollapsibleSection>
 
-      {/* Data Management Section - Now at the end */}
+      {/* Data Management Section - Updated for v2.0 */}
       <CollapsibleSection
         sectionKey="dataManagement"
-        title="Data Management"
-        description="Import and export program data to share between different instances"
+        title="Data Management v2.0"
+        description="Import and export program data with enhanced relationship preservation"
         icon={Database}
         expandedSections={expandedSections}
         toggleSection={toggleSection}
@@ -761,26 +693,39 @@ const DirectorSettings = () => {
             }`}>
             <div className="flex items-start space-x-2">
               {lastImportResult.success ? (
-                <CheckCircle className="text-green-600 mt-0.5" size={16} />
+                <CheckCircle className="text-green-600 mt-0.5" size={20} />
               ) : (
-                <AlertCircle className="text-red-600 mt-0.5" size={16} />
+                <AlertCircle className="text-red-600 mt-0.5" size={20} />
               )}
               <div className="flex-1">
-                <p className={`text-sm font-medium ${lastImportResult.success ? 'text-green-800' : 'text-red-800'
-                  }`}>
+                <h4 className={`font-medium ${lastImportResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                  Import {lastImportResult.success ? 'Successful' : 'Failed'}
+                </h4>
+                <p className={`text-sm mt-1 ${lastImportResult.success ? 'text-green-800' : 'text-red-800'}`}>
                   {lastImportResult.message}
                 </p>
                 {lastImportResult.results && (
-                  <div className="mt-2 text-xs space-y-1">
-                    {Object.entries(lastImportResult.results.imported || {}).map(([key, value]) => (
-                      <p key={key} className="text-green-700">✓ {value}</p>
-                    ))}
-                    {Object.entries(lastImportResult.results.skipped || {}).map(([key, value]) => (
-                      <p key={key} className="text-yellow-700">⚠ {value}</p>
-                    ))}
-                    {lastImportResult.results.errors && lastImportResult.results.errors.map((error, i) => (
-                      <p key={i} className="text-red-700">✗ {error}</p>
-                    ))}
+                  <div className="mt-2 text-sm">
+                    {lastImportResult.results.imported && Object.keys(lastImportResult.results.imported).length > 0 && (
+                      <div className="text-green-800">
+                        <strong>Imported:</strong> {Object.values(lastImportResult.results.imported).join(', ')}
+                      </div>
+                    )}
+                    {lastImportResult.results.updated && Object.keys(lastImportResult.results.updated).length > 0 && (
+                      <div className="text-blue-800">
+                        <strong>Updated:</strong> {Object.values(lastImportResult.results.updated).join(', ')}
+                      </div>
+                    )}
+                    {lastImportResult.results.skipped && Object.keys(lastImportResult.results.skipped).length > 0 && (
+                      <div className="text-yellow-800">
+                        <strong>Skipped:</strong> {Object.values(lastImportResult.results.skipped).join(', ')}
+                      </div>
+                    )}
+                    {lastImportResult.results.errors && lastImportResult.results.errors.length > 0 && (
+                      <div className="text-red-800">
+                        <strong>Errors:</strong> {lastImportResult.results.errors.length} issues occurred
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -788,103 +733,114 @@ const DirectorSettings = () => {
                 onClick={() => setLastImportResult(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ×
+                <X size={16} />
               </button>
             </div>
           </div>
         )}
 
+        {/* Enhanced Export/Import Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Export Card */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <Download className="text-blue-600" size={20} />
+          <div className="border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <Download className="text-blue-600" size={24} />
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900">Export Data</h4>
-                <p className="text-sm text-gray-600">Create a backup file to share with other instances</p>
+                <h4 className="font-semibold text-gray-900">Export Data v2.0</h4>
+                <p className="text-sm text-gray-600">Create backups and share configurations</p>
               </div>
             </div>
 
-            <div className="space-y-2 mb-4 text-sm text-gray-600">
+            {/* Export Features */}
+            <div className="space-y-3 mb-4">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                <span>Directors</span>
+                <Users className="text-gray-500" size={16} />
+                <span className="text-sm text-gray-700">Users & Demographics</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                <span>Instructors</span>
+                <Building className="text-gray-500" size={16} />
+                <span className="text-sm text-gray-700">Schools & Configuration</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span>Students</span>
+                <BookOpen className="text-gray-500" size={16} />
+                <span className="text-sm text-gray-700">Educational Content</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
-                <span>School information</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                <span>Practice clones and answers</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                <span>Analysis questions</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-teal-400 rounded-full"></div>
-                <span>Common Feedback</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                <span>Program settings</span>
+                <FlaskConical className="text-gray-500" size={16} />
+                <span className="text-sm text-gray-700">Practice Clones & Answers</span>
               </div>
             </div>
 
             <button
               onClick={() => setShowExportModal(true)}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Download size={16} />
+              <Download size={18} />
               <span>Export Program Data</span>
             </button>
           </div>
 
           {/* Import Card */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="bg-green-100 p-2 rounded-lg">
-                <Upload className="text-green-600" size={20} />
+          <div className="border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="bg-green-100 p-3 rounded-lg">
+                <Upload className="text-green-600" size={24} />
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900">Import Data</h4>
-                <p className="text-sm text-gray-600">Load data from another DNA Analysis Program instance</p>
+                <h4 className="font-semibold text-gray-900">Import Data v2.0</h4>
+                <p className="text-sm text-gray-600">Load data from another instance</p>
               </div>
+            </div>
+
+            {/* Import Features */}
+            <div className="space-y-2 mb-4 text-sm text-gray-600">
+              <p>✓ Preserves question-help relationships</p>
+              <p>✓ Maintains school assignments</p>
+              <p>✓ Selective data import</p>
+              <p>✓ Conflict resolution options</p>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
               <div className="flex items-start space-x-2">
-                <AlertCircle className="text-yellow-600 mt-0.5" size={12} />
+                <AlertCircle className="text-yellow-600 mt-0.5" size={14} />
                 <p className="text-xs text-yellow-800">
-                  <strong>Important:</strong> Importing may overwrite existing data. Consider exporting first as a backup.
+                  <strong>Important:</strong> Consider exporting current data as a backup before importing.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-1 mb-4 text-sm text-gray-600">
-              <p>✓ Supports conflict resolution</p>
-              <p>✓ Preview data before importing</p>
-              <p>✓ Selective import options</p>
-            </div>
-
             <button
               onClick={() => setShowImportModal(true)}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
-              <Upload size={16} />
+              <Upload size={18} />
               <span>Import Program Data</span>
             </button>
+          </div>
+        </div>
+
+        {/* v2.0 Features Box */}
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mt-6">
+          <h4 className="font-medium text-indigo-900 mb-2">✨ New in v2.0</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-indigo-800">
+            <div>
+              <strong>Enhanced Relationships:</strong>
+              <ul className="mt-1 space-y-1 text-xs">
+                <li>• Question-to-help topic links preserved</li>
+                <li>• Common feedback associations maintained</li>
+                <li>• Practice clone answers correctly linked</li>
+              </ul>
+            </div>
+            <div>
+              <strong>Smart Importing:</strong>
+              <ul className="mt-1 space-y-1 text-xs">
+                <li>• Automatic ID mapping and translation</li>
+                <li>• School assignment preservation</li>
+                <li>• Demographics included with students</li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -893,9 +849,10 @@ const DirectorSettings = () => {
           <h4 className="font-medium text-gray-900 mb-2">Best Practices</h4>
           <ul className="text-sm text-gray-600 space-y-1">
             <li>• <strong>Regular Backups:</strong> Export your data regularly as a backup measure</li>
-            <li>• <strong>Before Major Changes:</strong> Create an export before importing data or making significant system changes</li>
-            <li>• <strong>Test Environment:</strong> Consider testing imports in a separate instance first</li>
-            <li>• <strong>Password Security:</strong> User passwords are never exported; imported users will need to reset their passwords (default pass: defaultpassword123)</li>
+            <li>• <strong>Annual Setup:</strong> Use exports to quickly set up new academic year instances</li>
+            <li>• <strong>Content Sharing:</strong> Share educational content (questions, help, practice clones) between institutions</li>
+            <li>• <strong>Test First:</strong> Test imports in a development environment when possible</li>
+            <li>• <strong>File Management:</strong> Practice clone .ab1 files need to be uploaded separately after import</li>
           </ul>
         </div>
       </CollapsibleSection>

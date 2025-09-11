@@ -1,6 +1,6 @@
 // components/DirectorCloneLibrary.jsx
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, Trash2, Search, X } from 'lucide-react';
+import { Upload, Download, Search, Filter, Eye, Trash2, Plus, AlertTriangle, CheckCircle, RefreshCw, FileText, Link, X } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import DirectorPracticeAnswers from './DirectorPracticeAnswers';
 import apiService from '../services/apiService';
@@ -15,6 +15,13 @@ import {
 
 const DirectorCloneLibrary = () => {
   const { currentUser } = useDNAContext();
+
+    // Test console logging
+  console.error('🔴 ERROR LOG TEST'); // Red in console
+  console.warn('🟡 WARN LOG TEST');   // Yellow in console  
+  console.log('🔵 REGULAR LOG TEST'); // Regular in console
+
+  
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,12 +47,63 @@ const DirectorCloneLibrary = () => {
   const [showPracticeAnswersModal, setShowPracticeAnswersModal] = useState(false);
   const [selectedPracticeClone, setSelectedPracticeClone] = useState(null);
 
+  // State variable for bulk uploads (for missing files)
+  const [missingFiles, setMissingFiles] = useState([]);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [loadingMissingFiles, setLoadingMissingFiles] = useState(false);
+  const [bulkUploadFiles, setBulkUploadFiles] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const [manualMatches, setManualMatches] = useState({});
+  const [suggestions, setSuggestions] = useState({});
+  const [bulkUploadResults, setBulkUploadResults] = useState(null);
+  const [foundFiles, setFoundFiles] = useState([]);
+
+  const checkMissingFiles = async () => {
+    console.log('🔍 Starting checkMissingFiles...');
+    setLoadingMissingFiles(true);
+
+    try {
+      console.log('📡 Making API call to /practice-clones/missing-files');
+      const response = await apiService.get('/practice-clones/missing-files');
+      console.log('📥 API Response received:', response);
+
+      setMissingFiles(response.missingFiles || []);
+      setFoundFiles(response.foundFiles || []);
+
+      console.log('📊 Set state - Missing files:', response.missingFiles?.length || 0);
+      console.log('📊 Set state - Found files:', response.foundFiles?.length || 0);
+
+      if (response.fixedFilenames > 0) {
+        console.log(`✅ Fixed ${response.fixedFilenames} filename mismatches`);
+        // Refresh practice clones list to show updated data
+        await fetchPracticeClones();
+      }
+
+      if (response.missingFiles.length > 0) {
+        console.log(`❌ Found ${response.missingFiles.length} practice clones with missing files:`, response.missingFiles);
+      } else {
+        console.log('✅ All practice clone files found!');
+      }
+
+    } catch (error) {
+      console.error('💥 Error in checkMissingFiles:', error);
+      console.error('💥 Error stack:', error.stack);
+      alert(`Error checking for missing files: ${error.message}`);
+    } finally {
+      console.log('🏁 checkMissingFiles completed');
+      setLoadingMissingFiles(false);
+    }
+  };
+
+
 
   // Update your useEffect to fetch both normal and practice clones
   useEffect(() => {
     fetchUploadedFiles();
     fetchStudents();
     fetchPracticeClones();
+    console.log('🧪 BASIC TEST: DirectorCloneLibrary component mounted!');
+    console.log('🧪 Current user:', currentUser);
   }, []);
 
   // Reset pagination when search changes
@@ -53,9 +111,111 @@ const DirectorCloneLibrary = () => {
     setCurrentPage(1);
   }, [searchTerm, searchFilters]);
 
+  // Check for missing files on component mount
+  useEffect(() => {
+    console.log('🚀 DirectorCloneLibrary useEffect - calling checkMissingFiles');
+    checkMissingFiles();
+  }, []);
+
   const openPracticeAnswersModal = (practiceClone) => {
     setSelectedPracticeClone(practiceClone);
     setShowPracticeAnswersModal(true);
+  };
+
+  // Functions for bulk upload modal for missing files
+  const handleBulkFileSelect = async (event) => {
+    const files = Array.from(event.target.files);
+    const ab1Files = files.filter(file => file.name.toLowerCase().endsWith('.ab1'));
+
+    if (ab1Files.length !== files.length) {
+      alert(`Only .ab1 files are allowed. ${files.length - ab1Files.length} files were filtered out.`);
+    }
+
+    setBulkUploadFiles(ab1Files);
+
+    // Get suggestions for auto-matching
+    if (ab1Files.length > 0) {
+      try {
+        const filenames = ab1Files.map(f => f.name);
+        const suggestionData = await apiService.post('/practice-clones/suggest-matches', { filenames });
+        setSuggestions(suggestionData);
+      } catch (error) {
+        console.error('Error getting suggestions:', error);
+      }
+    }
+  };
+
+  const handleManualMatch = (filename, cloneId) => {
+    setManualMatches(prev => ({
+      ...prev,
+      [filename]: cloneId
+    }));
+  };
+
+  const removeManualMatch = (filename) => {
+    setManualMatches(prev => {
+      const updated = { ...prev };
+      delete updated[filename];
+      return updated;
+    });
+  };
+
+  const handleBulkUpload = async () => {
+    if (bulkUploadFiles.length === 0) {
+      alert('Please select files to upload');
+      return;
+    }
+
+    setUploadProgress({ status: 'uploading', current: 0, total: bulkUploadFiles.length });
+
+    try {
+      const formData = new FormData();
+
+      // Add all files
+      bulkUploadFiles.forEach(file => {
+        formData.append('files', file);
+      });
+
+      // Add manual matches
+      formData.append('manualMatches', JSON.stringify(manualMatches));
+
+      const response = await apiService.uploadFiles('/practice-clones/bulk-upload', formData);
+
+      setBulkUploadResults(response.results);
+      setUploadProgress({ status: 'completed', results: response.results });
+
+      // Refresh the missing files list and practice clones
+      await checkMissingFiles();
+      await fetchPracticeClones();
+
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      setUploadProgress({ status: 'error', error: error.message });
+    }
+  };
+
+  const resetBulkUpload = () => {
+    setBulkUploadFiles([]);
+    setManualMatches({});
+    setSuggestions({});
+    setUploadProgress(null);
+    setBulkUploadResults(null);
+    setShowBulkUpload(false);
+  };
+
+  const getMatchStatus = (filename) => {
+    if (manualMatches[filename]) {
+      const clone = missingFiles.find(mf => mf.id === parseInt(manualMatches[filename]));
+      return { type: 'manual', clone };
+    }
+
+    const autoSuggestions = suggestions[filename] || [];
+    const bestMatch = autoSuggestions.find(s => s.similarity >= 60);
+    if (bestMatch) {
+      return { type: 'auto', suggestion: bestMatch };
+    }
+
+    return { type: 'unmatched' };
   };
 
   const togglePracticeCloneStatus = async (cloneId, newStatus) => {
@@ -713,6 +873,378 @@ const DirectorCloneLibrary = () => {
           ) : (
             // NEW: Practice clones table
             <div className="overflow-x-auto">
+              {/* Missing Files Alert Section - Updated with debug info */}
+              {(missingFiles.length > 0 || loadingMissingFiles) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start space-x-3">
+                    {loadingMissingFiles ? (
+                      <RefreshCw className="text-blue-600 mt-1 animate-spin" size={20} />
+                    ) : missingFiles.length > 0 ? (
+                      <AlertTriangle className="text-yellow-600 mt-1" size={20} />
+                    ) : (
+                      <CheckCircle className="text-green-600 mt-1" size={20} />
+                    )}
+                    <div className="flex-1">
+                      {loadingMissingFiles ? (
+                        <div>
+                          <h3 className="font-medium text-blue-900 mb-2">
+                            Checking Practice Clone Files...
+                          </h3>
+                          <p className="text-sm text-blue-800">
+                            Verifying file existence and fixing any mismatched filenames...
+                          </p>
+                        </div>
+                      ) : missingFiles.length > 0 ? (
+                        <div>
+                          <h3 className="font-medium text-yellow-900 mb-2">
+                            Missing Practice Clone Files Detected
+                          </h3>
+                          <p className="text-sm text-yellow-800 mb-3">
+                            {missingFiles.length} practice clone{missingFiles.length !== 1 ? 's' : ''} {missingFiles.length === 1 ? 'is' : 'are'} missing {missingFiles.length === 1 ? 'its' : 'their'} .ab1 file{missingFiles.length !== 1 ? 's' : ''}.
+                          </p>
+
+                          {/* Debug Info */}
+                          <div className="bg-white rounded border border-yellow-300 mb-4 p-3">
+                            <h4 className="font-medium text-gray-900 mb-2">Debug Information:</h4>
+                            <div className="text-sm space-y-1">
+                              <div>Total practice clones: {missingFiles.length + (foundFiles?.length || 0)}</div>
+                              {foundFiles && foundFiles.length > 0 && (
+                                <div>Files found: {foundFiles.length}</div>
+                              )}
+                              {foundFiles && foundFiles.filter(f => f.checkMethod === 'fuzzy_match').length > 0 && (
+                                <div className="text-green-700">
+                                  ✓ Fixed {foundFiles.filter(f => f.checkMethod === 'fuzzy_match').length} filename mismatches
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Missing Files List */}
+                          <div className="bg-white rounded border border-yellow-300 mb-4 max-h-48 overflow-y-auto">
+                            {missingFiles.map(clone => (
+                              <div key={clone.id} className="flex items-center justify-between p-3 border-b border-yellow-200 last:border-b-0">
+                                <div>
+                                  <div className="font-medium text-gray-900">{clone.cloneName}</div>
+                                  <div className="text-sm text-gray-600">
+                                    Expected: {clone.filename}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    Original: {clone.originalName}
+                                  </div>
+                                  {clone.hasAnswers && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 mt-1">
+                                      <CheckCircle size={12} className="mr-1" />
+                                      Has Answers
+                                    </span>
+                                  )}
+                                </div>
+                                {clone.reason && (
+                                  <div className="text-sm text-red-600">{clone.reason}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex space-x-3">
+                            <button
+                              onClick={() => setShowBulkUpload(true)}
+                              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center space-x-2"
+                            >
+                              <Upload size={16} />
+                              <span>Bulk Upload Files</span>
+                            </button>
+                            <button
+                              onClick={checkMissingFiles}
+                              disabled={loadingMissingFiles}
+                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                            >
+                              <RefreshCw size={16} className={loadingMissingFiles ? 'animate-spin' : ''} />
+                              <span>Re-check Files</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <h3 className="font-medium text-green-900 mb-2">
+                            All Practice Clone Files Found ✓
+                          </h3>
+                          <p className="text-sm text-green-800">
+                            All practice clones have their associated .ab1 files available.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bulk Upload Modal */}
+              {showBulkUpload && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-xl font-semibold text-gray-900">Bulk Upload Practice Clone Files</h2>
+                      <button
+                        onClick={resetBulkUpload}
+                        className="text-gray-400 hover:text-gray-600"
+                        disabled={uploadProgress?.status === 'uploading'}
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
+
+                    {!uploadProgress && (
+                      <>
+                        {/* File Selection */}
+                        <div className="mb-6">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Select .ab1 Files
+                          </label>
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                            <p className="text-gray-600 mb-4">
+                              Choose .ab1 files that correspond to your missing practice clones
+                            </p>
+                            <input
+                              type="file"
+                              multiple
+                              accept=".ab1"
+                              onChange={handleBulkFileSelect}
+                              className="hidden"
+                              id="bulk-file-input"
+                            />
+                            <label
+                              htmlFor="bulk-file-input"
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 cursor-pointer"
+                            >
+                              Select Files
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* File Matching */}
+                        {bulkUploadFiles.length > 0 && (
+                          <div className="mb-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">
+                              File Matching ({bulkUploadFiles.length} files selected)
+                            </h3>
+
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                              {bulkUploadFiles.map((file, index) => {
+                                const matchStatus = getMatchStatus(file.name);
+
+                                return (
+                                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        <div className="font-medium text-gray-900 mb-2">{file.name}</div>
+
+                                        {/* Match Status */}
+                                        {matchStatus.type === 'manual' && (
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <Link className="text-blue-600" size={16} />
+                                            <span className="text-sm text-blue-800">
+                                              Manually matched to: <strong>{matchStatus.clone?.cloneName}</strong>
+                                            </span>
+                                            <button
+                                              onClick={() => removeManualMatch(file.name)}
+                                              className="text-red-600 hover:text-red-800"
+                                            >
+                                              <X size={14} />
+                                            </button>
+                                          </div>
+                                        )}
+
+                                        {matchStatus.type === 'auto' && (
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <CheckCircle className="text-green-600" size={16} />
+                                            <span className="text-sm text-green-800">
+                                              Auto-match suggested: <strong>{matchStatus.suggestion.cloneName}</strong> ({matchStatus.suggestion.similarity}% similarity)
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {matchStatus.type === 'unmatched' && (
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <AlertTriangle className="text-yellow-600" size={16} />
+                                            <span className="text-sm text-yellow-800">No automatic match found</span>
+                                          </div>
+                                        )}
+
+                                        {/* Manual Match Selector */}
+                                        <div className="mt-2">
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Manual Match:
+                                          </label>
+                                          <select
+                                            value={manualMatches[file.name] || ''}
+                                            onChange={(e) => handleManualMatch(file.name, e.target.value ? parseInt(e.target.value) : null)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                          >
+                                            <option value="">Select a practice clone...</option>
+                                            {missingFiles.map(clone => (
+                                              <option key={clone.id} value={clone.id}>
+                                                {clone.cloneName} (expected: {clone.filename})
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Suggestions */}
+                                        {suggestions[file.name]?.length > 0 && (
+                                          <div className="mt-2">
+                                            <div className="text-sm font-medium text-gray-700 mb-1">Suggestions:</div>
+                                            <div className="space-y-1">
+                                              {suggestions[file.name].slice(0, 3).map((suggestion, suggIndex) => (
+                                                <button
+                                                  key={suggIndex}
+                                                  onClick={() => handleManualMatch(file.name, suggestion.id)}
+                                                  className="block w-full text-left px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
+                                                >
+                                                  {suggestion.cloneName} ({suggestion.similarity}% match)
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Upload Button */}
+                            <div className="mt-6 flex justify-between">
+                              <div className="text-sm text-gray-600">
+                                {bulkUploadFiles.filter(f => getMatchStatus(f.name).type !== 'unmatched').length} of {bulkUploadFiles.length} files have matches
+                              </div>
+                              <button
+                                onClick={handleBulkUpload}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                              >
+                                <Upload size={16} />
+                                <span>Upload Files</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Upload Progress */}
+                    {uploadProgress && (
+                      <div className="space-y-4">
+                        {uploadProgress.status === 'uploading' && (
+                          <div>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <RefreshCw className="animate-spin text-blue-600" size={20} />
+                              <span className="font-medium text-gray-900">Uploading files...</span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              This may take a moment. Please don't close this window.
+                            </p>
+                          </div>
+                        )}
+
+                        {uploadProgress.status === 'completed' && uploadProgress.results && (
+                          <div>
+                            <div className="flex items-center space-x-2 mb-4">
+                              <CheckCircle className="text-green-600" size={20} />
+                              <span className="font-medium text-gray-900">Upload Completed!</span>
+                            </div>
+
+                            {/* Results Summary */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                <div className="text-lg font-semibold text-green-900">
+                                  {uploadProgress.results.uploaded?.length || 0}
+                                </div>
+                                <div className="text-sm text-green-700">Files Uploaded</div>
+                              </div>
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                <div className="text-lg font-semibold text-yellow-900">
+                                  {uploadProgress.results.unmatched?.length || 0}
+                                </div>
+                                <div className="text-sm text-yellow-700">Unmatched</div>
+                              </div>
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <div className="text-lg font-semibold text-red-900">
+                                  {uploadProgress.results.errors?.length || 0}
+                                </div>
+                                <div className="text-sm text-red-700">Errors</div>
+                              </div>
+                            </div>
+
+                            {/* Detailed Results */}
+                            {uploadProgress.results.uploaded?.length > 0 && (
+                              <div className="mb-4">
+                                <h4 className="font-medium text-gray-900 mb-2">Successfully Uploaded:</h4>
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                  {uploadProgress.results.uploaded.map((item, index) => (
+                                    <div key={index} className="text-sm text-green-800">
+                                      ✓ {item.filename} → {item.cloneName} ({item.matchType} match)
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {uploadProgress.results.unmatched?.length > 0 && (
+                              <div className="mb-4">
+                                <h4 className="font-medium text-gray-900 mb-2">Unmatched Files:</h4>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                  {uploadProgress.results.unmatched.map((item, index) => (
+                                    <div key={index} className="text-sm text-yellow-800">
+                                      ⚠ {item.filename} - {item.reason}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {uploadProgress.results.errors?.length > 0 && (
+                              <div className="mb-4">
+                                <h4 className="font-medium text-gray-900 mb-2">Errors:</h4>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                  {uploadProgress.results.errors.map((item, index) => (
+                                    <div key={index} className="text-sm text-red-800">
+                                      ✗ {item.filename} - {item.error}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <button
+                              onClick={resetBulkUpload}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        )}
+
+                        {uploadProgress.status === 'error' && (
+                          <div>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <AlertTriangle className="text-red-600" size={20} />
+                              <span className="font-medium text-gray-900">Upload Failed</span>
+                            </div>
+                            <p className="text-sm text-red-600 mb-4">{uploadProgress.error}</p>
+                            <button
+                              onClick={() => setUploadProgress(null)}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                              Try Again
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">

@@ -36,23 +36,20 @@ class ApiService {
   }
 
   async downloadExport(exportOptions) {
-    console.log(`API EXPORT: ${API_BASE}/export`, exportOptions);
+    const headers = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    headers['Content-Type'] = 'application/json';
 
-    const response = await fetch(`${API_BASE}/export`, {
+    const response = await fetch(`${API_BASE}/export-v2`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers,
       body: JSON.stringify(exportOptions)
     });
 
-    if (response.status === 401) {
-      this.setToken(null);
-      window.location.href = '/login';
-      throw new Error('Authentication required');
-    }
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Export Error Response:`, errorText);
       throw new Error(`Export failed: ${response.status} - ${errorText}`);
     }
 

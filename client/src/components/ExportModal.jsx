@@ -1,59 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { Download, X, AlertCircle, Check } from 'lucide-react';
+import { Download, X, AlertCircle, Check, Users, Building, FlaskConical, Settings, HelpCircle, MessageSquare, BookOpen } from 'lucide-react';
 import apiService from '../services/apiService';
-
 
 const ExportModal = ({ isOpen, onClose }) => {
     const [exportData, setExportData] = useState({
+        // Users
         directors: false,
         instructors: false,
         students: false,
+
+        // Configuration
         schools: false,
+        programSettings: false,
+
+        // Educational Content
         practiceClones: false,
         analysisQuestions: false,
         commonFeedback: false,
-        programSettings: false,
+        helpTopics: false,
+        stepHelp: false,
+
+        // Options
         createDefaultDirector: false
     });
 
     const [isExporting, setIsExporting] = useState(false);
     const [exportStatus, setExportStatus] = useState('');
-    const [userCounts, setUserCounts] = useState({
-        directors: 0,
-        instructors: 0,
-        students: 0
+    const [counts, setCounts] = useState({
+        users: { directors: 0, instructors: 0, students: 0 },
+        content: {
+            schools: 0,
+            analysisQuestions: 0,
+            helpTopics: 0,
+            stepHelp: 0,
+            commonFeedback: 0,
+            practiceClones: 0,
+            practiceAnswers: 0,
+            programSettings: 0
+        }
     });
-    const [feedbackCounts, setFeedbackCounts] = useState({ total: 0, questions: 0 });
 
-    // Fetch user counts and feedback counts when modal opens
+    // Fetch counts when modal opens
     useEffect(() => {
         if (isOpen) {
-            fetchUserCounts();
-            fetchFeedbackCounts();
+            fetchCounts();
         }
     }, [isOpen]);
 
-    const fetchUserCounts = async () => {
+    const fetchCounts = async () => {
         try {
-            // Use apiService instead of direct fetch
-            const counts = await apiService.get('/export/user-counts');
-            setUserCounts(counts);
+            const data = await apiService.get('/export/counts');
+            setCounts(data);
         } catch (error) {
-            console.error('Error fetching user counts:', error);
-        }
-    };
-
-    const fetchFeedbackCounts = async () => {
-        try {
-            // Use apiService instead of direct fetch
-            const feedback = await apiService.get('/common-feedback');
-            const uniqueQuestions = new Set(feedback.map(f => f.questionId)).size;
-            setFeedbackCounts({
-                total: feedback.length,
-                questions: uniqueQuestions
-            });
-        } catch (error) {
-            console.error('Error fetching feedback counts:', error);
+            console.error('Error fetching counts:', error);
         }
     };
 
@@ -64,18 +63,14 @@ const ExportModal = ({ isOpen, onClose }) => {
         }));
     };
 
+    // In ExportModal.jsx, replace the handleExport function with this:
     const handleExport = async () => {
         setIsExporting(true);
         setExportStatus('Preparing export...');
 
         try {
-            // Include createDefaultDirector flag in the export options
-            const exportOptions = {
-                ...exportData
-            };
-
-            // Create a custom export method since this returns a blob, not JSON
-            const blob = await apiService.downloadExport(exportOptions);
+            // Use the apiService downloadExport method
+            const blob = await apiService.downloadExport(exportData);
 
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -83,7 +78,7 @@ const ExportModal = ({ isOpen, onClose }) => {
 
             // Generate filename with timestamp
             const timestamp = new Date().toISOString().split('T')[0];
-            link.download = `dna-analysis-export-${timestamp}.json`;
+            link.download = `dna-analysis-export-v2-${timestamp}.json`;
 
             document.body.appendChild(link);
             link.click();
@@ -112,9 +107,9 @@ const ExportModal = ({ isOpen, onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Export Program Data</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Export Program Data v2.0</h2>
                     <button
                         onClick={onClose}
                         disabled={isExporting}
@@ -124,15 +119,18 @@ const ExportModal = ({ isOpen, onClose }) => {
                     </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-6">
                     <p className="text-gray-600 text-sm">
                         Select the data you want to export. This will create a file that can be imported into other instances of the DNA Analysis Program.
                     </p>
 
-                    {/* User Data Section */}
-                    <div className="space-y-3">
-                        <h3 className="font-medium text-gray-900">Users</h3>
-                        <div className="space-y-2 ml-4">
+                    {/* Users Section */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Users className="text-blue-600" size={20} />
+                            <h3 className="font-medium text-gray-900">Users</h3>
+                        </div>
+                        <div className="space-y-2 ml-6">
                             <label className="flex items-center justify-between">
                                 <div className="flex items-center">
                                     <input
@@ -144,9 +142,9 @@ const ExportModal = ({ isOpen, onClose }) => {
                                     />
                                     <span>Directors</span>
                                 </div>
-                                <span className="text-sm text-gray-500">({userCounts.directors})</span>
+                                <span className="text-sm text-gray-500">({counts.users.directors})</span>
                             </label>
-                            
+
                             <label className="flex items-center justify-between">
                                 <div className="flex items-center">
                                     <input
@@ -158,9 +156,9 @@ const ExportModal = ({ isOpen, onClose }) => {
                                     />
                                     <span>Instructors</span>
                                 </div>
-                                <span className="text-sm text-gray-500">({userCounts.instructors})</span>
+                                <span className="text-sm text-gray-500">({counts.users.instructors})</span>
                             </label>
-                            
+
                             <label className="flex items-center justify-between">
                                 <div className="flex items-center">
                                     <input
@@ -170,48 +168,97 @@ const ExportModal = ({ isOpen, onClose }) => {
                                         className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
                                         disabled={isExporting}
                                     />
-                                    <span>Students</span>
+                                    <span>Students (with demographics)</span>
                                 </div>
-                                <span className="text-sm text-gray-500">({userCounts.students})</span>
+                                <span className="text-sm text-gray-500">({counts.users.students})</span>
                             </label>
                         </div>
                     </div>
 
-                    {/* Other Data Section */}
-                    <div className="space-y-3">
-                        <h3 className="font-medium text-gray-900">Configuration & Content</h3>
-                        <div className="space-y-2 ml-4">
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={exportData.schools}
-                                    onChange={(e) => handleExportChange('schools', e.target.checked)}
-                                    className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
-                                    disabled={isExporting}
-                                />
-                                <span>Schools</span>
+                    {/* Configuration Section */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Settings className="text-green-600" size={20} />
+                            <h3 className="font-medium text-gray-900">Configuration</h3>
+                        </div>
+                        <div className="space-y-2 ml-6">
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.schools}
+                                        onChange={(e) => handleExportChange('schools', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Schools</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.schools})</span>
                             </label>
-                            
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={exportData.practiceClones}
-                                    onChange={(e) => handleExportChange('practiceClones', e.target.checked)}
-                                    className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
-                                    disabled={isExporting}
-                                />
-                                <span>Practice Clones</span>
+
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.programSettings}
+                                        onChange={(e) => handleExportChange('programSettings', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Program Settings</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.programSettings})</span>
                             </label>
-                            
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={exportData.analysisQuestions}
-                                    onChange={(e) => handleExportChange('analysisQuestions', e.target.checked)}
-                                    className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
-                                    disabled={isExporting}
-                                />
-                                <span>Analysis Questions</span>
+                        </div>
+                    </div>
+
+                    {/* Educational Content Section */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <BookOpen className="text-purple-600" size={20} />
+                            <h3 className="font-medium text-gray-900">Educational Content</h3>
+                        </div>
+                        <div className="space-y-2 ml-6">
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.analysisQuestions}
+                                        onChange={(e) => handleExportChange('analysisQuestions', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Analysis Questions</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.analysisQuestions})</span>
+                            </label>
+
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.helpTopics}
+                                        onChange={(e) => handleExportChange('helpTopics', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Help Topics (question-specific)</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.helpTopics})</span>
+                            </label>
+
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.stepHelp}
+                                        onChange={(e) => handleExportChange('stepHelp', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Step Help (workflow guides)</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.stepHelp})</span>
                             </label>
 
                             <label className="flex items-center justify-between">
@@ -225,20 +272,21 @@ const ExportModal = ({ isOpen, onClose }) => {
                                     />
                                     <span>Common Feedback</span>
                                 </div>
-                                <span className="text-sm text-gray-500">
-                                    ({feedbackCounts.total} items, {feedbackCounts.questions} questions)
-                                </span>
+                                <span className="text-sm text-gray-500">({counts.content.commonFeedback})</span>
                             </label>
-                            
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={exportData.programSettings}
-                                    onChange={(e) => handleExportChange('programSettings', e.target.checked)}
-                                    className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
-                                    disabled={isExporting}
-                                />
-                                <span>Program Settings</span>
+
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.practiceClones}
+                                        onChange={(e) => handleExportChange('practiceClones', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Practice Clones (metadata only)</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.practiceClones} clones, {counts.content.practiceAnswers} answers)</span>
                             </label>
                         </div>
                     </div>
@@ -257,12 +305,28 @@ const ExportModal = ({ isOpen, onClose }) => {
                                 <div>
                                     <span className="font-medium">Create default director in target system</span>
                                     <p className="text-sm text-gray-600 mt-1">
-                                        Creates a default director account (admin/password123) if no directors exist after import
+                                        Creates a default director account (director@example.com/password123) if no directors exist after import
                                     </p>
                                 </div>
                             </label>
                         </div>
                     )}
+
+                    {/* Information Box */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start space-x-2">
+                            <AlertCircle className="text-blue-600 mt-0.5" size={16} />
+                            <div className="text-sm text-blue-800">
+                                <p className="font-medium mb-1">Export Notes:</p>
+                                <ul className="space-y-1 text-xs">
+                                    <li>• User passwords are excluded for security</li>
+                                    <li>• Practice clones export metadata only (re-upload .ab1 files separately)</li>
+                                    <li>• Help topics and feedback maintain question relationships</li>
+                                    <li>• Demographics are included only with student exports</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="flex justify-between pt-4 border-t border-gray-200">
@@ -294,27 +358,25 @@ const ExportModal = ({ isOpen, onClose }) => {
 
                     {/* Status Messages */}
                     {exportStatus && (
-                        <div className={`p-3 rounded-lg border flex items-start space-x-2 ${
-                            exportStatus.includes('successfully') || exportStatus.includes('completed')
-                                ? 'bg-green-50 border-green-200'
-                                : exportStatus.includes('failed') || exportStatus.includes('Error')
+                        <div className={`p-3 rounded-lg border flex items-start space-x-2 ${exportStatus.includes('successfully') || exportStatus.includes('completed')
+                            ? 'bg-green-50 border-green-200'
+                            : exportStatus.includes('failed') || exportStatus.includes('Error')
                                 ? 'bg-red-50 border-red-200'
                                 : 'bg-blue-50 border-blue-200'
-                        }`}>
+                            }`}>
                             {exportStatus.includes('successfully') || exportStatus.includes('completed') ? (
                                 <Check className="text-green-600 mt-0.5" size={16} />
                             ) : exportStatus.includes('failed') || exportStatus.includes('Error') ? (
                                 <AlertCircle className="text-red-600 mt-0.5" size={16} />
                             ) : (
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mt-0.5"></div>
+                                <AlertCircle className="text-blue-600 mt-0.5" size={16} />
                             )}
-                            <p className={`text-sm ${
-                                exportStatus.includes('successfully') || exportStatus.includes('completed')
-                                    ? 'text-green-800'
-                                    : exportStatus.includes('failed') || exportStatus.includes('Error')
+                            <p className={`text-sm ${exportStatus.includes('successfully') || exportStatus.includes('completed')
+                                ? 'text-green-800'
+                                : exportStatus.includes('failed') || exportStatus.includes('Error')
                                     ? 'text-red-800'
                                     : 'text-blue-800'
-                            }`}>
+                                }`}>
                                 {exportStatus}
                             </p>
                         </div>

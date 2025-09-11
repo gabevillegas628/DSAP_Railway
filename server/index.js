@@ -85,7 +85,7 @@ emailTransporter.verify((error, success) => {
 
 
 // AWS S3 Configuration
-const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multerS3 = require('multer-s3');
 
@@ -4826,6 +4826,1343 @@ app.post('/api/import', importUpload.single('file'), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// NEW EXPORT SYSTEM v2.0 - Replace the existing export endpoint
+app.post('/api/export-v2', async (req, res) => {
+  try {
+    const {
+      directors: exportDirectors,
+      instructors: exportInstructors,
+      students: exportStudents,
+      schools: exportSchools,
+      practiceClones: exportPracticeClones,
+      analysisQuestions: exportAnalysisQuestions,
+      commonFeedback: exportCommonFeedback,
+      stepHelp: exportStepHelp,
+      helpTopics: exportHelpTopics,
+      programSettings: exportProgramSettings,
+      createDefaultDirector
+    } = req.body;
+
+    // Get current user info for export metadata
+    const currentUser = req.user ? await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { email: true, name: true }
+    }) : null;
+
+    const exportData = {
+      exportInfo: {
+        version: '2.0',
+        timestamp: new Date().toISOString(),
+        source: 'DNA Analysis Program',
+        exportedBy: currentUser?.email || 'unknown'
+      }
+    };
+
+    // ===== USERS EXPORT =====
+    const userRoles = [];
+    if (exportDirectors) userRoles.push('director');
+    if (exportInstructors) userRoles.push('instructor');
+    if (exportStudents) userRoles.push('student');
+
+    if (userRoles.length > 0) {
+      const usersToExport = await prisma.user.findMany({
+        where: {
+          status: 'approved',
+          role: { in: userRoles }
+        },
+        include: {
+          school: true,
+          demographics: true // Include demographics for students
+        }
+      });
+
+      // Process and organize users by role
+      exportData.users = {};
+
+      if (exportDirectors) {
+        exportData.users.directors = usersToExport
+          .filter(user => user.role === 'director')
+          .map(user => ({
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            status: user.status,
+            schoolId: user.school?.schoolId || null,
+            schoolName: user.school?.name || null,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+            // Note: Password excluded for security
+          }));
+      }
+
+      if (exportInstructors) {
+        exportData.users.instructors = usersToExport
+          .filter(user => user.role === 'instructor')
+          .map(user => ({
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            status: user.status,
+            schoolId: user.school?.schoolId || null,
+            schoolName: user.school?.name || null,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+          }));
+      }
+
+      if (exportStudents) {
+        exportData.users.students = usersToExport
+          .filter(user => user.role === 'student')
+          .map(user => ({
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            status: user.status,
+            schoolId: user.school?.schoolId || null,
+            schoolName: user.school?.name || null,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+            // Include demographics data for students
+            demographics: user.demographics ? {
+              academicYear: user.demographics.academicYear,
+              yearsInProgram: user.demographics.yearsInProgram,
+              classesTaken: user.demographics.classesTaken ? JSON.parse(user.demographics.classesTaken) : null,
+              otherScienceCourses: user.demographics.otherScienceCourses,
+              age: user.demographics.age,
+              gender: user.demographics.gender,
+              ethnicity: user.demographics.ethnicity,
+              educationLevel: user.demographics.educationLevel,
+              city: user.demographics.city,
+              state: user.demographics.state,
+              country: user.demographics.country
+            } : null
+          }));
+      }
+    }
+
+    // Add default director if requested and no directors being exported
+    if (createDefaultDirector && (!exportData.users?.directors || exportData.users.directors.length === 0)) {
+      if (!exportData.users) exportData.users = {};
+      if (!exportData.users.directors) exportData.users.directors = [];
+
+      exportData.users.directors.push({
+        email: 'director@example.com',
+        name: 'Default Director',
+        role: 'director',
+        status: 'approved',
+        schoolId: null,
+        schoolName: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isDefaultDirector: true // Flag to identify this as auto-created
+      });
+    }
+
+    // ===== SCHOOLS EXPORT =====
+    if (exportSchools) {
+      exportData.schools = await prisma.school.findMany({
+        orderBy: { name: 'asc' }
+      });
+    }
+
+    // ===== PROGRAM SETTINGS EXPORT =====
+    if (exportProgramSettings) {
+      exportData.programSettings = await prisma.programSettings.findFirst();
+    }
+
+    // ===== ANALYSIS CONTENT EXPORT =====
+    if (exportAnalysisQuestions || exportCommonFeedback || exportHelpTopics || exportStepHelp) {
+      exportData.analysisContent = {};
+
+      // Export Analysis Questions
+      if (exportAnalysisQuestions) {
+        const questions = await prisma.analysisQuestion.findMany({
+          orderBy: [
+            { step: 'asc' },
+            { order: 'asc' }
+          ]
+        });
+
+        exportData.analysisContent.questions = questions.map(q => ({
+          ...q,
+          options: q.options ? JSON.parse(q.options) : null,
+          conditionalLogic: q.conditionalLogic ? JSON.parse(q.conditionalLogic) : null
+        }));
+      }
+
+      // Export Help Topics (question-specific help)
+      if (exportHelpTopics) {
+        exportData.analysisContent.helpTopics = await prisma.helpTopic.findMany({
+          where: { isActive: true },
+          include: {
+            analysisQuestion: {
+              select: {
+                id: true,
+                text: true,
+                step: true,
+                order: true
+              }
+            }
+          },
+          orderBy: [
+            { analysisQuestion: { step: 'asc' } },
+            { analysisQuestion: { order: 'asc' } }
+          ]
+        });
+      }
+
+      // Export Step Help (general workflow help)
+      if (exportStepHelp) {
+        exportData.analysisContent.stepHelp = await prisma.stepHelp.findMany({
+          where: { isActive: true },
+          orderBy: { step: 'asc' }
+        });
+      }
+
+      // Export Common Feedback
+      if (exportCommonFeedback) {
+        exportData.analysisContent.commonFeedback = await prisma.commonFeedback.findMany({
+          where: { isActive: true },
+          include: {
+            // We'll need to include question info for relationship rebuilding
+            question: {
+              select: {
+                id: true,
+                text: true,
+                step: true,
+                order: true
+              }
+            }
+          },
+          orderBy: [
+            { questionId: 'asc' },
+            { title: 'asc' }
+          ]
+        });
+      }
+    }
+
+    // ===== PRACTICE CLONES EXPORT =====
+    if (exportPracticeClones) {
+      const practiceClones = await prisma.practiceClone.findMany({
+        include: {
+          practiceAnswers: {
+            include: {
+              // Include question info for relationship rebuilding
+              practiceClone: {
+                select: { id: true, cloneName: true }
+              }
+            }
+          }
+        },
+        orderBy: { cloneName: 'asc' }
+      });
+
+      exportData.practiceClones = {
+        clones: practiceClones.map(clone => ({
+          id: clone.id,
+          cloneName: clone.cloneName,
+          filename: clone.filename,
+          originalName: clone.originalName,
+          description: clone.description,
+          isActive: clone.isActive,
+          uploadDate: clone.uploadDate,
+          createdAt: clone.createdAt,
+          updatedAt: clone.updatedAt
+          // Note: Actual .ab1 file data excluded (metadata only)
+        })),
+        answers: practiceClones.flatMap(clone =>
+          clone.practiceAnswers.map(answer => ({
+            id: answer.id,
+            practiceCloneId: clone.id,
+            cloneName: clone.cloneName, // Include for easier import matching
+            questionId: answer.questionId,
+            correctAnswer: answer.correctAnswer,
+            explanation: answer.explanation
+          }))
+        )
+      };
+    }
+
+    // Set response headers for download
+    const timestamp = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="dna-analysis-export-v2-${timestamp}.json"`);
+
+    console.log('Export completed successfully:', {
+      version: '2.0',
+      dataTypes: Object.keys(exportData).filter(key => key !== 'exportInfo'),
+      timestamp: exportData.exportInfo.timestamp
+    });
+
+    res.json(exportData);
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update the user counts endpoint to include help topics and step help counts
+app.get('/api/export/counts', async (req, res) => {
+  try {
+    // User counts by role
+    const users = await prisma.user.findMany({
+      where: { status: 'approved' },
+      select: { role: true }
+    });
+
+    // Content counts
+    const [
+      schoolCount,
+      questionsCount,
+      helpTopicsCount,
+      stepHelpCount,
+      commonFeedbackCount,
+      practiceClonesCount,
+      practiceAnswersCount,
+      programSettingsCount
+    ] = await Promise.all([
+      prisma.school.count(),
+      prisma.analysisQuestion.count(),
+      prisma.helpTopic.count({ where: { isActive: true } }),
+      prisma.stepHelp.count({ where: { isActive: true } }),
+      prisma.commonFeedback.count({ where: { isActive: true } }),
+      prisma.practiceClone.count({ where: { isActive: true } }),
+      prisma.practiceAnswer.count(),
+      prisma.programSettings.count()
+    ]);
+
+    const counts = {
+      users: {
+        directors: users.filter(u => u.role === 'director').length,
+        instructors: users.filter(u => u.role === 'instructor').length,
+        students: users.filter(u => u.role === 'student').length
+      },
+      content: {
+        schools: schoolCount,
+        analysisQuestions: questionsCount,
+        helpTopics: helpTopicsCount,
+        stepHelp: stepHelpCount,
+        commonFeedback: commonFeedbackCount,
+        practiceClones: practiceClonesCount,
+        practiceAnswers: practiceAnswersCount,
+        programSettings: programSettingsCount
+      }
+    };
+
+    res.json(counts);
+  } catch (error) {
+    console.error('Error fetching export counts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW IMPORT SYSTEM v2.0 - Add this to index.js
+app.post('/api/import-v2', importUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const options = JSON.parse(req.body.options || '{}');
+    const importData = JSON.parse(req.file.buffer.toString('utf8'));
+
+    // Validate import file format
+    if (!importData.exportInfo || !importData.exportInfo.version) {
+      return res.status(400).json({ error: 'Invalid import file format' });
+    }
+
+    console.log('Starting import process:', {
+      version: importData.exportInfo.version,
+      timestamp: importData.exportInfo.timestamp,
+      source: importData.exportInfo.source
+    });
+
+    const results = {
+      imported: {},
+      updated: {},
+      skipped: {},
+      errors: []
+    };
+
+    // ID mapping for maintaining relationships
+    const questionIdMapping = new Map(); // oldQuestionId -> newQuestionId
+    const schoolIdMapping = new Map(); // oldSchoolId -> newSchoolId
+    const practiceCloneMapping = new Map(); // oldCloneId -> newCloneId
+
+    // ===== IMPORT SCHOOLS FIRST =====
+    if (options.schools && importData.schools) {
+      console.log('Importing schools...');
+      let schoolsImported = 0;
+      let schoolsUpdated = 0;
+      let schoolsSkipped = 0;
+
+      for (const school of importData.schools) {
+        try {
+          // Find existing school by schoolId (unique identifier)
+          const existingSchool = await prisma.school.findUnique({
+            where: { schoolId: school.schoolId }
+          });
+
+          if (existingSchool) {
+            if (options.conflictResolution === 'overwrite') {
+              await prisma.school.update({
+                where: { id: existingSchool.id },
+                data: {
+                  name: school.name,
+                  instructor: school.instructor,
+                  students: school.students || 0
+                }
+              });
+              schoolIdMapping.set(school.id, existingSchool.id);
+              schoolsUpdated++;
+            } else {
+              schoolIdMapping.set(school.id, existingSchool.id);
+              schoolsSkipped++;
+            }
+          } else {
+            const newSchool = await prisma.school.create({
+              data: {
+                name: school.name,
+                schoolId: school.schoolId,
+                instructor: school.instructor,
+                students: school.students || 0
+              }
+            });
+            schoolIdMapping.set(school.id, newSchool.id);
+            schoolsImported++;
+          }
+        } catch (error) {
+          console.error('Error importing school:', error);
+          results.errors.push(`School ${school.name}: ${error.message}`);
+        }
+      }
+
+      if (schoolsImported > 0) results.imported.schools = `${schoolsImported} schools imported`;
+      if (schoolsUpdated > 0) results.updated.schools = `${schoolsUpdated} schools updated`;
+      if (schoolsSkipped > 0) results.skipped.schools = `${schoolsSkipped} schools skipped`;
+    }
+
+    // ===== IMPORT USERS =====
+    if (importData.users) {
+      const userRoles = ['directors', 'instructors', 'students'];
+      let totalUsersImported = 0;
+      let totalUsersUpdated = 0;
+      let totalUsersSkipped = 0;
+
+      for (const roleKey of userRoles) {
+        if (options[roleKey] && importData.users[roleKey]) {
+          console.log(`Importing ${roleKey}...`);
+
+          for (const user of importData.users[roleKey]) {
+            try {
+              // Handle special case of default director
+              if (user.isDefaultDirector) {
+                // Check if any directors exist
+                const existingDirectors = await prisma.user.count({
+                  where: { role: 'director', status: 'approved' }
+                });
+
+                if (existingDirectors > 0) {
+                  console.log('Skipping default director creation - directors already exist');
+                  totalUsersSkipped++;
+                  continue;
+                }
+              }
+
+              // Find existing user by email
+              const existingUser = await prisma.user.findUnique({
+                where: { email: user.email }
+              });
+
+              // Determine school assignment
+              let newSchoolId = null;
+              if (user.schoolId) {
+                // Try to find the mapped school ID
+                const mappedSchoolId = schoolIdMapping.get(user.schoolId);
+                if (mappedSchoolId) {
+                  newSchoolId = mappedSchoolId;
+                } else {
+                  // Try to find by schoolId string
+                  const school = await prisma.school.findUnique({
+                    where: { schoolId: user.schoolId }
+                  });
+                  newSchoolId = school?.id || null;
+                }
+              }
+
+              const userData = {
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                status: user.status,
+                schoolId: newSchoolId,
+                password: user.isDefaultDirector
+                  ? await bcrypt.hash('password123', 10)
+                  : await bcrypt.hash('defaultpassword123', 10) // Default password for imported users
+              };
+
+              if (existingUser) {
+                if (options.conflictResolution === 'overwrite') {
+                  await prisma.user.update({
+                    where: { id: existingUser.id },
+                    data: userData
+                  });
+
+                  // Handle demographics for students
+                  if (user.role === 'student' && user.demographics) {
+                    await handleUserDemographics(existingUser.id, user.demographics);
+                  }
+
+                  totalUsersUpdated++;
+                } else {
+                  totalUsersSkipped++;
+                }
+              } else {
+                const newUser = await prisma.user.create({
+                  data: userData
+                });
+
+                // Handle demographics for students
+                if (user.role === 'student' && user.demographics) {
+                  await handleUserDemographics(newUser.id, user.demographics);
+                }
+
+                totalUsersImported++;
+              }
+            } catch (error) {
+              console.error(`Error importing user ${user.email}:`, error);
+              results.errors.push(`User ${user.email}: ${error.message}`);
+            }
+          }
+        }
+      }
+
+      if (totalUsersImported > 0) results.imported.users = `${totalUsersImported} users imported`;
+      if (totalUsersUpdated > 0) results.updated.users = `${totalUsersUpdated} users updated`;
+      if (totalUsersSkipped > 0) results.skipped.users = `${totalUsersSkipped} users skipped`;
+    }
+
+    // ===== IMPORT PROGRAM SETTINGS =====
+    if (options.programSettings && importData.programSettings) {
+      console.log('Importing program settings...');
+      try {
+        const existingSettings = await prisma.programSettings.findFirst();
+
+        if (existingSettings) {
+          if (options.conflictResolution === 'overwrite') {
+            await prisma.programSettings.update({
+              where: { id: existingSettings.id },
+              data: {
+                ...importData.programSettings,
+                id: undefined, // Don't update the ID
+                createdAt: undefined,
+                updatedAt: undefined
+              }
+            });
+            results.updated.programSettings = 'Program settings updated';
+          } else {
+            results.skipped.programSettings = 'Program settings skipped (already exists)';
+          }
+        } else {
+          await prisma.programSettings.create({
+            data: {
+              ...importData.programSettings,
+              id: undefined,
+              createdAt: undefined,
+              updatedAt: undefined
+            }
+          });
+          results.imported.programSettings = 'Program settings imported';
+        }
+      } catch (error) {
+        console.error('Error importing program settings:', error);
+        results.errors.push(`Program settings: ${error.message}`);
+      }
+    }
+
+    // ===== IMPORT ANALYSIS CONTENT (Questions first, then dependent content) =====
+    if (importData.analysisContent) {
+
+      // STEP 1: Import Analysis Questions
+      if (options.analysisQuestions && importData.analysisContent.questions) {
+        console.log('Importing analysis questions...');
+        let questionsImported = 0;
+        let questionsSkipped = 0;
+
+        for (const question of importData.analysisContent.questions) {
+          try {
+            // Try to find existing question by step, order, and text
+            const existingQuestion = await prisma.analysisQuestion.findFirst({
+              where: {
+                step: question.step,
+                order: question.order,
+                text: question.text
+              }
+            });
+
+            if (existingQuestion && options.conflictResolution !== 'overwrite') {
+              questionIdMapping.set(question.id, existingQuestion.id);
+              questionsSkipped++;
+            } else {
+              const questionData = {
+                step: question.step,
+                text: question.text,
+                type: question.type,
+                options: question.options ? JSON.stringify(question.options) : null,
+                required: question.required,
+                order: question.order,
+                conditionalLogic: question.conditionalLogic ? JSON.stringify(question.conditionalLogic) : null,
+                questionGroup: question.questionGroup,
+                groupOrder: question.groupOrder || 0
+              };
+
+              if (existingQuestion) {
+                // Update existing
+                await prisma.analysisQuestion.update({
+                  where: { id: existingQuestion.id },
+                  data: questionData
+                });
+                questionIdMapping.set(question.id, existingQuestion.id);
+              } else {
+                // Create new
+                const newQuestion = await prisma.analysisQuestion.create({
+                  data: questionData
+                });
+                questionIdMapping.set(question.id, newQuestion.id);
+                questionsImported++;
+              }
+            }
+          } catch (error) {
+            console.error('Error importing question:', error);
+            results.errors.push(`Question "${question.text}": ${error.message}`);
+          }
+        }
+
+        if (questionsImported > 0) results.imported.analysisQuestions = `${questionsImported} questions imported`;
+        if (questionsSkipped > 0) results.skipped.analysisQuestions = `${questionsSkipped} questions skipped`;
+      }
+
+      // STEP 2: Import Help Topics (depends on questions)
+      if (options.helpTopics && importData.analysisContent.helpTopics) {
+        console.log('Importing help topics...');
+        let helpTopicsImported = 0;
+        let helpTopicsSkipped = 0;
+
+        for (const helpTopic of importData.analysisContent.helpTopics) {
+          try {
+            // Map the question ID
+            const newQuestionId = questionIdMapping.get(helpTopic.analysisQuestionId);
+            if (!newQuestionId) {
+              results.errors.push(`Help topic "${helpTopic.title}": Referenced question not found`);
+              continue;
+            }
+
+            // Check if help topic already exists for this question
+            const existingHelpTopic = await prisma.helpTopic.findFirst({
+              where: {
+                analysisQuestionId: newQuestionId,
+                title: helpTopic.title
+              }
+            });
+
+            if (existingHelpTopic && options.conflictResolution !== 'overwrite') {
+              helpTopicsSkipped++;
+            } else {
+              const helpTopicData = {
+                analysisQuestionId: newQuestionId,
+                title: helpTopic.title,
+                videoBoxUrl: helpTopic.videoBoxUrl,
+                helpDocumentUrl: helpTopic.helpDocumentUrl,
+                isActive: helpTopic.isActive
+              };
+
+              if (existingHelpTopic) {
+                await prisma.helpTopic.update({
+                  where: { id: existingHelpTopic.id },
+                  data: helpTopicData
+                });
+              } else {
+                await prisma.helpTopic.create({
+                  data: helpTopicData
+                });
+                helpTopicsImported++;
+              }
+            }
+          } catch (error) {
+            console.error('Error importing help topic:', error);
+            results.errors.push(`Help topic "${helpTopic.title}": ${error.message}`);
+          }
+        }
+
+        if (helpTopicsImported > 0) results.imported.helpTopics = `${helpTopicsImported} help topics imported`;
+        if (helpTopicsSkipped > 0) results.skipped.helpTopics = `${helpTopicsSkipped} help topics skipped`;
+      }
+
+      // STEP 3: Import Step Help (independent)
+      if (options.stepHelp && importData.analysisContent.stepHelp) {
+        console.log('Importing step help...');
+        let stepHelpImported = 0;
+        let stepHelpSkipped = 0;
+
+        for (const stepHelp of importData.analysisContent.stepHelp) {
+          try {
+            const existingStepHelp = await prisma.stepHelp.findUnique({
+              where: { step: stepHelp.step }
+            });
+
+            if (existingStepHelp && options.conflictResolution !== 'overwrite') {
+              stepHelpSkipped++;
+            } else {
+              const stepHelpData = {
+                step: stepHelp.step,
+                title: stepHelp.title,
+                description: stepHelp.description,
+                videoBoxUrl: stepHelp.videoBoxUrl,
+                helpDocumentUrl: stepHelp.helpDocumentUrl,
+                isActive: stepHelp.isActive
+              };
+
+              if (existingStepHelp) {
+                await prisma.stepHelp.update({
+                  where: { id: existingStepHelp.id },
+                  data: stepHelpData
+                });
+              } else {
+                await prisma.stepHelp.create({
+                  data: stepHelpData
+                });
+                stepHelpImported++;
+              }
+            }
+          } catch (error) {
+            console.error('Error importing step help:', error);
+            results.errors.push(`Step help "${stepHelp.step}": ${error.message}`);
+          }
+        }
+
+        if (stepHelpImported > 0) results.imported.stepHelp = `${stepHelpImported} step help imported`;
+        if (stepHelpSkipped > 0) results.skipped.stepHelp = `${stepHelpSkipped} step help skipped`;
+      }
+
+      // STEP 4: Import Common Feedback (depends on questions)
+      if (options.commonFeedback && importData.analysisContent.commonFeedback) {
+        console.log('Importing common feedback...');
+        let feedbackImported = 0;
+        let feedbackSkipped = 0;
+
+        for (const feedback of importData.analysisContent.commonFeedback) {
+          try {
+            // Map the question ID
+            const newQuestionId = questionIdMapping.get(feedback.questionId);
+            if (!newQuestionId) {
+              results.errors.push(`Common feedback "${feedback.title}": Referenced question not found`);
+              continue;
+            }
+
+            // Check if feedback already exists
+            const existingFeedback = await prisma.commonFeedback.findFirst({
+              where: {
+                questionId: newQuestionId,
+                title: feedback.title
+              }
+            });
+
+            if (existingFeedback && options.conflictResolution !== 'overwrite') {
+              feedbackSkipped++;
+            } else {
+              const feedbackData = {
+                questionId: newQuestionId,
+                title: feedback.title,
+                text: feedback.text,
+                isActive: feedback.isActive
+              };
+
+              if (existingFeedback) {
+                await prisma.commonFeedback.update({
+                  where: { id: existingFeedback.id },
+                  data: feedbackData
+                });
+              } else {
+                await prisma.commonFeedback.create({
+                  data: feedbackData
+                });
+                feedbackImported++;
+              }
+            }
+          } catch (error) {
+            console.error('Error importing common feedback:', error);
+            results.errors.push(`Common feedback "${feedback.title}": ${error.message}`);
+          }
+        }
+
+        if (feedbackImported > 0) results.imported.commonFeedback = `${feedbackImported} feedback imported`;
+        if (feedbackSkipped > 0) results.skipped.commonFeedback = `${feedbackSkipped} feedback skipped`;
+      }
+    }
+
+    // ===== IMPORT PRACTICE CLONES =====
+    if (options.practiceClones && importData.practiceClones) {
+      console.log('Importing practice clones...');
+      let clonesImported = 0;
+      let clonesSkipped = 0;
+      let answersImported = 0;
+
+      // Import clones first
+      if (importData.practiceClones.clones) {
+        for (const clone of importData.practiceClones.clones) {
+          try {
+            const existingClone = await prisma.practiceClone.findFirst({
+              where: { cloneName: clone.cloneName }
+            });
+
+            if (existingClone && options.conflictResolution !== 'overwrite') {
+              practiceCloneMapping.set(clone.id, existingClone.id);
+              clonesSkipped++;
+            } else {
+              const cloneData = {
+                cloneName: clone.cloneName,
+                filename: clone.filename,
+                originalName: clone.originalName,
+                description: clone.description,
+                isActive: clone.isActive,
+                uploadDate: clone.uploadDate
+              };
+
+              if (existingClone) {
+                await prisma.practiceClone.update({
+                  where: { id: existingClone.id },
+                  data: cloneData
+                });
+                practiceCloneMapping.set(clone.id, existingClone.id);
+              } else {
+                const newClone = await prisma.practiceClone.create({
+                  data: cloneData
+                });
+                practiceCloneMapping.set(clone.id, newClone.id);
+                clonesImported++;
+              }
+            }
+          } catch (error) {
+            console.error('Error importing practice clone:', error);
+            results.errors.push(`Practice clone "${clone.cloneName}": ${error.message}`);
+          }
+        }
+      }
+
+      // Import answers
+      if (importData.practiceClones.answers) {
+        for (const answer of importData.practiceClones.answers) {
+          try {
+            const newCloneId = practiceCloneMapping.get(answer.practiceCloneId);
+            const newQuestionId = questionIdMapping.get(answer.questionId);
+
+            if (!newCloneId || !newQuestionId) {
+              results.errors.push(`Practice answer: Referenced clone or question not found`);
+              continue;
+            }
+
+            // Check if answer already exists
+            const existingAnswer = await prisma.practiceAnswer.findUnique({
+              where: {
+                practiceCloneId_questionId: {
+                  practiceCloneId: newCloneId,
+                  questionId: newQuestionId
+                }
+              }
+            });
+
+            const answerData = {
+              practiceCloneId: newCloneId,
+              questionId: newQuestionId,
+              correctAnswer: answer.correctAnswer,
+              explanation: answer.explanation
+            };
+
+            if (existingAnswer && options.conflictResolution === 'overwrite') {
+              await prisma.practiceAnswer.update({
+                where: { id: existingAnswer.id },
+                data: answerData
+              });
+            } else if (!existingAnswer) {
+              await prisma.practiceAnswer.create({
+                data: answerData
+              });
+              answersImported++;
+            }
+          } catch (error) {
+            console.error('Error importing practice answer:', error);
+            results.errors.push(`Practice answer: ${error.message}`);
+          }
+        }
+      }
+
+      if (clonesImported > 0) results.imported.practiceClones = `${clonesImported} practice clones imported`;
+      if (clonesSkipped > 0) results.skipped.practiceClones = `${clonesSkipped} practice clones skipped`;
+      if (answersImported > 0) results.imported.practiceAnswers = `${answersImported} practice answers imported`;
+    }
+
+    // Generate summary
+    const importedCount = Object.keys(results.imported).length;
+    const errorCount = results.errors.length;
+
+    let message = `Import completed! ${importedCount} data types imported successfully.`;
+    if (errorCount > 0) {
+      message += ` ${errorCount} errors occurred.`;
+    }
+
+    console.log('Import completed:', {
+      imported: results.imported,
+      updated: results.updated,
+      skipped: results.skipped,
+      errors: results.errors.length
+    });
+
+    res.json({
+      success: true,
+      message,
+      results
+    });
+
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper function for handling user demographics
+async function handleUserDemographics(userId, demographicsData) {
+  if (!demographicsData) return;
+
+  try {
+    const existingDemographics = await prisma.demographics.findUnique({
+      where: { userId }
+    });
+
+    const demographicsPayload = {
+      academicYear: demographicsData.academicYear,
+      yearsInProgram: demographicsData.yearsInProgram,
+      classesTaken: demographicsData.classesTaken ? JSON.stringify(demographicsData.classesTaken) : null,
+      otherScienceCourses: demographicsData.otherScienceCourses,
+      age: demographicsData.age,
+      gender: demographicsData.gender,
+      ethnicity: demographicsData.ethnicity,
+      educationLevel: demographicsData.educationLevel,
+      city: demographicsData.city,
+      state: demographicsData.state,
+      country: demographicsData.country
+    };
+
+    if (existingDemographics) {
+      await prisma.demographics.update({
+        where: { userId },
+        data: demographicsPayload
+      });
+    } else {
+      await prisma.demographics.create({
+        data: {
+          userId,
+          ...demographicsPayload
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error handling demographics for user:', userId, error);
+  }
+}
+
+// ======================================
+// PRACTICE CLONE BULK RE-UPLOAD SYSTEM
+// Add these endpoints to your index.js
+// ======================================
+
+// Check which practice clones have missing files
+// FIXED: Better missing files detection
+// TEMPORARY DEBUG VERSION - Replace the missing-files endpoint with this:
+// PRODUCTION VERSION - Replace the debug endpoint with this:
+app.get('/api/practice-clones/missing-files', authenticateToken, requireRole(['director']), async (req, res) => {
+  try {
+    console.log('Checking for practice clones with missing files...');
+
+    const practiceClones = await prisma.practiceClone.findMany({
+      where: { isActive: true },
+      include: {
+        practiceAnswers: {
+          select: { id: true }
+        }
+      },
+      orderBy: { cloneName: 'asc' }
+    });
+
+    const missingFiles = [];
+    const foundFiles = [];
+    let fixedFilenames = 0;
+
+    for (const clone of practiceClones) {
+      let fileExists = false;
+      let actualFilename = null;
+      let checkMethod = null;
+
+      try {
+        // Method 1: Check the exact filename from database
+        if (clone.filename) {
+          const headCommand = new HeadObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: clone.filename
+          });
+
+          await s3Client.send(headCommand);
+          fileExists = true;
+          actualFilename = clone.filename;
+          checkMethod = 'exact_match';
+        }
+      } catch (error) {
+        // Method 2: If exact filename doesn't exist, try to find similar files
+        try {
+          console.log(`Exact filename not found for ${clone.cloneName}, searching for alternatives...`);
+
+          // List files that might match this clone
+          const listCommand = new ListObjectsV2Command({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Prefix: 'uploads/',
+            MaxKeys: 1000
+          });
+
+          const listResponse = await s3Client.send(listCommand);
+          const allFiles = listResponse.Contents || [];
+
+          // Look for files that contain the original name or clone name
+          const possibleMatches = allFiles.filter(file => {
+            const key = file.Key.toLowerCase();
+            const cloneName = clone.cloneName.toLowerCase();
+            const originalName = (clone.originalName || '').toLowerCase();
+
+            return (
+              key.includes(cloneName) ||
+              (originalName && key.includes(originalName.replace('.ab1', ''))) ||
+              key.includes(cloneName.replace(' ', '')) ||
+              key.includes(cloneName.replace(/[^a-z0-9]/g, ''))
+            );
+          });
+
+          if (possibleMatches.length > 0) {
+            // Take the first match (most likely candidate)
+            actualFilename = possibleMatches[0].Key;
+            fileExists = true;
+            checkMethod = 'fuzzy_match';
+
+            console.log(`Found alternative file for ${clone.cloneName}: ${actualFilename}`);
+
+            // Update the database with the correct filename
+            await prisma.practiceClone.update({
+              where: { id: clone.id },
+              data: { filename: actualFilename }
+            });
+
+            console.log(`Updated database filename for ${clone.cloneName}`);
+            fixedFilenames++;
+          }
+        } catch (listError) {
+          console.error(`Error searching for alternative files for ${clone.cloneName}:`, listError);
+        }
+      }
+
+      if (fileExists) {
+        foundFiles.push({
+          id: clone.id,
+          cloneName: clone.cloneName,
+          filename: actualFilename,
+          checkMethod: checkMethod
+        });
+      } else {
+        missingFiles.push({
+          id: clone.id,
+          cloneName: clone.cloneName,
+          filename: clone.filename,
+          originalName: clone.originalName,
+          description: clone.description,
+          uploadDate: clone.uploadDate,
+          hasAnswers: clone.practiceAnswers.length > 0,
+          reason: 'File not found in S3'
+        });
+      }
+    }
+
+    console.log(`File check complete:`);
+    console.log(`- Found files: ${foundFiles.length}`);
+    console.log(`- Missing files: ${missingFiles.length}`);
+    if (fixedFilenames > 0) {
+      console.log(`- Fixed filenames: ${fixedFilenames}`);
+    }
+
+    res.json({
+      totalClones: practiceClones.length,
+      foundFiles: foundFiles,
+      missingFiles: missingFiles,
+      fixedFilenames: fixedFilenames,
+      hasError: missingFiles.some(f => f.error)
+    });
+
+  } catch (error) {
+    console.error('Error checking missing files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk upload and match practice clone files
+app.post('/api/practice-clones/bulk-upload', upload.array('files'), authenticateToken, requireRole(['director']), async (req, res) => {
+  try {
+    const files = req.files;
+    const manualMatches = req.body.manualMatches ? JSON.parse(req.body.manualMatches) : {};
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    console.log(`Processing bulk upload of ${files.length} files`);
+    console.log('Manual matches provided:', manualMatches);
+
+    // Get practice clones that need files
+    const practiceClones = await prisma.practiceClone.findMany({
+      where: { isActive: true },
+      select: { id: true, cloneName: true, filename: true, originalName: true }
+    });
+
+    const results = {
+      uploaded: [],
+      matched: [],
+      unmatched: [],
+      errors: []
+    };
+
+    // Function to calculate filename similarity
+    const calculateSimilarity = (str1, str2) => {
+      const a = str1.toLowerCase();
+      const b = str2.toLowerCase();
+
+      // Exact match
+      if (a === b) return 1.0;
+
+      // Check if one contains the other
+      if (a.includes(b) || b.includes(a)) return 0.8;
+
+      // Levenshtein distance similarity
+      const matrix = Array(b.length + 1).fill().map(() => Array(a.length + 1).fill(0));
+
+      for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+      for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+
+      for (let j = 1; j <= b.length; j++) {
+        for (let i = 1; i <= a.length; i++) {
+          if (a[i - 1] === b[j - 1]) {
+            matrix[j][i] = matrix[j - 1][i - 1];
+          } else {
+            matrix[j][i] = Math.min(
+              matrix[j - 1][i - 1] + 1,
+              matrix[j][i - 1] + 1,
+              matrix[j - 1][i] + 1
+            );
+          }
+        }
+      }
+
+      const maxLen = Math.max(a.length, b.length);
+      return (maxLen - matrix[b.length][a.length]) / maxLen;
+    };
+
+    // Process each uploaded file
+    for (const file of files) {
+      try {
+        const fileBaseName = file.originalname.replace(/\.[^/.]+$/, ''); // Remove extension
+        let matchedClone = null;
+
+        // Check for manual match first
+        if (manualMatches[file.originalname]) {
+          const cloneId = parseInt(manualMatches[file.originalname]);
+          matchedClone = practiceClones.find(c => c.id === cloneId);
+
+          if (matchedClone) {
+            console.log(`Manual match: ${file.originalname} → ${matchedClone.cloneName}`);
+          }
+        }
+
+        // If no manual match, try auto-matching
+        if (!matchedClone) {
+          let bestMatch = null;
+          let bestSimilarity = 0;
+
+          for (const clone of practiceClones) {
+            // Try matching against different name variations
+            const namesToTry = [
+              clone.cloneName,
+              clone.originalName,
+              clone.filename.replace(/\.[^/.]+$/, '') // filename without extension
+            ].filter(Boolean);
+
+            for (const name of namesToTry) {
+              const similarity = calculateSimilarity(fileBaseName, name);
+              if (similarity > bestSimilarity && similarity > 0.6) { // 60% similarity threshold
+                bestSimilarity = similarity;
+                bestMatch = clone;
+              }
+            }
+          }
+
+          if (bestMatch) {
+            matchedClone = bestMatch;
+            console.log(`Auto-match: ${file.originalname} → ${matchedClone.cloneName} (${Math.round(bestSimilarity * 100)}% similarity)`);
+          }
+        }
+
+        if (matchedClone) {
+          // Upload file to S3 with the practice clone's expected filename
+          const key = matchedClone.filename;
+
+          const putCommand = new PutObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: key,
+            Body: file.buffer,
+            ContentType: 'application/octet-stream'
+          });
+
+          await s3Client.send(putCommand);
+
+          // Update the practice clone record if needed
+          await prisma.practiceClone.update({
+            where: { id: matchedClone.id },
+            data: {
+              // Keep existing filename, just ensure file exists in S3
+              updatedAt: new Date()
+            }
+          });
+
+          results.uploaded.push({
+            filename: file.originalname,
+            cloneName: matchedClone.cloneName,
+            cloneId: matchedClone.id,
+            s3Key: key,
+            matchType: manualMatches[file.originalname] ? 'manual' : 'auto'
+          });
+
+          results.matched.push(matchedClone.id);
+
+        } else {
+          results.unmatched.push({
+            filename: file.originalname,
+            reason: 'No matching practice clone found'
+          });
+        }
+
+      } catch (error) {
+        console.error(`Error processing file ${file.originalname}:`, error);
+        results.errors.push({
+          filename: file.originalname,
+          error: error.message
+        });
+      }
+    }
+
+    console.log('Bulk upload results:', {
+      uploaded: results.uploaded.length,
+      unmatched: results.unmatched.length,
+      errors: results.errors.length
+    });
+
+    res.json({
+      message: `Bulk upload completed. ${results.uploaded.length} files uploaded successfully.`,
+      results
+    });
+
+  } catch (error) {
+    console.error('Bulk upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get suggested matches for unmatched files
+app.post('/api/practice-clones/suggest-matches', authenticateToken, requireRole(['director']), async (req, res) => {
+  try {
+    const { filenames } = req.body;
+
+    const practiceClones = await prisma.practiceClone.findMany({
+      where: { isActive: true },
+      select: { id: true, cloneName: true, originalName: true, filename: true }
+    });
+
+    const suggestions = {};
+
+    filenames.forEach(filename => {
+      const fileBaseName = filename.replace(/\.[^/.]+$/, '');
+      const matches = [];
+
+      practiceClones.forEach(clone => {
+        const namesToTry = [
+          clone.cloneName,
+          clone.originalName,
+          clone.filename.replace(/\.[^/.]+$/, '')
+        ].filter(Boolean);
+
+        let bestSimilarity = 0;
+        namesToTry.forEach(name => {
+          const similarity = calculateSimilarity(fileBaseName, name);
+          if (similarity > bestSimilarity) {
+            bestSimilarity = similarity;
+          }
+        });
+
+        if (bestSimilarity > 0.3) { // Lower threshold for suggestions
+          matches.push({
+            id: clone.id,
+            cloneName: clone.cloneName,
+            similarity: Math.round(bestSimilarity * 100)
+          });
+        }
+      });
+
+      // Sort by similarity
+      matches.sort((a, b) => b.similarity - a.similarity);
+      suggestions[filename] = matches.slice(0, 5); // Top 5 suggestions
+    });
+
+    res.json(suggestions);
+
+  } catch (error) {
+    console.error('Error generating suggestions:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper function for similarity calculation (same as above)
+function calculateSimilarity(str1, str2) {
+  const a = str1.toLowerCase();
+  const b = str2.toLowerCase();
+
+  if (a === b) return 1.0;
+  if (a.includes(b) || b.includes(a)) return 0.8;
+
+  const matrix = Array(b.length + 1).fill().map(() => Array(a.length + 1).fill(0));
+
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      if (a[i - 1] === b[j - 1]) {
+        matrix[j][i] = matrix[j - 1][i - 1];
+      } else {
+        matrix[j][i] = Math.min(
+          matrix[j - 1][i - 1] + 1,
+          matrix[j][i - 1] + 1,
+          matrix[j - 1][i] + 1
+        );
+      }
+    }
+  }
+
+  const maxLen = Math.max(a.length, b.length);
+  return (maxLen - matrix[b.length][a.length]) / maxLen;
+}
 
 app.get('/api/schools/public', async (req, res) => {
   try {

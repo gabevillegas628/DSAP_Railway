@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, AlertCircle, Check, FileText, Users, Building, FlaskConical, Settings, HelpCircle, MessageSquare } from 'lucide-react';
+import { Upload, X, AlertCircle, Check, FileText, Users, Building, FlaskConical, Settings, HelpCircle, MessageSquare, BookOpen } from 'lucide-react';
 import apiService from '../services/apiService';
-
 
 const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
     const [selectedFile, setSelectedFile] = useState(null);
@@ -10,7 +9,7 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [importStatus, setImportStatus] = useState('');
-    const [conflictResolution, setConflictResolution] = useState('skip'); // 'skip', 'overwrite', 'merge'
+    const [conflictResolution, setConflictResolution] = useState('skip'); // 'skip', 'overwrite'
     const fileInputRef = useRef(null);
 
     const resetModal = () => {
@@ -46,16 +45,31 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                 throw new Error('Invalid export file format');
             }
 
+            // Check if it's the new v2.0 format
+            if (data.exportInfo.version !== '2.0') {
+                throw new Error(`Unsupported export version: ${data.exportInfo.version}. Please use exports from version 2.0 or later.`);
+            }
+
             setFilePreview(data);
 
-            // Initialize import selections (default to true for available data)
+            // Initialize import selections based on available data
             const initialImportData = {};
-            if (data.users) initialImportData.users = true;
-            if (data.schools) initialImportData.schools = true;
-            if (data.practiceClones) initialImportData.practiceClones = true;
-            if (data.analysisQuestions) initialImportData.analysisQuestions = true;
-            if (data.commonFeedback) initialImportData.commonFeedback = true;
+            
+            // Users
+            if (data.users?.directors?.length > 0) initialImportData.directors = true;
+            if (data.users?.instructors?.length > 0) initialImportData.instructors = true;
+            if (data.users?.students?.length > 0) initialImportData.students = true;
+            
+            // Configuration
+            if (data.schools?.length > 0) initialImportData.schools = true;
             if (data.programSettings) initialImportData.programSettings = true;
+            
+            // Educational Content
+            if (data.analysisContent?.questions?.length > 0) initialImportData.analysisQuestions = true;
+            if (data.analysisContent?.helpTopics?.length > 0) initialImportData.helpTopics = true;
+            if (data.analysisContent?.stepHelp?.length > 0) initialImportData.stepHelp = true;
+            if (data.analysisContent?.commonFeedback?.length > 0) initialImportData.commonFeedback = true;
+            if (data.practiceClones?.clones?.length > 0) initialImportData.practiceClones = true;
 
             setImportData(initialImportData);
             setImportStatus('');
@@ -89,8 +103,8 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                 conflictResolution
             }));
 
-            // Use apiService.uploadFiles instead of direct fetch
-            const result = await apiService.uploadFiles('/import', formData);
+            // Use the new import endpoint
+            const result = await apiService.uploadFiles('/import-v2', formData);
 
             setImportStatus(`Import completed successfully!`);
             
@@ -110,10 +124,15 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
 
     const getDataTypeIcon = (type) => {
         switch (type) {
+            case 'directors':
+            case 'instructors': 
+            case 'students': 
             case 'users': return <Users className="text-blue-600" size={16} />;
             case 'schools': return <Building className="text-green-600" size={16} />;
             case 'practiceClones': return <FlaskConical className="text-purple-600" size={16} />;
             case 'analysisQuestions': return <HelpCircle className="text-orange-600" size={16} />;
+            case 'helpTopics': 
+            case 'stepHelp': return <BookOpen className="text-indigo-600" size={16} />;
             case 'commonFeedback': return <MessageSquare className="text-teal-600" size={16} />;
             case 'programSettings': return <Settings className="text-gray-600" size={16} />;
             default: return <FileText className="text-gray-600" size={16} />;
@@ -122,17 +141,75 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
 
     const getDataTypeLabel = (type) => {
         switch (type) {
-            case 'users': return 'Users';
+            case 'directors': return 'Directors';
+            case 'instructors': return 'Instructors';
+            case 'students': return 'Students (with demographics)';
             case 'schools': return 'Schools';
-            case 'practiceClones': return 'Practice Clones';
+            case 'practiceClones': return 'Practice Clones & Answers';
             case 'analysisQuestions': return 'Analysis Questions';
+            case 'helpTopics': return 'Help Topics (question-specific)';
+            case 'stepHelp': return 'Step Help (workflow guides)';
             case 'commonFeedback': return 'Common Feedback';
             case 'programSettings': return 'Program Settings';
             default: return type;
         }
     };
 
+    const getDataTypeCount = (type) => {
+        if (!filePreview) return 0;
+        
+        switch (type) {
+            case 'directors': return filePreview.users?.directors?.length || 0;
+            case 'instructors': return filePreview.users?.instructors?.length || 0;
+            case 'students': return filePreview.users?.students?.length || 0;
+            case 'schools': return filePreview.schools?.length || 0;
+            case 'practiceClones': 
+                const clones = filePreview.practiceClones?.clones?.length || 0;
+                const answers = filePreview.practiceClones?.answers?.length || 0;
+                return clones > 0 ? `${clones} clones, ${answers} answers` : 0;
+            case 'analysisQuestions': return filePreview.analysisContent?.questions?.length || 0;
+            case 'helpTopics': return filePreview.analysisContent?.helpTopics?.length || 0;
+            case 'stepHelp': return filePreview.analysisContent?.stepHelp?.length || 0;
+            case 'commonFeedback': return filePreview.analysisContent?.commonFeedback?.length || 0;
+            case 'programSettings': return filePreview.programSettings ? 1 : 0;
+            default: return 0;
+        }
+    };
+
     const hasDataSelected = Object.values(importData).some(value => value);
+
+    const renderDataSection = (title, icon, items) => {
+        const availableItems = items.filter(item => getDataTypeCount(item.key) > 0);
+        if (availableItems.length === 0) return null;
+
+        return (
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center space-x-2 mb-3">
+                    {icon}
+                    <h4 className="font-medium text-gray-900">{title}</h4>
+                </div>
+                <div className="space-y-2 ml-6">
+                    {availableItems.map(item => (
+                        <div key={item.key} className="flex items-center justify-between">
+                            <label className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    checked={importData[item.key] || false}
+                                    onChange={(e) => handleImportChange(item.key, e.target.checked)}
+                                    className="mr-2 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                    disabled={isImporting}
+                                />
+                                <span className="text-sm text-gray-700">{item.label}</span>
+                            </label>
+                            <span className="text-sm text-gray-500">
+                                ({getDataTypeCount(item.key)})
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     if (!isOpen) return null;
 
@@ -140,7 +217,7 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Import Program Data</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Import Program Data v2.0</h2>
                     <button
                         onClick={() => { onClose(); resetModal(); }}
                         disabled={isImporting}
@@ -154,7 +231,7 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                     /* File Selection */
                     <div className="space-y-4">
                         <p className="text-gray-600 text-sm">
-                            Select a DNA Analysis Program export file to import data from another instance.
+                            Select a DNA Analysis Program export file (v2.0) to import data from another instance.
                         </p>
 
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -217,70 +294,55 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                         )}
 
                         {/* Data Selection */}
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <h4 className="font-medium text-gray-900">Select Data to Import</h4>
                             
-                            {filePreview && Object.entries(filePreview)
-                                .filter(([key, value]) => key !== 'exportInfo' && Array.isArray(value) && value.length > 0)
-                                .map(([key, value]) => (
-                                <div key={key} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                                    <div className="flex items-center space-x-3">
-                                        {getDataTypeIcon(key)}
-                                        <div>
-                                            <div className="font-medium text-gray-900">
-                                                {getDataTypeLabel(key)}
-                                            </div>
-                                            <div className="text-sm text-gray-500">
-                                                {value.length} item{value.length !== 1 ? 's' : ''}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <label className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={importData[key] || false}
-                                            onChange={(e) => handleImportChange(key, e.target.checked)}
-                                            className="mr-2 h-4 w-4 text-indigo-600 rounded border-gray-300"
-                                            disabled={isImporting}
-                                        />
-                                        <span className="text-sm text-gray-700">Import</span>
-                                    </label>
-                                </div>
-                            ))}
+                            {/* Users Section */}
+                            {renderDataSection(
+                                'Users',
+                                <Users className="text-blue-600" size={20} />,
+                                [
+                                    { key: 'directors', label: 'Directors' },
+                                    { key: 'instructors', label: 'Instructors' },
+                                    { key: 'students', label: 'Students (with demographics)' }
+                                ]
+                            )}
 
-                            {/* Program Settings Special Case */}
-                            {filePreview?.programSettings && (
-                                <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                                    <div className="flex items-center space-x-3">
-                                        {getDataTypeIcon('programSettings')}
-                                        <div>
-                                            <div className="font-medium text-gray-900">Program Settings</div>
-                                            <div className="text-sm text-gray-500">Configuration data</div>
-                                        </div>
-                                    </div>
-                                    <label className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={importData.programSettings || false}
-                                            onChange={(e) => handleImportChange('programSettings', e.target.checked)}
-                                            className="mr-2 h-4 w-4 text-indigo-600 rounded border-gray-300"
-                                            disabled={isImporting}
-                                        />
-                                        <span className="text-sm text-gray-700">Import</span>
-                                    </label>
-                                </div>
+                            {/* Configuration Section */}
+                            {renderDataSection(
+                                'Configuration',
+                                <Settings className="text-green-600" size={20} />,
+                                [
+                                    { key: 'schools', label: 'Schools' },
+                                    { key: 'programSettings', label: 'Program Settings' }
+                                ]
+                            )}
+
+                            {/* Educational Content Section */}
+                            {renderDataSection(
+                                'Educational Content',
+                                <BookOpen className="text-purple-600" size={20} />,
+                                [
+                                    { key: 'analysisQuestions', label: 'Analysis Questions' },
+                                    { key: 'helpTopics', label: 'Help Topics (question-specific)' },
+                                    { key: 'stepHelp', label: 'Step Help (workflow guides)' },
+                                    { key: 'commonFeedback', label: 'Common Feedback' },
+                                    { key: 'practiceClones', label: 'Practice Clones & Answers' }
+                                ]
                             )}
                         </div>
 
                         {/* Conflict Resolution */}
-                        <div className="space-y-3">
-                            <h4 className="font-medium text-gray-900">Conflict Resolution</h4>
-                            <p className="text-sm text-gray-600">How should conflicts be handled when imported data already exists?</p>
-                            
+                        <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="font-medium text-gray-900 mb-3">Conflict Resolution</h4>
+                            <p className="text-sm text-gray-600 mb-3">
+                                How should existing data be handled?
+                            </p>
                             <div className="space-y-2">
-                                <label className="flex items-center">
+                                <label className="flex items-start">
                                     <input
                                         type="radio"
+                                        name="conflictResolution"
                                         value="skip"
                                         checked={conflictResolution === 'skip'}
                                         onChange={(e) => setConflictResolution(e.target.value)}
@@ -288,14 +350,14 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                                         disabled={isImporting}
                                     />
                                     <div>
-                                        <span className="font-medium">Skip existing items</span>
-                                        <p className="text-sm text-gray-500">Leave existing data unchanged</p>
+                                        <span className="font-medium">Skip existing data</span>
+                                        <p className="text-sm text-gray-500">Import only new items, leave existing unchanged</p>
                                     </div>
                                 </label>
-                                
-                                <label className="flex items-center">
+                                <label className="flex items-start">
                                     <input
                                         type="radio"
+                                        name="conflictResolution"
                                         value="overwrite"
                                         checked={conflictResolution === 'overwrite'}
                                         onChange={(e) => setConflictResolution(e.target.value)}
@@ -303,25 +365,26 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                                         disabled={isImporting}
                                     />
                                     <div>
-                                        <span className="font-medium">Overwrite existing items</span>
-                                        <p className="text-sm text-gray-500">Replace existing data with imported data</p>
+                                        <span className="font-medium">Overwrite existing data</span>
+                                        <p className="text-sm text-gray-500">Update existing items with imported data</p>
                                     </div>
                                 </label>
-                                
-                                <label className="flex items-center">
-                                    <input
-                                        type="radio"
-                                        value="merge"
-                                        checked={conflictResolution === 'merge'}
-                                        onChange={(e) => setConflictResolution(e.target.value)}
-                                        className="mr-3 h-4 w-4 text-indigo-600"
-                                        disabled={isImporting}
-                                    />
-                                    <div>
-                                        <span className="font-medium">Merge data</span>
-                                        <p className="text-sm text-gray-500">Update existing items with new data</p>
-                                    </div>
-                                </label>
+                            </div>
+                        </div>
+
+                        {/* Information Box */}
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="flex items-start space-x-2">
+                                <AlertCircle className="text-yellow-600 mt-0.5" size={16} />
+                                <div className="text-sm text-yellow-800">
+                                    <p className="font-medium mb-1">Import Notes:</p>
+                                    <ul className="space-y-1 text-xs">
+                                        <li>• Imported users will have default passwords (defaultpassword123)</li>
+                                        <li>• Practice clones require manual upload of .ab1 files</li>
+                                        <li>• Relationships between questions and help content are preserved</li>
+                                        <li>• School assignments are maintained where possible</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
 
@@ -367,7 +430,7 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                                 ) : importStatus.includes('failed') || importStatus.includes('Error') ? (
                                     <AlertCircle className="text-red-600 mt-0.5" size={16} />
                                 ) : (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mt-0.5"></div>
+                                    <AlertCircle className="text-blue-600 mt-0.5" size={16} />
                                 )}
                                 <p className={`text-sm ${
                                     importStatus.includes('successfully') || importStatus.includes('completed')
