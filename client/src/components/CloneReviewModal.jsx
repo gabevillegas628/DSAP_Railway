@@ -321,6 +321,28 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
       );
     }
 
+    // Add this case to renderAnswer() in CloneReviewModal.jsx
+    if (question.type === 'sequence_range') {
+      const rangeAnswer = answer || { value1: '', value2: '' };
+      const label1 = question.options?.label1 || 'Begin';
+      const label2 = question.options?.label2 || 'End';
+
+      return (
+        <div className="bg-white border rounded-lg p-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">{label1}:</p>
+              <p className="text-sm text-gray-800">{rangeAnswer.value1 || 'No answer'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">{label2}:</p>
+              <p className="text-sm text-gray-800">{rangeAnswer.value2 || 'No answer'}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Default text answer
     return (
       <div className="bg-white border rounded-lg p-3">

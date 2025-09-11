@@ -28,16 +28,17 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
       const existingAnswers = await apiService.get(`/practice-clones/${practiceClone.id}/answers`);
 
       // Parse JSON strings back to objects for blast questions
+      // Parse JSON strings back to objects for blast and sequence_range questions
       const parsedAnswers = existingAnswers.map(answer => {
         const question = questions.find(q => q.id === answer.questionId);
-        if (question && question.type === 'blast' && typeof answer.correctAnswer === 'string') {
+        if (question && (question.type === 'blast' || question.type === 'sequence_range') && typeof answer.correctAnswer === 'string') {
           try {
             return {
               ...answer,
               correctAnswer: JSON.parse(answer.correctAnswer)
             };
           } catch (e) {
-            console.warn('Failed to parse blast answer JSON:', e);
+            console.warn(`Failed to parse ${question.type} answer JSON:`, e);
             return answer;
           }
         }
@@ -81,8 +82,8 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
     });
   };
 
-  // New function to handle blast answer updates
-  const updateBlastAnswer = (questionId, fieldKey, value) => {
+  // Renamed function to handle both blast and sequence_range answer updates (originally UpdateBlastAnswer)
+  const updateObjectAnswer = (questionId, fieldKey, value) => {
     setPracticeAnswers(prev => {
       const existing = prev.find(answer => answer.questionId === questionId);
       if (existing) {
@@ -114,7 +115,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
       // Prepare answers for saving - convert blast answers to JSON strings
       const answersToSave = practiceAnswers.map(answer => {
         const question = analysisQuestions.find(q => q.id === answer.questionId);
-        if (question && question.type === 'blast' && typeof answer.correctAnswer === 'object') {
+        if (question && (question.type === 'blast' || question.type === 'sequence_range') && typeof answer.correctAnswer === 'object') {
           return {
             ...answer,
             correctAnswer: JSON.stringify(answer.correctAnswer)
@@ -322,7 +323,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                                     <input
                                                       type="text"
                                                       value={blastAnswer[`accession_${index}`] || ''}
-                                                      onChange={(e) => updateBlastAnswer(question.id, `accession_${index}`, e.target.value)}
+                                                      onChange={(e) => updateObjectAnswer(question.id, `accession_${index}`, e.target.value)}
                                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                       placeholder="Accession"
                                                     />
@@ -331,7 +332,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                                     <input
                                                       type="text"
                                                       value={blastAnswer[`definition_${index}`] || ''}
-                                                      onChange={(e) => updateBlastAnswer(question.id, `definition_${index}`, e.target.value)}
+                                                      onChange={(e) => updateObjectAnswer(question.id, `definition_${index}`, e.target.value)}
                                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                       placeholder="Definition"
                                                     />
@@ -340,7 +341,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                                     <input
                                                       type="text"
                                                       value={blastAnswer[`organism_${index}`] || ''}
-                                                      onChange={(e) => updateBlastAnswer(question.id, `organism_${index}`, e.target.value)}
+                                                      onChange={(e) => updateObjectAnswer(question.id, `organism_${index}`, e.target.value)}
                                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                       placeholder="Organism"
                                                     />
@@ -349,7 +350,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                                     <input
                                                       type="text"
                                                       value={blastAnswer[`start_${index}`] || ''}
-                                                      onChange={(e) => updateBlastAnswer(question.id, `start_${index}`, e.target.value)}
+                                                      onChange={(e) => updateObjectAnswer(question.id, `start_${index}`, e.target.value)}
                                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                       placeholder="Start"
                                                     />
@@ -358,7 +359,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                                     <input
                                                       type="text"
                                                       value={blastAnswer[`end_${index}`] || ''}
-                                                      onChange={(e) => updateBlastAnswer(question.id, `end_${index}`, e.target.value)}
+                                                      onChange={(e) => updateObjectAnswer(question.id, `end_${index}`, e.target.value)}
                                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                       placeholder="End"
                                                     />
@@ -367,7 +368,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                                     <input
                                                       type="text"
                                                       value={blastAnswer[`evalue_${index}`] || ''}
-                                                      onChange={(e) => updateBlastAnswer(question.id, `evalue_${index}`, e.target.value)}
+                                                      onChange={(e) => updateObjectAnswer(question.id, `evalue_${index}`, e.target.value)}
                                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                       placeholder="E-value"
                                                     />
@@ -380,6 +381,57 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                       </div>
                                       <p className="text-xs text-gray-500 mt-1">
                                         Enter the correct values for each BLAST result row. Students will see these as the expected answers.
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Explanation (Optional)
+                                      </label>
+                                      <textarea
+                                        value={currentAnswer.explanation || ''}
+                                        onChange={(e) => updateAnswer(question.id, 'explanation', e.target.value)}
+                                        placeholder="Optional explanation to show when student gets it wrong..."
+                                        rows="2"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : question.type === 'sequence_range' ? (
+                                  // Sequence range question answer interface
+                                  <div className="space-y-3">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Correct Range Values
+                                      </label>
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                                            {question.options?.label1 || 'Begin'}
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={(typeof currentAnswer.correctAnswer === 'object' ? currentAnswer.correctAnswer?.value1 : '') || ''}
+                                            onChange={(e) => updateObjectAnswer(question.id, 'value1', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder={`Enter ${question.options?.label1 || 'begin'} value...`}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                                            {question.options?.label2 || 'End'}
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={(typeof currentAnswer.correctAnswer === 'object' ? currentAnswer.correctAnswer?.value2 : '') || ''}
+                                            onChange={(e) => updateObjectAnswer(question.id, 'value2', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder={`Enter ${question.options?.label2 || 'end'} value...`}
+                                          />
+                                        </div>
+                                      </div>
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        Enter the correct values for both fields. Students will see these as the expected answers.
                                       </p>
                                     </div>
 

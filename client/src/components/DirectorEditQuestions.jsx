@@ -40,69 +40,77 @@ const DirectorEditQuestions = () => {
   };
 
   const addAnalysisQuestion = async () => {
-    if (newAnalysisQuestion.text.trim()) {
-      try {
-        const questionData = {
-          ...newAnalysisQuestion,
-          options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
-            newAnalysisQuestion.type === 'blast' ? {
-              blastResultsCount: newAnalysisQuestion.blastResultsCount,
-              blastTitle: newAnalysisQuestion.blastTitle
-            } :
-              newAnalysisQuestion.type === 'blast_comparison' ? {
-                blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
-                blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
-              } : undefined,
-          questionGroup: newAnalysisQuestion.questionGroup || null, // NEW
-          groupOrder: newAnalysisQuestion.groupOrder || 0          // NEW
-        };
-
-        const question = await apiService.post('/analysis-questions', questionData);
-        setAnalysisQuestions(prev => [...prev, question]);
-        setShowAnalysisQuestionForm(false);
-        setNewAnalysisQuestion({
-          step: 'clone-editing',
-          text: '',
-          type: 'text',
-          required: true,
-          order: 1,
-          conditionalLogic: null,
-          options: [],
-          blastResultsCount: 5,
-          blastTitle: '',
-          questionGroup: '', // NEW
-          groupOrder: 0      // NEW
-        });
-      } catch (error) {
-        console.error('Error adding analysis question:', error);
-      }
-    }
-  };
-
-  const updateAnalysisQuestion = async (questionId, updates) => {
+  if (newAnalysisQuestion.text.trim()) {
     try {
-      const updateData = {
-        ...updates,
-        options: updates.type === 'select' ? updates.options :
-          updates.type === 'blast' ? {
-            blastResultsCount: updates.blastResultsCount,
-            blastTitle: updates.blastTitle
+      const questionData = {
+        ...newAnalysisQuestion,
+        options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
+          newAnalysisQuestion.type === 'blast' ? {
+            blastResultsCount: newAnalysisQuestion.blastResultsCount,
+            blastTitle: newAnalysisQuestion.blastTitle
           } :
-            updates.type === 'blast_comparison' ? {
-              blastQuestion1Id: updates.options?.blastQuestion1Id,
-              blastQuestion2Id: updates.options?.blastQuestion2Id
-            } : undefined
+            newAnalysisQuestion.type === 'blast_comparison' ? {
+              blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
+              blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+            } :
+              newAnalysisQuestion.type === 'sequence_range' ? {
+                label1: newAnalysisQuestion.options?.label1 || 'Begin',
+                label2: newAnalysisQuestion.options?.label2 || 'End'
+              } : undefined,
+        questionGroup: newAnalysisQuestion.questionGroup || null,
+        groupOrder: newAnalysisQuestion.groupOrder || 0
       };
 
-      const updatedQuestion = await apiService.put(`/analysis-questions/${questionId}`, updateData);
-      setAnalysisQuestions(prev => prev.map(q =>
-        q.id === questionId ? updatedQuestion : q
-      ));
-      setEditingAnalysisQuestion(null);
+      const question = await apiService.post('/analysis-questions', questionData);
+      setAnalysisQuestions(prev => [...prev, question]);
+      setShowAnalysisQuestionForm(false);
+      setNewAnalysisQuestion({
+        step: 'clone-editing',
+        text: '',
+        type: 'text',
+        required: true,
+        order: 1,
+        conditionalLogic: null,
+        options: [],
+        blastResultsCount: 5,
+        blastTitle: '',
+        questionGroup: '',
+        groupOrder: 0
+      });
     } catch (error) {
-      console.error('Error updating analysis question:', error);
+      console.error('Error adding analysis question:', error);
     }
-  };
+  }
+};
+
+  const updateAnalysisQuestion = async (questionId, updates) => {
+  try {
+    const updateData = {
+      ...updates,
+      options: updates.type === 'select' ? updates.options :
+        updates.type === 'blast' ? {
+          blastResultsCount: updates.blastResultsCount,
+          blastTitle: updates.blastTitle
+        } :
+          updates.type === 'blast_comparison' ? {
+            blastQuestion1Id: updates.options?.blastQuestion1Id,
+            blastQuestion2Id: updates.options?.blastQuestion2Id
+          } :
+            updates.type === 'sequence_range' ? {
+              label1: updates.options?.label1 || 'Begin',
+              label2: updates.options?.label2 || 'End'
+            } : undefined
+    };
+
+    const updatedQuestion = await apiService.put(`/analysis-questions/${questionId}`, updateData);
+    setAnalysisQuestions(prev => prev.map(q =>
+      q.id === questionId ? updatedQuestion : q
+    ));
+    setEditingAnalysisQuestion(null);
+  } catch (error) {
+    console.error('Error updating analysis question:', error);
+  }
+};
 
   const deleteAnalysisQuestion = async (questionId) => {
     // Check if other questions depend on this one
@@ -158,37 +166,41 @@ const DirectorEditQuestions = () => {
   };
 
   const saveEditedQuestion = async () => {
-    if (newAnalysisQuestion.text.trim()) {
-      await updateAnalysisQuestion(editingAnalysisQuestion, {
-        ...newAnalysisQuestion,
-        options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
-          newAnalysisQuestion.type === 'blast' ? {
-            blastResultsCount: newAnalysisQuestion.blastResultsCount,
-            blastTitle: newAnalysisQuestion.blastTitle
+  if (newAnalysisQuestion.text.trim()) {
+    await updateAnalysisQuestion(editingAnalysisQuestion, {
+      ...newAnalysisQuestion,
+      options: newAnalysisQuestion.type === 'select' ? newAnalysisQuestion.options :
+        newAnalysisQuestion.type === 'blast' ? {
+          blastResultsCount: newAnalysisQuestion.blastResultsCount,
+          blastTitle: newAnalysisQuestion.blastTitle
+        } :
+          newAnalysisQuestion.type === 'blast_comparison' ? {
+            blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
+            blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
           } :
-            newAnalysisQuestion.type === 'blast_comparison' ? {
-              blastQuestion1Id: newAnalysisQuestion.options?.blastQuestion1Id,
-              blastQuestion2Id: newAnalysisQuestion.options?.blastQuestion2Id
+            newAnalysisQuestion.type === 'sequence_range' ? {
+              label1: newAnalysisQuestion.options?.label1 || 'Begin',
+              label2: newAnalysisQuestion.options?.label2 || 'End'
             } : undefined,
-        questionGroup: newAnalysisQuestion.questionGroup || null, // NEW
-        groupOrder: newAnalysisQuestion.groupOrder || 0          // NEW
-      });
-      setShowAnalysisQuestionForm(false);
-      setNewAnalysisQuestion({
-        step: 'clone-editing',
-        text: '',
-        type: 'text',
-        required: true,
-        order: 1,
-        conditionalLogic: null,
-        options: [],
-        blastResultsCount: 5,
-        blastTitle: '',
-        questionGroup: '', // NEW
-        groupOrder: 0      // NEW
-      });
-    }
-  };
+      questionGroup: newAnalysisQuestion.questionGroup || null,
+      groupOrder: newAnalysisQuestion.groupOrder || 0
+    });
+    setShowAnalysisQuestionForm(false);
+    setNewAnalysisQuestion({
+      step: 'clone-editing',
+      text: '',
+      type: 'yes_no',
+      required: true,
+      order: 1,
+      conditionalLogic: null,
+      options: [],
+      blastResultsCount: 5,
+      blastTitle: '',
+      questionGroup: '',
+      groupOrder: 0
+    });
+  }
+};
 
   const addOption = () => {
     setNewAnalysisQuestion(prev => ({
@@ -346,6 +358,7 @@ const DirectorEditQuestions = () => {
                       >
                         <option value="yes_no">Yes/No</option>
                         <option value="text">Text</option>
+                        <option value="sequence_range">Sequence Range</option>
                         <option value="textarea">Long Text</option>
                         <option value="dna_sequence">DNA Sequence</option>
                         <option value="protein_sequence">Protein Sequence</option>
@@ -417,6 +430,52 @@ const DirectorEditQuestions = () => {
                           onChange={(e) => setNewAnalysisQuestion({ ...newAnalysisQuestion, blastResultsCount: parseInt(e.target.value) || 3 })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
+                      </div>
+                    </div>
+                  )}
+
+                  {newAnalysisQuestion.type === 'sequence_range' && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h5 className="font-medium text-gray-700">Sequence Range Configuration</h5>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            First Field Label
+                          </label>
+                          <input
+                            type="text"
+                            value={newAnalysisQuestion.options?.label1 || ''}
+                            onChange={(e) => setNewAnalysisQuestion({
+                              ...newAnalysisQuestion,
+                              options: {
+                                ...newAnalysisQuestion.options,
+                                label1: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., Start Position, Title 1"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Second Field Label
+                          </label>
+                          <input
+                            type="text"
+                            value={newAnalysisQuestion.options?.label2 || ''}
+                            onChange={(e) => setNewAnalysisQuestion({
+                              ...newAnalysisQuestion,
+                              options: {
+                                ...newAnalysisQuestion.options,
+                                label2: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., End Position, Title 2"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

@@ -792,6 +792,10 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
                                     <span className="text-xs text-gray-600">
                                         (Expected: See table below)
                                     </span>
+                                ) : question.type === 'sequence_range' ? (
+                                    <span className="text-xs text-gray-600">
+                                        (Expected: See values below)
+                                    </span>
                                 ) : (
                                     <span className="text-xs text-gray-600">
                                         (Expected: "{practiceAnswer.correctAnswer}")
@@ -820,6 +824,21 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
                                                 {renderBlastAnswerRows(practiceAnswer.correctAnswer)}
                                             </tbody>
                                         </table>
+                                    </div>
+                                ) : question.type === 'sequence_range' ? (
+                                    <div className="mt-1 grid grid-cols-2 gap-2">
+                                        <div>
+                                            <span className="text-xs text-gray-600">{question.options?.label1 || 'Begin'}:</span>
+                                            <span className="font-mono bg-gray-100 px-2 py-1 rounded ml-1">
+                                                {practiceAnswer.correctAnswer.value1}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-gray-600">{question.options?.label2 || 'End'}:</span>
+                                            <span className="font-mono bg-gray-100 px-2 py-1 rounded ml-1">
+                                                {practiceAnswer.correctAnswer.value2}
+                                            </span>
+                                        </div>
                                     </div>
                                 ) : (
                                     <span className="font-mono bg-gray-100 px-2 py-1 rounded">
@@ -875,6 +894,24 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
             });
         }
 
+        // Handle sequence_range questions separately
+        if (question && question.type === 'sequence_range') {
+            if (typeof correctAnswer.correctAnswer !== 'object' || typeof studentAnswer !== 'object') {
+                return false;
+            }
+
+            const correctData = correctAnswer.correctAnswer;
+            const studentData = studentAnswer;
+
+            // Compare both value1 and value2
+            const value1Match = (studentData.value1 || '').trim().toLowerCase() ===
+                (correctData.value1 || '').trim().toLowerCase();
+            const value2Match = (studentData.value2 || '').trim().toLowerCase() ===
+                (correctData.value2 || '').trim().toLowerCase();
+
+            return value1Match && value2Match;
+        }
+
         // Handle regular questions
         const normalizedStudent = String(studentAnswer || '').trim().toLowerCase();
         const normalizedCorrect = String(correctAnswer.correctAnswer).trim().toLowerCase();
@@ -886,17 +923,17 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
         try {
             const answers = await apiService.get(`/practice-clones/${practiceCloneId}/answers`);
 
-            // Parse JSON strings back to objects for blast questions
+            // Parse JSON strings back to objects for blast and sequence_range questions
             const parsedAnswers = answers.map(answer => {
                 const question = analysisQuestions.find(q => q.id === answer.questionId);
-                if (question && question.type === 'blast' && typeof answer.correctAnswer === 'string') {
+                if (question && (question.type === 'blast' || question.type === 'sequence_range') && typeof answer.correctAnswer === 'string') {
                     try {
                         return {
                             ...answer,
                             correctAnswer: JSON.parse(answer.correctAnswer)
                         };
                     } catch (e) {
-                        console.warn('Failed to parse blast answer JSON:', e);
+                        console.warn(`Failed to parse ${question.type} answer JSON:`, e);
                         return answer;
                     }
                 }
@@ -1836,6 +1873,25 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
                     </div>
                 );
             }
+        } else if (question.type === 'sequence_range') {
+            const rangeAnswer = answer || { value1: '', value2: '' };
+            const label1 = question.options?.label1 || 'Begin';
+            const label2 = question.options?.label2 || 'End';
+
+            return (
+                <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-xs font-medium text-gray-600 mb-1">{label1}:</p>
+                            <p className="text-sm text-gray-800 font-mono">{rangeAnswer.value1 || 'No answer'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-600 mb-1">{label2}:</p>
+                            <p className="text-sm text-gray-800 font-mono">{rangeAnswer.value2 || 'No answer'}</p>
+                        </div>
+                    </div>
+                </div>
+            );
         } else {
             return (
                 <div className="space-y-3">

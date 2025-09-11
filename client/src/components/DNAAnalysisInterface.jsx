@@ -608,6 +608,25 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     }
   }, [analysisQuestions]);
 
+  // Initialize sequence_range answers when questions load
+  useEffect(() => {
+    if (analysisQuestions.length > 0) {
+      setAnswers(prev => {
+        const updatedAnswers = { ...prev };
+        let hasChanges = false;
+
+        analysisQuestions.forEach(question => {
+          if (question.type === 'sequence_range' && !updatedAnswers[question.id]) {
+            updatedAnswers[question.id] = { value1: '', value2: '' };
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updatedAnswers : prev;
+      });
+    }
+  }, [analysisQuestions]);
+
   // Function to open help in new tab
   const openHelp = (questionId) => {
     const helpTopic = helpTopics[questionId];
@@ -827,12 +846,31 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
       // Set answers and other progress data
       if (fullAnalysisData.answers && Object.keys(fullAnalysisData.answers).length > 0) {
-        setAnswers(fullAnalysisData.answers);
+        // Initialize sequence_range questions that don't have answers yet
+        const initializedAnswers = { ...fullAnalysisData.answers };
+        analysisQuestions.forEach(question => {
+          if (question.type === 'sequence_range' && !initializedAnswers[question.id]) {
+            initializedAnswers[question.id] = { value1: '', value2: '' };
+          }
+        });
+
+        setAnswers(initializedAnswers);
         setHasUnsavedChanges(false);
         if (onUnsavedChangesUpdate) {
           onUnsavedChangesUpdate(false);
         }
-        console.log('Restored answers:', fullAnalysisData.answers);
+        console.log('Restored answers:', initializedAnswers);
+      } else {
+        // Initialize empty answers with proper structure for sequence_range questions
+        const emptyAnswers = {};
+        analysisQuestions.forEach(question => {
+          if (question.type === 'sequence_range') {
+            emptyAnswers[question.id] = { value1: '', value2: '' };
+          }
+        });
+
+        setAnswers(emptyAnswers);
+        console.log('Initialized empty answers with sequence_range support');
       }
 
       if (fullAnalysisData.currentStep) {
@@ -1099,9 +1137,17 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
     if (stepQuestions.length === 0) return 0;
 
-    const answeredQuestions = stepQuestions.filter(q =>
-      answers[q.id] !== undefined && answers[q.id] !== ''
-    );
+    const answeredQuestions = stepQuestions.filter(q => {
+      const answer = answers[q.id];
+
+      // Handle sequence_range questions (object with value1 and value2)
+      if (q.type === 'sequence_range') {
+        return answer && (answer.value1 || answer.value2); // Consider answered if either field has content
+      }
+
+      // Handle all other question types
+      return answer !== undefined && answer !== '';
+    });
 
     return Math.round((answeredQuestions.length / stepQuestions.length) * 100);
   };
@@ -1268,9 +1314,17 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
     if (groupQuestions.length === 0) return 100;
 
-    const answeredQuestions = groupQuestions.filter(q =>
-      answers[q.id] !== undefined && answers[q.id] !== ''
-    );
+    const answeredQuestions = groupQuestions.filter(q => {
+      const answer = answers[q.id];
+
+      // Handle sequence_range questions (object with value1 and value2)
+      if (q.type === 'sequence_range') {
+        return answer && (answer.value1 || answer.value2); // Consider answered if either field has content
+      }
+
+      // Handle all other question types
+      return answer !== undefined && answer !== '';
+    });
 
     return Math.round((answeredQuestions.length / groupQuestions.length) * 100);
   };
@@ -1323,9 +1377,19 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     }
   };
 
+  // Add this helper function near the top of your component
+  const initializeAnswer = (question, existingAnswer) => {
+    if (existingAnswer !== undefined) return existingAnswer;
+
+    if (question.type === 'sequence_range') {
+      return { value1: '', value2: '' };
+    }
+    return '';
+  };
+
 
   const renderQuestion = (question) => {
-    const answer = answers[question.id] || '';
+    const answer = answers[question.id] || (question.type === 'sequence_range' ? { value1: '', value2: '' } : '');
     const disabled = isReadOnlyStatus();
     const questionComments = getQuestionComments(question.id);
     const isCorrect = isQuestionCorrect(question.id);
@@ -1566,12 +1630,56 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
             </div>
           )}
 
-          {!['yes_no', 'select', 'text', 'textarea', 'dna_sequence', 'protein_sequence', 'number', 'blast'].includes(question.type) && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">
-                Unknown question type: "{question.type}". Please contact your instructor.
-              </p>
+          {question.type === 'sequence_range' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {question.options?.label1 || 'Begin'}
+                  </label>
+                  <input
+                    type="text"
+                    value={answer?.value1 || ''}
+                    onChange={(e) => {
+                      const newAnswer = {
+                        ...answer,
+                        value1: e.target.value
+                      };
+                      handleAnswerChange(question.id, newAnswer);
+                    }}
+                    disabled={disabled}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder={disabled ? "Read-only" : `Enter ${question.options?.label1 || 'begin value'}...`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {question.options?.label2 || 'End'}
+                  </label>
+                  <input
+                    type="text"
+                    value={answer?.value2 || ''}
+                    onChange={(e) => {
+                      const newAnswer = {
+                        ...answer,
+                        value2: e.target.value
+                      };
+                      handleAnswerChange(question.id, newAnswer);
+                    }}
+                    disabled={disabled}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder={disabled ? "Read-only" : `Enter ${question.options?.label2 || 'end value'}...`}
+                  />
+                </div>
+              </div>
             </div>
+          )}
+          {!['yes_no', 'select', 'text', 'textarea', 'dna_sequence', 'protein_sequence', 'number', 'blast', 'sequence_range'].includes(question.type) && (<div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">
+              Unknown question type: "{question.type}". Please contact your instructor.
+            </p>
+          </div>
           )}
         </div>
 

@@ -153,11 +153,11 @@ dna-analysis-program/
 │   │   └── config.js       # Frontend configuration
 │   └── package.json
 ├── server/                 # Node.js backend
-│   ├── index.js           # Main server file
-│   ├── prisma/            # Database schema and migrations
-│   ├── .env               # Environment variables
+│   ├── index.js            # Main server file
+│   ├── prisma/             # Database schema and migrations
+│   ├── .env                # Environment variables
 │   └── package.json
-├── startup2.js            # Development startup script
+├── startup2.js             # Development startup script
 └── README.md
 ```
 
@@ -180,6 +180,10 @@ The application tracks clones through these statuses:
 - Needs corrections
 - Corrected, waiting review
 - Reviewed and correct
+- Reviewed by teacher
+- Unreadable
+- To be submitted to NCBI
+- Submitted to NCBI
 
 ## Usage
 

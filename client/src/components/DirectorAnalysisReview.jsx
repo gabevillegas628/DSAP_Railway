@@ -872,17 +872,17 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
     try {
       const answers = await apiService.get(`/practice-clones/${practiceCloneId}/answers`);
 
-      // Parse JSON strings back to objects for blast questions
+      // Parse JSON strings back to objects for blast and sequence_range questions
       const parsedAnswers = answers.map(answer => {
         const question = analysisQuestions.find(q => q.id === answer.questionId);
-        if (question && question.type === 'blast' && typeof answer.correctAnswer === 'string') {
+        if (question && (question.type === 'blast' || question.type === 'sequence_range') && typeof answer.correctAnswer === 'string') {
           try {
             return {
               ...answer,
               correctAnswer: JSON.parse(answer.correctAnswer)
             };
           } catch (e) {
-            console.warn('Failed to parse blast answer JSON:', e);
+            console.warn(`Failed to parse ${question.type} answer JSON:`, e);
             return answer;
           }
         }
@@ -1746,6 +1746,25 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
           </div>
         );
       }
+    } else if (question.type === 'sequence_range') {
+      const rangeAnswer = answer || { value1: '', value2: '' };
+      const label1 = question.options?.label1 || 'Begin';
+      const label2 = question.options?.label2 || 'End';
+
+      return (
+        <div className="bg-gray-50 rounded-lg p-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">{label1}:</p>
+              <p className="text-sm text-gray-800 font-mono">{rangeAnswer.value1 || 'No answer'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">{label2}:</p>
+              <p className="text-sm text-gray-800 font-mono">{rangeAnswer.value2 || 'No answer'}</p>
+            </div>
+          </div>
+        </div>
+      );
     } else {
       return (
         <div className="space-y-3">

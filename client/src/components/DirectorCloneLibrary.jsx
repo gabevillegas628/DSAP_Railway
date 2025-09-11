@@ -882,22 +882,6 @@ const DirectorCloneLibrary = () => {
                             {missingFiles.length} practice clone{missingFiles.length !== 1 ? 's' : ''} {missingFiles.length === 1 ? 'is' : 'are'} missing {missingFiles.length === 1 ? 'its' : 'their'} .ab1 file{missingFiles.length !== 1 ? 's' : ''}.
                           </p>
 
-                          {/* Debug Info */}
-                          <div className="bg-white rounded border border-yellow-300 mb-4 p-3">
-                            <h4 className="font-medium text-gray-900 mb-2">Debug Information:</h4>
-                            <div className="text-sm space-y-1">
-                              <div>Total practice clones: {missingFiles.length + (foundFiles?.length || 0)}</div>
-                              {foundFiles && foundFiles.length > 0 && (
-                                <div>Files found: {foundFiles.length}</div>
-                              )}
-                              {foundFiles && foundFiles.filter(f => f.checkMethod === 'fuzzy_match').length > 0 && (
-                                <div className="text-green-700">
-                                  ✓ Fixed {foundFiles.filter(f => f.checkMethod === 'fuzzy_match').length} filename mismatches
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
                           {/* Missing Files List */}
                           <div className="bg-white rounded border border-yellow-300 mb-4 max-h-48 overflow-y-auto">
                             {missingFiles.map(clone => (
