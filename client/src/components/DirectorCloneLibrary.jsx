@@ -15,13 +15,6 @@ import {
 
 const DirectorCloneLibrary = () => {
   const { currentUser } = useDNAContext();
-
-    // Test console logging
-  console.error('🔴 ERROR LOG TEST'); // Red in console
-  console.warn('🟡 WARN LOG TEST');   // Yellow in console  
-  console.log('🔵 REGULAR LOG TEST'); // Regular in console
-
-  
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,38 +52,24 @@ const DirectorCloneLibrary = () => {
   const [foundFiles, setFoundFiles] = useState([]);
 
   const checkMissingFiles = async () => {
-    console.log('🔍 Starting checkMissingFiles...');
     setLoadingMissingFiles(true);
 
     try {
-      console.log('📡 Making API call to /practice-clones/missing-files');
       const response = await apiService.get('/practice-clones/missing-files');
-      console.log('📥 API Response received:', response);
 
       setMissingFiles(response.missingFiles || []);
       setFoundFiles(response.foundFiles || []);
 
-      console.log('📊 Set state - Missing files:', response.missingFiles?.length || 0);
-      console.log('📊 Set state - Found files:', response.foundFiles?.length || 0);
-
       if (response.fixedFilenames > 0) {
-        console.log(`✅ Fixed ${response.fixedFilenames} filename mismatches`);
         // Refresh practice clones list to show updated data
         await fetchPracticeClones();
       }
 
-      if (response.missingFiles.length > 0) {
-        console.log(`❌ Found ${response.missingFiles.length} practice clones with missing files:`, response.missingFiles);
-      } else {
-        console.log('✅ All practice clone files found!');
-      }
+  
 
     } catch (error) {
-      console.error('💥 Error in checkMissingFiles:', error);
-      console.error('💥 Error stack:', error.stack);
       alert(`Error checking for missing files: ${error.message}`);
     } finally {
-      console.log('🏁 checkMissingFiles completed');
       setLoadingMissingFiles(false);
     }
   };

@@ -90,7 +90,7 @@ const DirectorStudents = () => {
   // Search and sorting state
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [studentSortConfig, setStudentSortConfig] = useState({ key: null, direction: 'asc' });
+  const [studentSortConfig, setStudentSortConfig] = useState({ key: 'lastName', direction: 'asc' });
 
   // NEW: Filter state
   const [filters, setFilters] = useState({
@@ -358,19 +358,27 @@ const DirectorStudents = () => {
       studentsToSort = studentsToSort.filter(student => student.instructor === filters.instructor);
     }
 
-    // Apply sorting
-    if (!studentSortConfig.key) return studentsToSort;
-
+    // Apply sorting - ALWAYS sort (remove the early return)
     return [...studentsToSort].sort((a, b) => {
-      let aVal = a[studentSortConfig.key];
-      let bVal = b[studentSortConfig.key];
+      let aVal, bVal;
 
-      // Handle practice progress average for sorting
-      if (studentSortConfig.key === 'practiceProgress') {
+      // Handle different sort keys
+      if (studentSortConfig.key === 'lastName') {
+        // Extract last name from full name
+        const aNameParts = (a.name || '').trim().split(' ');
+        const bNameParts = (b.name || '').trim().split(' ');
+        aVal = aNameParts[aNameParts.length - 1].toLowerCase();
+        bVal = bNameParts[bNameParts.length - 1].toLowerCase();
+      } else if (studentSortConfig.key === 'practiceProgress') {
+        // Handle practice progress average for sorting
         const aSum = a.practiceProgress.reduce((sum, val) => sum + val, 0);
         const bSum = b.practiceProgress.reduce((sum, val) => sum + val, 0);
         aVal = a.practiceProgress.length > 0 ? aSum / a.practiceProgress.length : 0;
         bVal = b.practiceProgress.length > 0 ? bSum / b.practiceProgress.length : 0;
+      } else {
+        // Default to the property value
+        aVal = a[studentSortConfig.key];
+        bVal = b[studentSortConfig.key];
       }
 
       if (aVal < bVal) return studentSortConfig.direction === 'asc' ? -1 : 1;
@@ -738,11 +746,11 @@ const DirectorStudents = () => {
                 </th>
                 <th
                   className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => sortStudentTable('name')}
+                  onClick={() => sortStudentTable('lastName')}
                 >
                   <div className="flex items-center space-x-1">
                     <span>Student</span>
-                    {getSortIcon('name')}
+                    {getSortIcon('lastName')}
                   </div>
                 </th>
                 <th
