@@ -19,6 +19,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Use a secure secret in production
+const IPINFO_TOKEN = process.env.IPINFO_TOKEN;
 
 const multer = require('multer');
 const path = require('path');
@@ -1090,21 +1091,17 @@ app.post('/api/auth/login', async (req, res) => {
     // Function to get location from IP using a third-party service
     const getLocationFromIP = async (ip) => {
       try {
-        // Skip localhost/private IPs
         if (!ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
           return null;
-          console.log('Skipping location lookup for private IP:', ip);
         }
 
-        const response = await fetch(`https://ipapi.co/${ip}/json/`);
+        const response = await fetch(`https://ipinfo.io/${ip}/json?token=${IPINFO_TOKEN}`);
         const data = await response.json();
-        console.log('IP location data:', data);
 
         if (data.city && data.region && data.country) {
           return `${data.city}, ${data.region}, ${data.country}`;
         }
         return data.country || null;
-        console.log('city, region, country not parsed');
       } catch (error) {
         console.error('Error getting location:', error);
         return null;
