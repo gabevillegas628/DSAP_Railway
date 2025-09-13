@@ -1062,26 +1062,62 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
+    // Function to clean IP address (handle IPv6-mapped IPv4)
+    const cleanIPAddress = (ip) => {
+      if (!ip) return null;
+
+      // Remove IPv6-mapped IPv4 prefix
+      if (ip.startsWith('::ffff:')) {
+        return ip.substring(7); // Remove "::ffff:" prefix
+      }
+
+      return ip;
+    };
+
+    // Function to get location from IP using a third-party service
+    const getLocationFromIP = async (ip) => {
+      try {
+        // Skip localhost/private IPs
+        if (!ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+          return null;
+        }
+
+        const response = await fetch(`https://ipapi.co/${ip}/json/`);
+        const data = await response.json();
+
+        if (data.city && data.region && data.country) {
+          return `${data.city}, ${data.region}, ${data.country}`;
+        }
+        return data.country || null;
+      } catch (error) {
+        console.error('Error getting location:', error);
+        return null;
+      }
+    };
+
     // Log the login
     try {
-      // Get IP address from request
-      const ipAddress = req.ip ||
+      const rawIP = req.ip ||
         req.connection.remoteAddress ||
         req.socket.remoteAddress ||
         (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
+      const ipAddress = cleanIPAddress(rawIP);
+      const location = await getLocationFromIP(ipAddress);
+      
       await prisma.loginLog.create({
         data: {
           userId: user.id,
           loginTime: new Date(),
           ipAddress: ipAddress,
-          userAgent: req.get('User-Agent') || null // Bonus: capture user agent too
+          userAgent: req.get('User-Agent') || null,
+          location: location 
         }
       });
     } catch (logError) {
       console.error('Failed to log login:', logError);
-      // Don't fail the login if logging fails
     }
+
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },

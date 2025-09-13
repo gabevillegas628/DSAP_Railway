@@ -829,6 +829,7 @@ const DirectorUserManagement = () => {
                               {log.ipAddress && (
                                 <p className="text-xs text-gray-500 mt-1">
                                   IP: {log.ipAddress}
+                                  {log.location && ` (${log.location})`}
                                 </p>
                               )}
                             </div>

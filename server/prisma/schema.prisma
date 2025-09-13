@@ -114,6 +114,7 @@ model LoginLog {
   loginTime DateTime @default(now())
   ipAddress String?
   userAgent String?
+  location  String?
   success   Boolean  @default(true)
   
   createdAt DateTime @default(now())
