@@ -916,6 +916,17 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     }
   };
 
+  // Determine if a question is answered to display correct badge
+  const isQuestionAnswered = (question) => {
+    const answer = answers[question.id];
+
+    if (question.type === 'sequence_range') {
+      return answer && (answer.value1 || answer.value2);
+    }
+
+    return answer !== undefined && answer !== '';
+  };
+
   // NEW: Submit for review function
   const submitForReview = async () => {
     if (!canEdit()) return;
@@ -1632,7 +1643,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
           {question.type === 'sequence_range' && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-end gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     {question.options?.label1 || 'Begin'}
@@ -1648,8 +1659,8 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                       handleAnswerChange(question.id, newAnswer);
                     }}
                     disabled={disabled}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder={disabled ? "Read-only" : `Enter ${question.options?.label1 || 'begin value'}...`}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder={disabled ? "Read-only" : ""}
                   />
                 </div>
 
@@ -1668,8 +1679,8 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                       handleAnswerChange(question.id, newAnswer);
                     }}
                     disabled={disabled}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder={disabled ? "Read-only" : `Enter ${question.options?.label2 || 'end value'}...`}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder={disabled ? "Read-only" : ""}
                   />
                 </div>
               </div>
@@ -2195,7 +2206,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                       return (
                         <div
                           key={question.id}
-                          className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
+                          className={`border-2 border-gray-300 rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
                             isCorrect ? 'bg-green-50 border-green-200' :
                               'border-gray-200'
                             }`}
@@ -2220,11 +2231,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                               )}
                             </h5>
                             <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
-                              answers[question.id] ? 'bg-green-100 text-green-800' :
+                              isQuestionAnswered(question) ? 'bg-green-100 text-green-800' :
                                 'bg-gray-100 text-gray-600'
                               }`}>
                               {isCorrect ? 'Correct' :
-                                answers[question.id] ? 'Answered' :
+                                isQuestionAnswered(question) ? 'Answered' :
                                   'Pending'}
                             </span>
                           </div>
@@ -2246,7 +2257,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                       return (
                         <div
                           key={question.id}
-                          className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
+                          className={`border-2 border-gray-300 rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
                             isCorrect ? 'bg-green-50 border-green-200' :
                               'border-gray-200'
                             }`}
@@ -2271,11 +2282,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                               )}
                             </h5>
                             <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
-                              answers[question.id] ? 'bg-green-100 text-green-800' :
+                              isQuestionAnswered(question) ? 'bg-green-100 text-green-800' :
                                 'bg-gray-100 text-gray-600'
                               }`}>
                               {isCorrect ? 'Correct' :
-                                answers[question.id] ? 'Answered' :
+                                isQuestionAnswered(question) ? 'Answered' :
                                   'Pending'}
                             </span>
                           </div>
@@ -2310,7 +2321,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                           return (
                             <div
                               key={question.id}
-                              className={`border rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
+                              className={`border-2 border-gray-300 rounded-lg p-4 ${isReadOnlyStatus() ? 'bg-gray-50' :
                                 isCorrect ? 'bg-green-50 border-green-200' :
                                   'border-gray-200'
                                 }`}
@@ -2335,11 +2346,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                   )}
                                 </h5>
                                 <span className={`text-xs px-2 py-1 rounded-full ${isCorrect ? 'bg-green-100 text-green-800' :
-                                  answers[question.id] ? 'bg-green-100 text-green-800' :
+                                  isQuestionAnswered(question) ? 'bg-green-100 text-green-800' :
                                     'bg-gray-100 text-gray-600'
                                   }`}>
                                   {isCorrect ? 'Correct' :
-                                    answers[question.id] ? 'Answered' :
+                                    isQuestionAnswered(question) ? 'Answered' :
                                       'Pending'}
                                 </span>
                               </div>

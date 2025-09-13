@@ -1064,17 +1064,24 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Log the login
     try {
+      // Get IP address from request
+      const ipAddress = req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null);
+
       await prisma.loginLog.create({
         data: {
           userId: user.id,
-          loginTime: new Date()
+          loginTime: new Date(),
+          ipAddress: ipAddress,
+          userAgent: req.get('User-Agent') || null // Bonus: capture user agent too
         }
       });
     } catch (logError) {
       console.error('Failed to log login:', logError);
       // Don't fail the login if logging fails
     }
-
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
