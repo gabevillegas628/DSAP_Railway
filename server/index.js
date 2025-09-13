@@ -1121,6 +1121,8 @@ app.post('/api/auth/login', async (req, res) => {
           location: location
         }
       });
+      console.log('Location:', location);
+      console.log(`Logged login for user ${user.email} from IP ${ipAddress} (${location || 'Location unknown'})`);
     } catch (logError) {
       console.error('Failed to log login:', logError);
     }
