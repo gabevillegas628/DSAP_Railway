@@ -28,6 +28,8 @@ const { group } = require('console');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
+app.set('trust proxy', true);
+
 console.log('=== ENVIRONMENT VARIABLES CHECK ===');
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
@@ -1074,6 +1076,14 @@ app.post('/api/auth/login', async (req, res) => {
       return ip;
     };
 
+    const getClientIP = (req) => {
+      return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        req.headers['x-real-ip'] ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        req.ip;
+    };
+
     // Function to get location from IP using a third-party service
     const getLocationFromIP = async (ip) => {
       try {
@@ -1097,21 +1107,18 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Log the login
     try {
-      const rawIP = req.ip ||
-        req.connection.remoteAddress ||
-        req.socket.remoteAddress ||
-        (req.connection.socket ? req.connection.socket.remoteAddress : null);
-
-      const ipAddress = cleanIPAddress(rawIP);
-      const location = await getLocationFromIP(ipAddress);
       
+
+      const ipAddress = cleanIPAddress(getClientIP(req));
+      const location = await getLocationFromIP(ipAddress);
+
       await prisma.loginLog.create({
         data: {
           userId: user.id,
           loginTime: new Date(),
           ipAddress: ipAddress,
           userAgent: req.get('User-Agent') || null,
-          location: location 
+          location: location
         }
       });
     } catch (logError) {
