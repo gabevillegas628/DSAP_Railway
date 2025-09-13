@@ -1068,12 +1068,15 @@ app.post('/api/auth/login', async (req, res) => {
     const cleanIPAddress = (ip) => {
       if (!ip) return null;
 
+      // First trim any whitespace
+      const trimmedIP = ip.trim();
+
       // Remove IPv6-mapped IPv4 prefix
-      if (ip.startsWith('::ffff:')) {
-        return ip.substring(7); // Remove "::ffff:" prefix
+      if (trimmedIP.startsWith('::ffff:')) {
+        return trimmedIP.substring(7); // Remove "::ffff:" prefix
       }
 
-      return ip;
+      return trimmedIP;
     };
 
     const getClientIP = (req) => {
@@ -1090,15 +1093,18 @@ app.post('/api/auth/login', async (req, res) => {
         // Skip localhost/private IPs
         if (!ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
           return null;
+          console.log('Skipping location lookup for private IP:', ip);
         }
 
         const response = await fetch(`https://ipapi.co/${ip}/json/`);
         const data = await response.json();
+        console.log('IP location data:', data);
 
         if (data.city && data.region && data.country) {
           return `${data.city}, ${data.region}, ${data.country}`;
         }
         return data.country || null;
+        console.log('city, region, country not parsed');
       } catch (error) {
         console.error('Error getting location:', error);
         return null;
@@ -1107,9 +1113,12 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Log the login
     try {
-      
+
 
       const ipAddress = cleanIPAddress(getClientIP(req));
+      //const ipAddress = '172.59.208.65'; // For testing purposes
+      console.log('Raw client IP:', getClientIP(req));
+      console.log('Cleaned client IP: s', ipAddress, 's');
       const location = await getLocationFromIP(ipAddress);
 
       await prisma.loginLog.create({
