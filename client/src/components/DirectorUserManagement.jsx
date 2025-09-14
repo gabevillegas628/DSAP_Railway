@@ -99,8 +99,8 @@ const DirectorUserManagement = () => {
 
       // Fetch ALL logs (no limit)
       const [allLoginLogs, allCloneLogs] = await Promise.all([
-        apiService.get(`/login-logs/user/${userId}`), // Remove limit parameter
-        apiService.get(`/clone-activity-logs/user/${userId}`) // Remove limit parameter
+        apiService.get(`/login-logs/user/${userId}?limit=10000`), // Return 10,000 login logs max
+        apiService.get(`/clone-activity-logs/user/${userId}?limit=10000`) // Return 10,000 clone logs max
       ]);
 
       // Combine all data
