@@ -54,7 +54,6 @@ const DirectorUserManagement = () => {
     try {
       setLoadingLogs(true);
 
-      console.log('Fetching activity for user:', userId);
 
       // Fetch both login logs and clone activity logs using existing endpoints
       const [loginLogsResponse, cloneLogsResponse] = await Promise.all([
@@ -67,9 +66,6 @@ const DirectorUserManagement = () => {
           return [];
         })
       ]);
-
-      console.log('Login logs response:', loginLogsResponse);
-      console.log('Clone logs response:', cloneLogsResponse);
 
       // Combine and sort chronologically
       const combinedActivity = [
@@ -93,6 +89,41 @@ const DirectorUserManagement = () => {
       setActivityLogs([]);
     } finally {
       setLoadingLogs(false);
+    }
+  };
+
+  const exportAllUserActivity = async (userId, userName) => {
+    try {
+      // Show loading state
+      console.log('Fetching all user activity for export...');
+
+      // Fetch ALL logs (no limit)
+      const [allLoginLogs, allCloneLogs] = await Promise.all([
+        apiService.get(`/login-logs/user/${userId}`), // Remove limit parameter
+        apiService.get(`/clone-activity-logs/user/${userId}`) // Remove limit parameter
+      ]);
+
+      // Combine all data
+      const allActivity = [
+        ...allLoginLogs.map(log => ({
+          ...log,
+          type: 'login',
+          timestamp: log.loginTime,
+          sortTime: new Date(log.loginTime)
+        })),
+        ...allCloneLogs.map(log => ({
+          ...log,
+          type: 'clone',
+          sortTime: new Date(log.timestamp)
+        }))
+      ].sort((a, b) => b.sortTime - a.sortTime);
+
+      // Use the same CSV export logic with all data
+      exportActivityToCSV(allActivity, userName);
+
+    } catch (error) {
+      console.error('Error fetching all activity for export:', error);
+      alert('Error exporting data. Please try again.');
     }
   };
 
@@ -864,7 +895,7 @@ const DirectorUserManagement = () => {
       {/* User Activity Modal */}
       {showActivityHistory && selectedUserForHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[95vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div>
@@ -876,15 +907,15 @@ const DirectorUserManagement = () => {
                 <div className="flex items-center space-x-2">
                   {/* Export Button */}
                   <button
-                    onClick={() => exportActivityToCSV(activityLogs, selectedUserForHistory.name)}
-                    disabled={activityLogs.length === 0}
+                    onClick={() => exportAllUserActivity(selectedUserForHistory.id, selectedUserForHistory.name)}
+                    disabled={loadingLogs}
                     className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition duration-200"
-                    title="Export activity as CSV"
+                    title="Export ALL activity as CSV"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <span>Export CSV</span>
+                    <span>Export All to CSV</span>
                   </button>
 
                   {/* Close Button */}
@@ -898,7 +929,7 @@ const DirectorUserManagement = () => {
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-96">
+            <div className="p-6 overflow-y-auto max-h-[48rem]">
               {loadingLogs ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">Loading activity history...</p>
@@ -940,20 +971,20 @@ const DirectorUserManagement = () => {
                       <div
                         key={`${log.type}-${log.id}`}
                         className={`p-3 rounded-lg border ${isLogin
-                            ? log.success
-                              ? 'bg-green-50 border-green-200'    // Successful login
-                              : 'bg-red-50 border-red-200'        // Failed login
-                            : log.action === 'start'
-                              ? 'bg-blue-50 border-blue-200'      // Started clone work
-                              : 'bg-purple-50 border-purple-200'  // Saved progress
+                          ? log.success
+                            ? 'bg-green-50 border-green-200'    // Successful login
+                            : 'bg-red-50 border-red-200'        // Failed login
+                          : log.action === 'start'
+                            ? 'bg-blue-50 border-blue-200'      // Started clone work
+                            : 'bg-purple-50 border-purple-200'  // Saved progress
                           } ${index === 0 ? 'ring-2 ring-blue-200' : ''}`}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
                               <span className={`w-2 h-2 rounded-full ${isLogin
-                                  ? log.success ? 'bg-green-500' : 'bg-red-500'
-                                  : log.action === 'start' ? 'bg-blue-500' : 'bg-purple-500'
+                                ? log.success ? 'bg-green-500' : 'bg-red-500'
+                                : log.action === 'start' ? 'bg-blue-500' : 'bg-purple-500'
                                 }`}></span>
 
                               <span className="font-medium text-gray-900">
@@ -966,8 +997,8 @@ const DirectorUserManagement = () => {
                               {/* Activity type badge */}
                               {!isLogin && (
                                 <span className={`text-xs px-2 py-1 rounded-full ${log.cloneType === 'practice'
-                                    ? 'bg-purple-100 text-purple-800'
-                                    : 'bg-indigo-100 text-indigo-800'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-indigo-100 text-indigo-800'
                                   }`}>
                                   {log.cloneType}
                                 </span>
