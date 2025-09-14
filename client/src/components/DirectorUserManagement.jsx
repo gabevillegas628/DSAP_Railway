@@ -1,6 +1,6 @@
 // components/DirectorUserManagement.jsx - Updated to use apiService
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Eye, EyeOff, Check, X, Clock, AlertCircle, Users, GraduationCap, Shield, History } from 'lucide-react';
+import { Edit, Trash2, Eye, EyeOff, Check, X, Clock, AlertCircle, Users, GraduationCap, Shield, History, Activity } from 'lucide-react';
 import apiService from './apiService';
 
 const DirectorUserManagement = () => {
@@ -15,9 +15,10 @@ const DirectorUserManagement = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
   const [showLoginHistory, setShowLoginHistory] = useState(false);
-  const [selectedUserForHistory, setSelectedUserForHistory] = useState(null);
-  const [loginLogs, setLoginLogs] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]); // Changed from loginLogs
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [showActivityHistory, setShowActivityHistory] = useState(false); // Changed from showLoginHistory
+  const [selectedUserForHistory, setSelectedUserForHistory] = useState(null);
 
   const [newUser, setNewUser] = useState({
     email: '',
@@ -33,28 +34,126 @@ const DirectorUserManagement = () => {
     fetchSchools();
   }, []);
 
-  // Function to open login history modal
-  const openLoginHistory = async (user) => {
+  // Function to open user activity modal
+  const viewUserActivity = (user) => {
+    console.log('Opening activity history for user:', user);
     setSelectedUserForHistory(user);
-    setShowLoginHistory(true);
-    setLoadingLogs(true);
+    setShowActivityHistory(true);
+    fetchUserActivity(user.id);
+  };
 
+  // Function to close user acitvity modal
+  const closeActivityHistory = () => {
+    setShowActivityHistory(false);
+    setSelectedUserForHistory(null);
+    setActivityLogs([]);
+  };
+
+  // Fetch user activity (login + clone) logs
+  const fetchUserActivity = async (userId) => {
     try {
-      const logs = await apiService.get(`/login-logs/user/${user.id}?limit=20`);
-      setLoginLogs(logs);
+      setLoadingLogs(true);
+
+      console.log('Fetching activity for user:', userId);
+
+      // Fetch both login logs and clone activity logs using existing endpoints
+      const [loginLogsResponse, cloneLogsResponse] = await Promise.all([
+        apiService.get(`/login-logs/user/${userId}?limit=20`).catch(err => {
+          console.error('Error fetching login logs:', err);
+          return [];
+        }),
+        apiService.get(`/clone-activity-logs/user/${userId}?limit=30`).catch(err => {
+          console.error('Error fetching clone activity logs:', err);
+          return [];
+        })
+      ]);
+
+      console.log('Login logs response:', loginLogsResponse);
+      console.log('Clone logs response:', cloneLogsResponse);
+
+      // Combine and sort chronologically
+      const combinedActivity = [
+        ...loginLogsResponse.map(log => ({
+          ...log,
+          type: 'login',
+          timestamp: log.loginTime,
+          sortTime: new Date(log.loginTime)
+        })),
+        ...cloneLogsResponse.map(log => ({
+          ...log,
+          type: 'clone',
+          sortTime: new Date(log.timestamp)
+        }))
+      ].sort((a, b) => b.sortTime - a.sortTime); // Most recent first
+
+      console.log('Combined activity:', combinedActivity);
+      setActivityLogs(combinedActivity);
     } catch (error) {
-      console.error('Error fetching login logs:', error);
-      setLoginLogs([]);
+      console.error('Error fetching user activity:', error);
+      setActivityLogs([]);
     } finally {
       setLoadingLogs(false);
     }
   };
 
-  // Function to close login history modal
-  const closeLoginHistory = () => {
-    setShowLoginHistory(false);
-    setSelectedUserForHistory(null);
-    setLoginLogs([]);
+
+
+  // Add this export function before your component or at the top
+  const exportActivityToCSV = (activityLogs, userName) => {
+    // Define CSV headers
+    const headers = [
+      'Date',
+      'Time',
+      'Activity Type',
+      'Status/Action',
+      'Clone Name',
+      'Clone Type',
+      'Current Step',
+      'Progress (%)',
+      'IP Address',
+      'Location',
+      'User Agent'
+    ];
+
+    // Convert logs to CSV format
+    const csvData = activityLogs.map(log => {
+      const isLogin = log.type === 'login';
+      const { date, time } = formatLoginTime(isLogin ? log.loginTime : log.timestamp);
+
+      return [
+        date,
+        time,
+        isLogin ? 'Login' : 'Clone Work',
+        isLogin
+          ? (log.success ? 'Successful Login' : 'Failed Login')
+          : (log.action === 'start' ? 'Started Working' : 'Saved Progress'),
+        isLogin ? '' : (log.cloneName || ''),
+        isLogin ? '' : (log.cloneType || ''),
+        isLogin ? '' : (log.currentStep || ''),
+        isLogin ? '' : (log.progress !== null && log.progress !== undefined ? log.progress : ''),
+        isLogin ? (log.ipAddress || '') : '',
+        isLogin ? (log.location || '') : '',
+        isLogin ? (log.userAgent || '') : ''
+      ];
+    });
+
+    // Combine headers and data
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${userName.replace(/\s+/g, '_')}_activity_history_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Helper function to format login time
@@ -562,12 +661,13 @@ const DirectorUserManagement = () => {
                         </button>
 
                         {/* NEW: Login History Button */}
+                        {/* Updated Activity History Button */}
                         <button
-                          onClick={() => openLoginHistory(user)}
+                          onClick={() => viewUserActivity(user)}
                           className="text-purple-600 hover:text-purple-800 p-1"
-                          title="View login history"
+                          title="View activity history"
                         >
-                          <History className="w-4 h-4" />
+                          <Activity className="w-4 h-4" />
                         </button>
 
                         <button
@@ -759,78 +859,157 @@ const DirectorUserManagement = () => {
           </div>
         </div>
       )}
-      {/* Login History Modal */}
-      {showLoginHistory && selectedUserForHistory && (
+
+
+      {/* User Activity Modal */}
+      {showActivityHistory && selectedUserForHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Login History</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">User Activity History</h3>
                   <p className="text-sm text-gray-600">
                     {selectedUserForHistory.name} ({selectedUserForHistory.email})
                   </p>
                 </div>
-                <button
-                  onClick={closeLoginHistory}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  {/* Export Button */}
+                  <button
+                    onClick={() => exportActivityToCSV(activityLogs, selectedUserForHistory.name)}
+                    disabled={activityLogs.length === 0}
+                    className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition duration-200"
+                    title="Export activity as CSV"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Export CSV</span>
+                  </button>
+
+                  {/* Close Button */}
+                  <button
+                    onClick={closeActivityHistory}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-96">
               {loadingLogs ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">Loading login history...</p>
+                  <p className="text-gray-500">Loading activity history...</p>
                 </div>
-              ) : loginLogs.length === 0 ? (
+              ) : activityLogs.length === 0 ? (
                 <div className="text-center py-8">
                   <History className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No login history found</p>
+                  <p className="text-gray-500">No activity history found</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Login tracking started with the recent system update
+                    Activity tracking started with the recent system update
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-medium text-gray-900">Recent Logins</h4>
-                    <span className="text-sm text-gray-500">{loginLogs.length} total logins</span>
+                    <h4 className="font-medium text-gray-900">Recent Activity</h4>
+                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>
+                        Success
+                      </span>
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 rounded-full bg-red-500 mr-1"></span>
+                        Failed
+                      </span>
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 mr-1"></span>
+                        Clone Work
+                      </span>
+                      <span>{activityLogs.length} total activities</span>
+                    </div>
                   </div>
 
-                  {loginLogs.map((log, index) => {
-                    const { date, time } = formatLoginTime(log.loginTime);
+                  {activityLogs.map((log, index) => {
+                    const isLogin = log.type === 'login';
+                    const { date, time } = formatLoginTime(isLogin ? log.loginTime : log.timestamp);
+
                     return (
                       <div
-                        key={log.id}
-                        className={`p-3 rounded-lg border ${log.success
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-red-50 border-red-200'
+                        key={`${log.type}-${log.id}`}
+                        className={`p-3 rounded-lg border ${isLogin
+                            ? log.success
+                              ? 'bg-green-50 border-green-200'    // Successful login
+                              : 'bg-red-50 border-red-200'        // Failed login
+                            : log.action === 'start'
+                              ? 'bg-blue-50 border-blue-200'      // Started clone work
+                              : 'bg-purple-50 border-purple-200'  // Saved progress
                           } ${index === 0 ? 'ring-2 ring-blue-200' : ''}`}
                       >
                         <div className="flex justify-between items-start">
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center space-x-2">
-                              <span className={`w-2 h-2 rounded-full ${log.success ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                              <span className={`w-2 h-2 rounded-full ${isLogin
+                                  ? log.success ? 'bg-green-500' : 'bg-red-500'
+                                  : log.action === 'start' ? 'bg-blue-500' : 'bg-purple-500'
+                                }`}></span>
+
                               <span className="font-medium text-gray-900">
-                                {log.success ? 'Successful Login' : 'Failed Login'}
+                                {isLogin
+                                  ? (log.success ? 'Successful Login' : 'Failed Login')
+                                  : (log.action === 'start' ? 'Started Working' : 'Saved Progress')
+                                }
                               </span>
+
+                              {/* Activity type badge */}
+                              {!isLogin && (
+                                <span className={`text-xs px-2 py-1 rounded-full ${log.cloneType === 'practice'
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-indigo-100 text-indigo-800'
+                                  }`}>
+                                  {log.cloneType}
+                                </span>
+                              )}
+
                               {index === 0 && (
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                   Most Recent
                                 </span>
                               )}
                             </div>
+
                             <div className="mt-1 text-sm text-gray-600">
                               <p><strong>Date:</strong> {date}</p>
                               <p><strong>Time:</strong> {time}</p>
-                              {log.ipAddress && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  IP: {log.ipAddress}
-                                  {log.location && ` (${log.location})`}
-                                </p>
+
+                              {/* Login-specific details */}
+                              {isLogin && (
+                                <>
+                                  {log.ipAddress && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      IP: {log.ipAddress}
+                                      {log.location && ` (${log.location})`}
+                                    </p>
+                                  )}
+                                  {log.userAgent && (
+                                    <p className="text-xs text-gray-400 mt-1 truncate" title={log.userAgent}>
+                                      {log.userAgent.substring(0, 60)}...
+                                    </p>
+                                  )}
+                                </>
+                              )}
+
+                              {/* Clone activity-specific details */}
+                              {!isLogin && (
+                                <>
+                                  <p><strong>Clone:</strong> {log.cloneName}</p>
+                                  {log.currentStep && <p><strong>Step:</strong> {log.currentStep}</p>}
+                                  {log.progress !== null && log.progress !== undefined && (
+                                    <p><strong>Progress:</strong> {log.progress}%</p>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
@@ -845,10 +1024,10 @@ const DirectorUserManagement = () => {
             <div className="p-6 border-t border-gray-200 bg-gray-50">
               <div className="flex justify-between items-center">
                 <div className="text-xs text-gray-500">
-                  Showing last 20 login attempts
+                  Showing recent login attempts and clone work sessions
                 </div>
                 <button
-                  onClick={closeLoginHistory}
+                  onClick={closeActivityHistory}
                   className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"
                 >
                   Close

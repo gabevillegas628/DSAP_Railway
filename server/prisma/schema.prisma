@@ -36,8 +36,9 @@ model User {
   // Practice Progress relationships
   practiceProgress UserPracticeProgress[]
 
-  // NEW: Login tracking
+  // Login & clone tracking
   loginLogs LoginLog[]
+  cloneActivityLogs CloneActivityLog[] @relation("UserCloneActivity")
 
   discussions              CloneDiscussion[] @relation("StudentDiscussions")
   discussionMessagesSent   DiscussionMessage[] @relation("DiscussionMessageSender")
@@ -123,6 +124,31 @@ model LoginLog {
   @@index([userId])
   @@index([loginTime])
   @@index([userId, loginTime])
+}
+
+model CloneActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("UserCloneActivity", fields: [userId], references: [id])
+  
+  // Clone information (stored as strings for flexibility)
+  cloneName String
+  cloneType String   // 'practice' or 'research'
+  cloneId   Int?     // Optional reference to actual clone ID
+  
+  // Activity tracking
+  action    String   // 'start' or 'stop'
+  timestamp DateTime @default(now())
+  
+  // Optional context
+  currentStep String? // What step they were on
+  progress    Int?    // Their progress at the time
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([userId, cloneType])
+  @@index([timestamp])
 }
 
 model AnalysisQuestion {

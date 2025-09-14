@@ -158,10 +158,25 @@ const StudentDashboard = () => {
   };
 
   // Function to open analysis tab
-  const openAnalysisTab = (clone) => {
+  const openAnalysisTab = async (clone) => {
     console.log('Opening analysis tab for clone:', clone);
 
     const tabId = `analysis-${clone.id}`;
+
+    // Log the start of clone activity
+    try {
+      await apiService.post('/clone-activity-log', {
+        cloneName: clone.cloneName,
+        cloneType: clone.type || 'research', // Determine if practice or research
+        cloneId: clone.id,
+        action: 'start',
+        currentStep: clone.currentStep || 'clone-editing',
+        progress: clone.progress || 0
+      });
+    } catch (error) {
+      console.error('Failed to log clone activity start:', error);
+      // Don't prevent the analysis from opening if logging fails
+    }
 
     // Check if tab is already open
     if (!openAnalysisTabs.find(tab => tab.id === tabId)) {

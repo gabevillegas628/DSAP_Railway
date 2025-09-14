@@ -1035,26 +1035,108 @@ app.post('/api/auth/register', async (req, res) => {
 // Login endpoint - UPDATED with login tracking
 // Login endpoint - UPDATED with login tracking AND school relationship
 app.post('/api/auth/login', async (req, res) => {
+  // Move helper functions to the top so they're always available
+  const cleanIPAddress = (ip) => {
+    if (!ip) return null;
+    const trimmedIP = ip.trim();
+    if (trimmedIP.startsWith('::ffff:')) {
+      return trimmedIP.substring(7);
+    }
+    return trimmedIP;
+  };
+
+  const getClientIP = (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      req.connection.remoteAddress ||
+      req.socket.remoteAddress ||
+      req.ip;
+  };
+
+  const getLocationFromIP = async (ip) => {
+    try {
+      if (!ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+        return null;
+      }
+      const response = await fetch(`https://ipinfo.io/${ip}/json?token=${IPINFO_TOKEN}`);
+      const data = await response.json();
+      if (data.city && data.region && data.country) {
+        return `${data.city}, ${data.region}, ${data.country}`;
+      }
+      return data.country || null;
+    } catch (error) {
+      console.error('Error getting location:', error);
+      return null;
+    }
+  };
+
+  // Get IP info upfront so it's always available
+  const ipAddress = cleanIPAddress(getClientIP(req));
+  const userAgent = req.get('User-Agent') || null;
+  
   try {
     const { email, password } = req.body;
 
-    // Find user WITH school relationship - THIS IS THE KEY FIX
+    // Find user
     const user = await prisma.user.findUnique({
       where: { email },
-      include: {
-        school: true  // ✅ This was missing!
-      }
+      include: { school: true }
     });
 
     if (!user) {
+      // Log failed attempt - user not found
+      try {
+        await prisma.loginLog.create({
+          data: {
+            userId: null, // No user found
+            success: false,
+            loginTime: new Date(),
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+            location: null // Don't waste API calls for failed logins
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log failed login attempt:', logError);
+      }
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Check user status - only allow approved users to login
+    // Check user status
     if (user.role !== 'director') {
       if (user.status === 'pending') {
+        // Log failed attempt - pending user
+        try {
+          await prisma.loginLog.create({
+            data: {
+              userId: user.id,
+              success: false,
+              loginTime: new Date(),
+              ipAddress: ipAddress,
+              userAgent: userAgent,
+              location: null
+            }
+          });
+        } catch (logError) {
+          console.error('Failed to log failed login attempt:', logError);
+        }
         return res.status(403).json({ error: 'Account pending approval. Please contact your administrator.' });
       } else if (user.status === 'rejected') {
+        // Log failed attempt - rejected user
+        try {
+          await prisma.loginLog.create({
+            data: {
+              userId: user.id,
+              success: false,
+              loginTime: new Date(),
+              ipAddress: ipAddress,
+              userAgent: userAgent,
+              location: null
+            }
+          });
+        } catch (logError) {
+          console.error('Failed to log failed login attempt:', logError);
+        }
         return res.status(403).json({ error: 'Account access denied. Please contact your administrator.' });
       }
     }
@@ -1062,75 +1144,40 @@ app.post('/api/auth/login', async (req, res) => {
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      // Log failed attempt - wrong password
+      try {
+        await prisma.loginLog.create({
+          data: {
+            userId: user.id,
+            success: false,
+            loginTime: new Date(),
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+            location: null
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log failed login attempt:', logError);
+      }
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Function to clean IP address (handle IPv6-mapped IPv4)
-    const cleanIPAddress = (ip) => {
-      if (!ip) return null;
-
-      // First trim any whitespace
-      const trimmedIP = ip.trim();
-
-      // Remove IPv6-mapped IPv4 prefix
-      if (trimmedIP.startsWith('::ffff:')) {
-        return trimmedIP.substring(7); // Remove "::ffff:" prefix
-      }
-
-      return trimmedIP;
-    };
-
-    const getClientIP = (req) => {
-      return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-        req.headers['x-real-ip'] ||
-        req.connection.remoteAddress ||
-        req.socket.remoteAddress ||
-        req.ip;
-    };
-
-    // Function to get location from IP using a third-party service
-    const getLocationFromIP = async (ip) => {
-      try {
-        if (!ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
-          return null;
-        }
-
-        const response = await fetch(`https://ipinfo.io/${ip}/json?token=${IPINFO_TOKEN}`);
-        const data = await response.json();
-
-        if (data.city && data.region && data.country) {
-          return `${data.city}, ${data.region}, ${data.country}`;
-        }
-        return data.country || null;
-      } catch (error) {
-        console.error('Error getting location:', error);
-        return null;
-      }
-    };
-
-    // Log the login
+    // SUCCESS - Get location and log successful login
+    const location = await getLocationFromIP(ipAddress);
+    
     try {
-
-
-      const ipAddress = cleanIPAddress(getClientIP(req));
-      //const ipAddress = '172.59.208.65'; // For testing purposes
-      console.log('Raw client IP:', getClientIP(req));
-      console.log('Cleaned client IP: s', ipAddress, 's');
-      const location = await getLocationFromIP(ipAddress);
-
       await prisma.loginLog.create({
         data: {
           userId: user.id,
+          success: true,
           loginTime: new Date(),
           ipAddress: ipAddress,
-          userAgent: req.get('User-Agent') || null,
+          userAgent: userAgent,
           location: location
         }
       });
-      console.log('Location:', location);
-      console.log(`Logged login for user ${user.email} from IP ${ipAddress} (${location || 'Location unknown'})`);
     } catch (logError) {
-      console.error('Failed to log login:', logError);
+      console.error('Failed to log successful login:', logError);
     }
 
     // Generate JWT token
@@ -1140,22 +1187,32 @@ app.post('/api/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Debug logging to verify school relationship
-    console.log('=== LOGIN SUCCESS DEBUG ===');
-    console.log('User:', user.email, 'Role:', user.role);
-    console.log('School relationship:', user.school);
-    console.log('SchoolId:', user.schoolId);
-
-    // Remove password from response but keep school
     const { password: _, ...userWithoutPassword } = user;
 
     res.json({
       token,
-      user: userWithoutPassword  // This now includes the school relationship
+      user: userWithoutPassword
     });
 
   } catch (error) {
     console.error('Login error:', error);
+    
+    // Log unexpected error (this is your original catch block approach)
+    try {
+      await prisma.loginLog.create({
+        data: {
+          userId: null, // We don't know which user since there was an unexpected error
+          success: false,
+          loginTime: new Date(),
+          ipAddress: ipAddress,
+          userAgent: userAgent,
+          location: null
+        }
+      });
+    } catch (logError) {
+      console.error('Failed to log error login attempt:', logError);
+    }
+    
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -1370,6 +1427,171 @@ app.get('/api/users/last-login', authenticateToken, requireRole(['director']), a
     res.json(usersWithLastLogin);
   } catch (error) {
     console.error('Error fetching users with last login:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =========================
+// CLONE ACTIVITY LOGGING
+// =========================
+
+// Log clone activity (start/stop)
+app.post('/api/clone-activity-log', authenticateToken, async (req, res) => {
+  try {
+    const { cloneName, cloneType, cloneId, action, currentStep, progress } = req.body;
+    const userId = req.user.userId;
+
+    // Validate action
+    if (!['start', 'stop'].includes(action)) {
+      return res.status(400).json({ error: 'Action must be "start" or "stop"' });
+    }
+
+    // Validate cloneType
+    if (!['practice', 'research'].includes(cloneType)) {
+      return res.status(400).json({ error: 'Clone type must be "practice" or "research"' });
+    }
+
+    const activityLog = await prisma.cloneActivityLog.create({
+      data: {
+        userId,
+        cloneName,
+        cloneType,
+        cloneId: cloneId ? parseInt(cloneId) : null,
+        action,
+        currentStep,
+        progress
+      }
+    });
+
+    res.json(activityLog);
+  } catch (error) {
+    console.error('Error logging clone activity:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get clone activity logs for a user (Directors can see all, users see only their own)
+app.get('/api/clone-activity-logs', authenticateToken, async (req, res) => {
+  try {
+    const { userId, limit = 50, cloneType } = req.query;
+    const userFromToken = await prisma.user.findUnique({ where: { id: req.user.userId } });
+
+    if (!userFromToken) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Build where clause
+    let whereClause = {};
+
+    // Access control: Directors can see all logs, others only their own
+    if (userFromToken.role === 'director' && userId) {
+      whereClause.userId = parseInt(userId);
+    } else {
+      whereClause.userId = req.user.userId;
+    }
+
+    // Filter by clone type if specified
+    if (cloneType) {
+      whereClause.cloneType = cloneType;
+    }
+
+    const logs = await prisma.cloneActivityLog.findMany({
+      where: whereClause,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            school: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: parseInt(limit)
+    });
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching clone activity logs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get clone activity statistics (Directors only)
+app.get('/api/clone-activity-stats', authenticateToken, requireRole(['director']), async (req, res) => {
+  try {
+    const { days = 30, userId } = req.query;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    let whereClause = {
+      timestamp: { gte: startDate }
+    };
+
+    if (userId) {
+      whereClause.userId = parseInt(userId);
+    }
+
+    // Total sessions (count of 'start' actions)
+    const totalSessions = await prisma.cloneActivityLog.count({
+      where: { ...whereClause, action: 'start' }
+    });
+
+    // Activity by clone type
+    const activityByType = await prisma.cloneActivityLog.groupBy({
+      by: ['cloneType'],
+      where: whereClause,
+      _count: true
+    });
+
+    // Most active clones
+    const popularClones = await prisma.cloneActivityLog.groupBy({
+      by: ['cloneName', 'cloneType'],
+      where: whereClause,
+      _count: true,
+      orderBy: { _count: { _all: 'desc' } },
+      take: 10
+    });
+
+    res.json({
+      totalSessions,
+      activityByType,
+      popularClones
+    });
+
+  } catch (error) {
+    console.error('Error fetching clone activity stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/clone-activity-logs/user/:userId', authenticateToken, requireRole(['director']), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 30 } = req.query;
+
+    const logs = await prisma.cloneActivityLog.findMany({
+      where: { userId: parseInt(userId) },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            school: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: parseInt(limit)
+    });
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching clone activity logs:', error);
     res.status(500).json({ error: error.message });
   }
 });

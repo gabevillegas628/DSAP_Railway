@@ -1105,6 +1105,22 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         return;
       }
 
+      // Log clone activity after successful save
+      try {
+        await apiService.post('/clone-activity-log', {
+          cloneName: cloneData.cloneName,
+          cloneType: cloneData.type === 'practice' ? 'practice' : 'research',
+          cloneId: cloneData.id,
+          action: 'stop',
+          currentStep: currentStep,
+          progress: progress
+        });
+        console.log('Clone activity logged successfully');
+      } catch (activityError) {
+        console.error('Failed to log clone activity (non-critical):', activityError);
+        // Don't fail the save if activity logging fails
+      }
+
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
       setSaveStatus('saved');
