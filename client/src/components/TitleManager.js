@@ -1,5 +1,4 @@
 // components/TitleManager.js
-import React from 'react';
 import useProgramSettings from '../hooks/useProgramSettings';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 

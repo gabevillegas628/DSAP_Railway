@@ -1,15 +1,14 @@
 // Refactored StudentDashboard.jsx - Updated to use apiService
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileText, AlertTriangle, Save, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, Save, X } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import DNAAnalysisInterface from './DNAAnalysisInterface';
 import StudentSoftware from './StudentSoftware';
-import StudentMessagesChat from './StudentMessagesChat';
 import StudentSettings from './StudentSettings';
 import StudentClones from './StudentClones';
 import StudentHelp from './StudentHelp.jsx';
 import SimpleStudentChat from './SimpleStudentChat.jsx';
-import { CLONE_STATUSES, validateAndWarnStatus } from '../statusConstraints.js';
+import { CLONE_STATUSES } from '../statusConstraints.js';
 import { getDisplayFilename } from '../utils/fileUtils.js';
 import apiService from '../services/apiService'; // Updated import
 
@@ -209,7 +208,7 @@ const StudentDashboard = () => {
     });
   };
 
-  const fetchPracticeClones = async () => {
+  const fetchPracticeClones = useCallback(async () => {
     try {
       const practiceCloneData = await apiService.get('/practice-clones');
 
@@ -243,9 +242,9 @@ const StudentDashboard = () => {
     } catch (error) {
       console.error('Error fetching practice clones:', error);
     }
-  };
+  }, [currentUser]);
 
-  const fetchAssignedFiles = async () => {
+  const fetchAssignedFiles = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -276,7 +275,7 @@ const StudentDashboard = () => {
       console.error('Error fetching assigned files:', error);
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   const refreshAllCloneData = useCallback(async () => {
     // Refresh both practice clones and assigned files
@@ -284,7 +283,7 @@ const StudentDashboard = () => {
       fetchPracticeClones(),
       fetchAssignedFiles()
     ]);
-  }, [currentUser]);
+  }, [currentUser], fetchAssignedFiles, fetchPracticeClones);
 
   // Function to handle user profile updates from settings
   const handleUserUpdate = (updatedUser) => {
@@ -315,7 +314,7 @@ const StudentDashboard = () => {
   useEffect(() => {
     fetchPracticeClones();
     fetchAssignedFiles();
-  }, [currentUser]);
+  }, [currentUser, fetchAssignedFiles, fetchPracticeClones]);
 
   // Fetch unread count and set up polling - NOW AFTER fetchUnreadRepliesCount is defined
   useEffect(() => {
@@ -341,7 +340,7 @@ const StudentDashboard = () => {
       console.log('Cleaning up window.handleStudentLogoutAttempt');
       delete window.handleStudentLogoutAttempt;
     };
-  }, [tabsWithUnsavedChanges]); // Add dependency to recreate when unsaved changes update
+  }, [tabsWithUnsavedChanges, handleLogoutAttempt]); // Add dependency to recreate when unsaved changes update
 
 
   // Combine practice clones with assigned files

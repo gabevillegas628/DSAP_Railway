@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Video, FileText, ExternalLink, HelpCircle, X } from 'lucide-react';
 import apiService from '../services/apiService';
 
@@ -8,13 +8,8 @@ const StudentHelp = ({ helpTopicId, onClose, questionText }) => {
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState("both"); // "both" | "video" | "doc"
 
-  useEffect(() => {
-    if (helpTopicId) {
-      fetchHelpTopic();
-    }
-  }, [helpTopicId]);
 
-  const fetchHelpTopic = async () => {
+  const fetchHelpTopic = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -26,7 +21,15 @@ const StudentHelp = ({ helpTopicId, onClose, questionText }) => {
       setError(error.message);
       setLoading(false);
     }
-  };
+  }, [helpTopicId]);
+
+
+  useEffect(() => {
+    if (helpTopicId) {
+      fetchHelpTopic();
+    }
+  }, [helpTopicId, fetchHelpTopic]);
+
 
   if (loading) {
     return (
@@ -155,14 +158,14 @@ const VideoSection = ({ url, full }) => (
       <h2 className="text-lg font-semibold text-gray-900">Help Video</h2>
     </div>
     <div className="bg-gray-100 rounded-lg p-4 flex-1">
-      <iframe 
+      <iframe
         src={url}
         className={`w-full ${full ? "h-[75vh]" : "h-full min-h-[500px]"} rounded`}
         allowFullScreen
         title="Help Video"
       />
     </div>
-    <a 
+    <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
@@ -181,13 +184,13 @@ const DocSection = ({ url, full }) => (
       <h2 className="text-lg font-semibold text-gray-900">Help Document</h2>
     </div>
     <div className="bg-gray-100 rounded-lg p-4 flex-1">
-      <iframe 
+      <iframe
         src={`${url}#view=FitH`}
         className={`w-full ${full ? "h-[75vh]" : "h-full min-h-[500px]"} rounded`}
         title="Help Document"
       />
     </div>
-    <a 
+    <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"

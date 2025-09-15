@@ -1,5 +1,5 @@
 // StudentClones.jsx - Updated with claim clones feature
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getStatusConfig, CLONE_STATUSES } from '../statusConstraints';
 import { Star, CheckCircle } from 'lucide-react';
 import ClaimClonesModal from './ClaimClonesModal';
@@ -20,14 +20,7 @@ const StudentClones = ({
   const [qualification, setQualification] = useState(null);
   const [checkingQualification, setCheckingQualification] = useState(false);
 
-  // Check qualification when practice clones change
-  useEffect(() => {
-    if (currentUser && practiceClones.length > 0) {
-      checkCloneQualification();
-    }
-  }, [currentUser, practiceClones]);
-
-  const checkCloneQualification = async () => {
+  const checkCloneQualification = useCallback(async () => {
     try {
       setCheckingQualification(true);
       const qualificationData = await apiService.get(`/students/${currentUser.id}/clone-qualification`);
@@ -38,7 +31,16 @@ const StudentClones = ({
     } finally {
       setCheckingQualification(false);
     }
-  };
+  }, [currentUser.id]);
+
+  // Check qualification when practice clones change
+  useEffect(() => {
+    if (currentUser && practiceClones.length > 0) {
+      checkCloneQualification();
+    }
+  }, [currentUser, practiceClones, checkCloneQualification]);
+
+
 
   const handleCloneClaimed = () => {
     // Refresh the clone data when a new clone is claimed
@@ -64,7 +66,7 @@ const StudentClones = ({
               <h3 className="text-lg font-semibold text-gray-900">My Clones</h3>
               <p className="text-sm text-gray-600 mt-1">Practice exercises and assigned research clones</p>
             </div>
-            
+
             {/* Claim More Clones Button */}
             {qualification?.qualifies && (
               <div className="flex items-center space-x-3">
@@ -85,7 +87,7 @@ const StudentClones = ({
               </div>
             )}
           </div>
-          
+
           {/* Qualification Status Display */}
           {qualification && !qualification.qualifies && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
