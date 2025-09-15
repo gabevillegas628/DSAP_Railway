@@ -1,5 +1,5 @@
 // components/DirectorUserManagement.jsx - Updated to use apiService
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Edit, Trash2, Eye, EyeOff, Check, X, Clock, AlertCircle, Users, GraduationCap, Shield, History, Activity } from 'lucide-react';
 import apiService from './apiService';
 
@@ -19,6 +19,9 @@ const DirectorUserManagement = () => {
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [showActivityHistory, setShowActivityHistory] = useState(false); // Changed from showLoginHistory
   const [selectedUserForHistory, setSelectedUserForHistory] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage, setUsersPerPage] = useState(20);
+
 
   const [newUser, setNewUser] = useState({
     email: '',
@@ -294,11 +297,30 @@ const DirectorUserManagement = () => {
         bVal = bVal.toLowerCase();
       }
 
+      // Primary sort comparison
+      let comparison = 0;
       if (sortConfig.direction === 'asc') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       } else {
-        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+        comparison = aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
       }
+
+      // If primary sort values are equal AND we're not sorting by name, sort by last name as secondary
+      if (comparison === 0 && sortConfig.key !== 'name') {
+        const getLastName = (fullName) => {
+          if (!fullName) return '';
+          const nameParts = fullName.trim().split(' ');
+          return nameParts[nameParts.length - 1].toLowerCase();
+        };
+
+        const aLastName = getLastName(a.name);
+        const bLastName = getLastName(b.name);
+
+        // Always sort last names ascending for secondary sort
+        return aLastName < bLastName ? -1 : aLastName > bLastName ? 1 : 0;
+      }
+
+      return comparison;
     });
   };
 
@@ -533,6 +555,11 @@ const DirectorUserManagement = () => {
   const instructorCount = users.filter(user => user.role === 'instructor').length;
   const studentCount = users.filter(user => user.role === 'student').length;
   const unassignedInstructors = users.filter(user => user.role === 'instructor' && !user.schoolId).length;
+  // set up pagination
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const totalPages = Math.ceil(sortedAndFilteredUsers.length / usersPerPage);
+  const currentStudents = sortedAndFilteredUsers.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -572,13 +599,27 @@ const DirectorUserManagement = () => {
               <option value="approved">Approved ({approvedCount})</option>
               <option value="rejected">Rejected ({rejectedCount})</option>
             </select>
-
+            {/* Add User Button */}
             <button
               onClick={() => setShowUserForm(true)}
               className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200"
             >
               + Add User
             </button>
+            {/* Users per page dropdown */}
+            <select
+              value={usersPerPage}
+              onChange={(e) => {
+                setUsersPerPage(Number(e.target.value));
+                setCurrentPage(1); // Reset to first page
+              }}
+              className="text-sm border border-gray-300 rounded px-3 py-1"
+            >
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+              <option value={200}>200 per page</option>
+            </select>
           </div>
         </div>
 
@@ -622,7 +663,7 @@ const DirectorUserManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedAndFilteredUsers.map(user => (
+                {currentStudents.map(user => (
                   <tr
                     key={user.id}
                     className={`border-b border-gray-100 hover:bg-gray-50 ${user.status === 'pending' ? 'bg-yellow-50' : ''
@@ -714,6 +755,79 @@ const DirectorUserManagement = () => {
                 ))}
               </tbody>
             </table>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-4 flex justify-center items-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+
+                {/* First page */}
+                {currentPage > 3 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="px-3 py-1 border rounded hover:bg-gray-50"
+                    >
+                      1
+                    </button>
+                    {currentPage > 4 && <span className="px-2 text-gray-500">...</span>}
+                  </>
+                )}
+
+                {/* Pages around current page */}
+                {(() => {
+                  const pages = [];
+                  const start = Math.max(1, currentPage - 2);
+                  const end = Math.min(totalPages, currentPage + 2);
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i)}
+                        className={`px-3 py-1 border rounded ${i === currentPage
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'hover:bg-gray-50'
+                          }`}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+                  return pages;
+                })()}
+
+                {/* Last page */}
+                {currentPage < totalPages - 2 && (
+                  <>
+                    {currentPage < totalPages - 3 && <span className="px-2 text-gray-500">...</span>}
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="px-3 py-1 border rounded hover:bg-gray-50"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
+                >
+                  Next
+                </button>
+
+                <span className="text-sm text-gray-500 ml-4">
+                  Showing {Math.min(startIndex + 1, sortedAndFilteredUsers.length)}-{Math.min(endIndex, sortedAndFilteredUsers.length)} of {sortedAndFilteredUsers.length}
+                </span>
+              </div>
+            )}
           </div>
 
           {sortedAndFilteredUsers.length === 0 && (
@@ -959,7 +1073,7 @@ const DirectorUserManagement = () => {
                         <span className="w-2 h-2 rounded-full bg-blue-500 mr-1"></span>
                         Clone Work
                       </span>
-                      <span>{activityLogs.length} total activities</span>
+                      <span>{activityLogs.length} recent activities</span>
                     </div>
                   </div>
 
