@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useDNAContext } from '../context/DNAContext';
 import InstructorOverview from './InstructorOverview';
 import InstructorAnalysisReview from './InstructorAnalysisReview';
-import InstructorMessagesChat from './InstructorMessagesChat';
 import InstructorSettings from './InstructorSettings';
 import InstructorStudents from './InstructorStudents.jsx';
 import SimpleInstructorChat from './SimpleInstructorChat.jsx';
