@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, User, FileText, Clock, Users } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
+import ProfilePicture from './ProfilePicture';
 import apiService from '../services/apiService';
 
 const SimpleStudentChat = ({
@@ -84,6 +85,12 @@ const SimpleStudentChat = ({
             const response = await apiService.get(`/clone-discussions/${discussion.id}/messages`);
             setMessages(response.messages || []);
 
+            console.log('=== MESSAGES RESPONSE DEBUG ===');
+        console.log('Full response:', response);
+        console.log('Messages array:', response.messages);
+         console.log('First message:', response.messages[0]);
+            console.log('First message sender:', response.messages[0].sender);
+            console.log('First message sender profilePicture:', response.messages[0].sender?.profilePicture);
             // Mark as read if there are unread messages
             if (discussion.unreadCount > 0) {
                 await apiService.patch(`/clone-discussions/${discussion.id}/mark-read`, {
@@ -318,6 +325,15 @@ const SimpleStudentChat = ({
                                         key={message.id}
                                         className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                                     >
+                                        {/* Add profile picture for non-current user messages */}
+                                        {message.sender.id !== currentUser.id && (
+                                            <ProfilePicture
+                                                src={message.sender.profilePicture}
+                                                name={message.sender.name}
+                                                size="lg"
+                                                className="mr-3 mt-1 flex-shrink-0"
+                                            />
+                                        )}
                                         <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${message.sender.id === currentUser.id
                                             ? 'bg-blue-600 text-white'
                                             : 'bg-white text-gray-900 border border-gray-200'

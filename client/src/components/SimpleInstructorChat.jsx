@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, User, FileText, Clock, Users, Trash2 } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import apiService from '../services/apiService';
+import ProfilePicture from './ProfilePicture';
 
 const SimpleInstructorChat = ({
     onMessageRead = null
@@ -220,11 +221,8 @@ const SimpleInstructorChat = ({
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center space-x-3">
-                                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <User className="w-5 h-5 text-blue-600" />
-                                            </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-semibold text-gray-900 truncate">
+                                                <p className="text-lg font-semibold text-gray-900 truncate">
                                                     {discussion.student.name}
                                                 </p>
                                                 <p className="text-xs text-gray-600 truncate">
@@ -274,9 +272,12 @@ const SimpleInstructorChat = ({
                         <div className="p-6 border-b border-gray-200 bg-blue-600 text-white">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <User className="w-6 h-6" />
-                                    </div>
+                                    <ProfilePicture
+                                        src={selectedDiscussion.student.profilePicture}
+                                        name={selectedDiscussion.student.name}
+                                        size="lg"
+                                        className="w-12 h-12"
+                                    />
                                     <div>
                                         <h4 className="font-semibold text-lg">
                                             {selectedDiscussion.student.name}
@@ -326,6 +327,15 @@ const SimpleInstructorChat = ({
                                         key={message.id}
                                         className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                                     >
+                                        {/* Add profile picture for non-current user messages (students) */}
+                                        {message.sender.id !== currentUser.id && (
+                                            <ProfilePicture
+                                                src={message.sender.profilePicture}
+                                                name={message.sender.name}
+                                                size="lg"
+                                                className="mr-3 mt-1 flex-shrink-0"
+                                            />
+                                        )}
                                         <div className={`max-w-2xl rounded-2xl p-4 shadow-sm ${message.sender.id === currentUser.id
                                             ? 'bg-blue-600 text-white'
                                             : 'bg-white text-gray-900 border border-gray-200'
@@ -342,6 +352,15 @@ const SimpleInstructorChat = ({
                                             </div>
                                             <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                                         </div>
+                                        {/* Optional: Add profile picture for instructor messages on the right */}
+                                        {message.sender.id === currentUser.id && (
+                                            <ProfilePicture
+                                                src={currentUser.profilePicture}
+                                                name={currentUser.name}
+                                                size="sm"
+                                                className="ml-3 mt-1 flex-shrink-0"
+                                            />
+                                        )}
                                     </div>
                                 ))
                             )}

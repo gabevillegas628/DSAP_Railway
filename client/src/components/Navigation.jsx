@@ -1,6 +1,7 @@
 // components/Navigation.jsx - Updated with mobile fixes for your current version
 import React from 'react';
 import { User, FileText } from 'lucide-react';
+import ProfilePicture from './ProfilePicture';
 
 const Navigation = ({ currentUser, onLogout }) => {
   // Logo imports (adjust path based on your setup)
@@ -26,17 +27,17 @@ const Navigation = ({ currentUser, onLogout }) => {
     <nav className="bg-white shadow-sm border-b border-gray-200 relative">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Logos at absolute edges - hidden on mobile, smaller on tablet */}
-        <img 
-          src={rutgersLogo} 
-          alt="Rutgers University" 
+        <img
+          src={rutgersLogo}
+          alt="Rutgers University"
           className="absolute left-1 md:left-2 top-1/2 transform -translate-y-1/2 h-6 md:h-8 lg:h-10 w-auto z-10 hidden sm:block"
         />
-        <img 
-          src={waksmanLogo} 
-          alt="Waksman Institute" 
+        <img
+          src={waksmanLogo}
+          alt="Waksman Institute"
           className="absolute right-1 md:right-2 top-1/2 transform -translate-y-1/2 h-8 md:h-10 lg:h-12 w-auto z-10 hidden sm:block"
         />
-        
+
         {/* Main navigation content */}
         <div className="flex justify-between items-center h-16 min-h-[64px]">
           {/* Left side - Icon and title with responsive margins */}
@@ -53,7 +54,12 @@ const Navigation = ({ currentUser, onLogout }) => {
           {/* Right side - User info and logout with responsive margins */}
           <div className="flex items-center space-x-2 md:space-x-4 mr-0 sm:mr-12 md:mr-14 lg:mr-16 flex-shrink-0">
             <div className="flex items-center space-x-1 md:space-x-2 text-xs md:text-sm text-gray-600">
-              <User className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+              <ProfilePicture
+                src={currentUser?.profilePicture}
+                name={currentUser?.name}
+                size="sm"
+                className="flex-shrink-0"
+              />              
               {/* Hide full name on very small screens */}
               <span className="hidden sm:inline truncate max-w-[120px] lg:max-w-none">
                 {currentUser?.name}

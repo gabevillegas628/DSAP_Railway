@@ -10,7 +10,7 @@ import { getReviewStatus } from '../statusConstraints.js';
 import apiService from '../services/apiService';
 
 const InstructorDashboard = () => {
-  const { currentUser, setCurrentUser } = useDNAContext();
+  const { currentUser, updateCurrentUser } = useDNAContext();
   const [activeTab, setActiveTab] = useState('overview'); // Start with overview tab
   const [unreadCount, setUnreadCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
@@ -123,7 +123,7 @@ const InstructorDashboard = () => {
         </div>
 
         <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
-          <InstructorSettings currentUser={currentUser} onUserUpdate={setCurrentUser} />
+          <InstructorSettings currentUser={currentUser} onUserUpdate={updateCurrentUser} />
         </div>
       </div>
     );

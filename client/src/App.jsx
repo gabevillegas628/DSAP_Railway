@@ -45,6 +45,7 @@ const App = () => {
   const loginAs = (user) => {
     console.log('Logging in as:', user);
     setCurrentUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
   };
 
   const logout = () => {
@@ -53,8 +54,17 @@ const App = () => {
     localStorage.removeItem('user');
   };
 
+  const updateCurrentUser = (updatedUser) => {
+       console.log('=== updateCurrentUser called ===');
+    console.log('updatedUser:', updatedUser);
+    setCurrentUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
   const contextValue = {
     currentUser,
+    setCurrentUser,
+    updateCurrentUser,
     schools,
     setSchools,
     uploadedFiles,
@@ -63,6 +73,10 @@ const App = () => {
     loginAs,
     logout
   };
+
+   console.log('=== APP.JSX CONTEXT VALUE ===');
+  console.log('contextValue keys:', Object.keys(contextValue));
+  console.log('updateCurrentUser in context:', typeof contextValue.updateCurrentUser);
 
   // Show loading spinner while checking authentication
   if (loading) {

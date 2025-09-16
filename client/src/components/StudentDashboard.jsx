@@ -13,7 +13,7 @@ import { getDisplayFilename } from '../utils/fileUtils.js';
 import apiService from '../services/apiService'; // Updated import
 
 const StudentDashboard = () => {
-  const { currentUser, setCurrentUser } = useDNAContext();
+  const { currentUser, updateCurrentUser } = useDNAContext();
   const [activeTab, setActiveTab] = useState('my-clones');
   const [openAnalysisTabs, setOpenAnalysisTabs] = useState([]);
   const [assignedFiles, setAssignedFiles] = useState([]);
@@ -285,10 +285,6 @@ const StudentDashboard = () => {
     ]);
   }, [currentUser], fetchAssignedFiles, fetchPracticeClones);
 
-  // Function to handle user profile updates from settings
-  const handleUserUpdate = (updatedUser) => {
-    setCurrentUser(updatedUser);
-  };
 
   // Function to check if there are any unsaved changes
   const hasUnsavedChanges = () => {
@@ -441,7 +437,7 @@ const StudentDashboard = () => {
         </div>
 
         <div className="h-full" style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
-          <StudentSettings currentUser={currentUser} onUserUpdate={handleUserUpdate} />
+          <StudentSettings currentUser={currentUser} onUserUpdate={updateCurrentUser} />
         </div>
 
         {/* Dynamic analysis tabs - render all but hide inactive ones */}

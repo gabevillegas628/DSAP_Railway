@@ -1073,7 +1073,7 @@ app.post('/api/auth/login', async (req, res) => {
   // Get IP info upfront so it's always available
   const ipAddress = cleanIPAddress(getClientIP(req));
   const userAgent = req.get('User-Agent') || null;
-  
+
   try {
     const { email, password } = req.body;
 
@@ -1164,7 +1164,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     // SUCCESS - Get location and log successful login
     const location = await getLocationFromIP(ipAddress);
-    
+
     try {
       await prisma.loginLog.create({
         data: {
@@ -1196,7 +1196,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    
+
     // Log unexpected error (this is your original catch block approach)
     try {
       await prisma.loginLog.create({
@@ -1212,7 +1212,7 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (logError) {
       console.error('Failed to log error login attempt:', logError);
     }
-    
+
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -1427,6 +1427,108 @@ app.get('/api/users/last-login', authenticateToken, requireRole(['director']), a
     res.json(usersWithLastLogin);
   } catch (error) {
     console.error('Error fetching users with last login:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =========================
+// Profile Picture endpoints
+// =========================
+
+// Debug
+app.use('/api/users/:userId/profile-picture', (req, res, next) => {
+  console.log('=== PROFILE PICTURE REQUEST ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Params:', req.params);
+  console.log('Headers:', req.headers);
+  next();
+});
+
+// Profile picture upload configuration
+const profilePictureUpload = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: process.env.S3_BUCKET_NAME,
+    key: function (req, file, cb) {
+      const userId = req.params.userId;
+      const extension = file.originalname.split('.').pop();
+      const key = `profile-pics/user-${userId}.${extension}`;
+      cb(null, key);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+  }),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
+
+// Upload profile picture endpoint
+app.post('/api/users/:userId/profile-picture', profilePictureUpload.single('profilePicture'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded' });
+    }
+
+    // Update user with new profile picture URL
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { profilePicture: req.file.location },
+      include: {
+        school: { select: { name: true, id: true } }
+      }
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error uploading profile picture:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete profile picture endpoint
+app.delete('/api/users/:userId/profile-picture', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) }
+    });
+
+    if (user?.profilePicture) {
+      // Extract S3 key from URL
+      const urlParts = user.profilePicture.split('/');
+      const s3Key = `profile-pics/${urlParts[urlParts.length - 1]}`;
+
+      // Delete from S3
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: s3Key
+      });
+      await s3Client.send(deleteCommand);
+    }
+
+    // Update user to remove profile picture
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { profilePicture: null },
+      include: {
+        school: { select: { name: true } }
+      }
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error deleting profile picture:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -7634,7 +7736,7 @@ app.get('/api/clone-discussions/instructor/:instructorId', async (req, res) => {
       },
       include: {
         student: {
-          select: { id: true, name: true, email: true, school: { select: { name: true } } }
+          select: { profilePicture: true, id: true, name: true, email: true, school: { select: { name: true } } }
         },
         clone: {
           select: { id: true, cloneName: true, originalName: true }
@@ -7774,7 +7876,8 @@ app.get('/api/clone-discussions/instructor/:instructorId', async (req, res) => {
             role: true,
             school: {
               select: { name: true }
-            }
+            },
+            profilePicture: true
           }
         },
         clone: {
@@ -7969,7 +8072,7 @@ app.get('/api/clone-discussions/:discussionId/messages', async (req, res) => {
       },
       include: {
         sender: {
-          select: { id: true, name: true, email: true, role: true }
+          select: { id: true, name: true, email: true, role: true, profilePicture: true }
         }
       },
       orderBy: { createdAt: 'asc' } // Oldest first

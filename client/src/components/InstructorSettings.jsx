@@ -1,9 +1,12 @@
 // components/InstructorSettings.jsx - Settings component for instructors
 import React, { useState } from 'react';
 import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import ProfilePicture from './ProfilePicture';
 import apiService from '../services/apiService';
 
 const InstructorSettings = ({ currentUser, onUserUpdate }) => {
+
+
     const [formData, setFormData] = useState({
         name: currentUser?.name || '',
         currentPassword: '',
@@ -20,6 +23,7 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [hasChanges, setHasChanges] = useState(false);
+    const [uploadingPicture, setUploadingPicture] = useState(false);
 
     // Track if form has been modified
     React.useEffect(() => {
@@ -107,7 +111,7 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
 
             // Use apiService for self-update endpoint
             const updatedUser = await apiService.put(
-                `/users/${currentUser.id}/self-update`, 
+                `/users/${currentUser.id}/self-update`,
                 selfUpdateData
             );
 
@@ -142,7 +146,7 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
         } catch (error) {
             console.error('Error updating instructor settings:', error);
             let errorMessage = 'Failed to update settings';
-            
+
             if (error.response?.data?.error) {
                 errorMessage = error.response.data.error;
             } else if (error.message) {
@@ -165,6 +169,40 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
         setMessage({ type: '', text: '' });
     };
 
+    const handleProfilePictureUpload = async (file) => {
+    if (!file) return;
+
+    setUploadingPicture(true);
+    try {
+        const formData = new FormData();
+        formData.append('profilePicture', file);
+
+        const updatedUser = await apiService.uploadFiles(
+            `/users/${currentUser.id}/profile-picture`,
+            formData
+        );
+
+
+        onUserUpdate(updatedUser); // This is where the error happens
+        setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
+    } catch (error) {
+        console.error('Profile picture upload error:', error);
+        setMessage({ type: 'error', text: `Failed to upload: ${error.message}` });
+    } finally {
+        setUploadingPicture(false);
+    }
+};
+
+    const handleRemoveProfilePicture = async () => {
+        try {
+            const updatedUser = await apiService.delete(`/users/${currentUser.id}/profile-picture`);
+            onUserUpdate(updatedUser);
+            setMessage({ type: 'success', text: 'Profile picture removed successfully!' });
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to remove profile picture' });
+        }
+    };
+
     if (!currentUser) {
         return (
             <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -183,10 +221,9 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
 
                 {/* Message Display */}
                 {message.text && (
-                    <div className={`mb-6 p-4 border rounded-lg ${
-                        message.type === 'success'
-                            ? 'bg-green-50 border-green-200 text-green-800'
-                            : 'bg-red-50 border-red-200 text-red-800'
+                    <div className={`mb-6 p-4 border rounded-lg ${message.type === 'success'
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
                         }`}>
                         <div className="flex items-center space-x-2">
                             {message.type === 'success' ? (
@@ -218,6 +255,44 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
                         <div>
                             <span className="text-gray-600">Status:</span>
                             <span className="ml-2 font-medium capitalize text-green-600">{currentUser?.status}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Profile Picture Upload */}
+                <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">Profile Picture</h4>
+                    <div className="flex items-center space-x-4">
+                        <ProfilePicture
+                            src={currentUser?.profilePicture}
+                            name={currentUser?.name}
+                            size="xl"
+                        />
+                        <div className="space-y-2">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) handleProfilePictureUpload(file);
+                                }}
+                                className="hidden"
+                                id="instructor-profile-picture-upload"
+                            />
+                            <label
+                                htmlFor="instructor-profile-picture-upload"
+                                className="cursor-pointer bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200 inline-block text-sm"
+                            >
+                                {uploadingPicture ? 'Uploading...' : 'Upload Picture'}
+                            </label>
+                            {currentUser?.profilePicture && (
+                                <button
+                                    onClick={handleRemoveProfilePicture}
+                                    className="block text-red-600 text-sm hover:text-red-800"
+                                >
+                                    Remove Picture
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
