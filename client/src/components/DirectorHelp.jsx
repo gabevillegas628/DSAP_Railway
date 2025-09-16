@@ -11,32 +11,63 @@ import {
     ChevronDown,
     ChevronRight,
     AlertCircle,
-    X
+    X,
+    Settings,
+    List
 } from 'lucide-react';
 import apiService from '../services/apiService';
 
 const DirectorHelp = () => {
-    const [helpTopics, setHelpTopics] = useState([]);
+    const [masterHelpTopics, setMasterHelpTopics] = useState([]);
+    const [masterStepHelps, setMasterStepHelps] = useState([]);
     const [analysisQuestions, setAnalysisQuestions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editingTopic, setEditingTopic] = useState(null);
+
+    // Form states
+    const [showMasterForm, setShowMasterForm] = useState(false);
+    const [showChildForm, setShowChildForm] = useState(false);
+    const [showStepMasterForm, setShowStepMasterForm] = useState(false);
+    const [showStepChildForm, setShowStepChildForm] = useState(false);
+
+    // Editing states
+    const [editingMaster, setEditingMaster] = useState(null);
+    const [editingChild, setEditingChild] = useState(null);
+    const [editingStepMaster, setEditingStepMaster] = useState(null);
+    const [editingStepChild, setEditingStepChild] = useState(null);
+
+    // UI states
     const [expandedSteps, setExpandedSteps] = useState(new Set(['clone-editing']));
-    const [formData, setFormData] = useState({
+    const [expandedMasters, setExpandedMasters] = useState(new Set());
+    const [expandedStepMasters, setExpandedStepMasters] = useState(new Set());
+
+    // Form data
+    const [masterFormData, setMasterFormData] = useState({
         analysisQuestionId: '',
-        title: '',
-        videoBoxUrl: '',
-        helpDocumentUrl: ''
+        title: ''
     });
-    const [stepHelp, setStepHelp] = useState([]);
-    const [showStepForm, setShowStepForm] = useState(false);
-    const [editingStepHelp, setEditingStepHelp] = useState(null);
-    const [stepFormData, setStepFormData] = useState({
-        step: '',
+
+    const [childFormData, setChildFormData] = useState({
+        masterHelpTopicId: '',
         title: '',
         description: '',
         videoBoxUrl: '',
-        helpDocumentUrl: ''
+        helpDocumentUrl: '',
+        order: 0
+    });
+
+    const [stepMasterFormData, setStepMasterFormData] = useState({
+        step: '',
+        title: '',
+        description: ''
+    });
+
+    const [stepChildFormData, setStepChildFormData] = useState({
+        masterStepHelpId: '',
+        title: '',
+        description: '',
+        videoBoxUrl: '',
+        helpDocumentUrl: '',
+        order: 0
     });
 
     useEffect(() => {
@@ -45,14 +76,14 @@ const DirectorHelp = () => {
 
     const fetchData = async () => {
         try {
-            const [topics, questions, stepHelpData] = await Promise.all([
-                apiService.get('/help-topics'),
+            const [questions, masterTopics, masterSteps] = await Promise.all([
                 apiService.get('/analysis-questions'),
-                apiService.get('/step-help')
+                apiService.get('/master-help-topics'),
+                apiService.get('/master-step-helps')
             ]);
-            setHelpTopics(topics);
             setAnalysisQuestions(questions);
-            setStepHelp(stepHelpData);
+            setMasterHelpTopics(masterTopics);
+            setMasterStepHelps(masterSteps);
             setLoading(false);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -60,126 +91,201 @@ const DirectorHelp = () => {
         }
     };
 
-    const handleSubmit = async (e) => {
+    // Master Help Topic functions
+    const handleMasterSubmit = async (e) => {
         e.preventDefault();
         try {
-            if (editingTopic) {
-                const updated = await apiService.put(`/help-topics/${editingTopic.id}`, formData);
-                setHelpTopics(prev => prev.map(topic =>
-                    topic.id === editingTopic.id ? updated : topic
+            if (editingMaster) {
+                const updated = await apiService.put(`/master-help-topics/${editingMaster.id}`, masterFormData);
+                setMasterHelpTopics(prev => prev.map(master =>
+                    master.id === editingMaster.id ? updated : master
                 ));
             } else {
-                const newTopic = await apiService.post('/help-topics', formData);
-                setHelpTopics(prev => [newTopic, ...prev]);
+                const newMaster = await apiService.post('/master-help-topics', masterFormData);
+                setMasterHelpTopics(prev => [newMaster, ...prev]);
             }
-            resetForm();
+            resetMasterForm();
+        } catch (error) {
+            console.error('Error saving master help topic:', error);
+            alert('Error saving master help topic. Please try again.');
+        }
+    };
+
+    const handleChildSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            if (editingChild) {
+                const updated = await apiService.put(`/help-topics/${editingChild.id}`, childFormData);
+                // Update the master's children array
+                setMasterHelpTopics(prev => prev.map(master => {
+                    if (master.id === updated.masterHelpTopicId) {
+                        return {
+                            ...master,
+                            helpTopics: master.helpTopics.map(child =>
+                                child.id === updated.id ? updated : child
+                            )
+                        };
+                    }
+                    return master;
+                }));
+            } else {
+                const newChild = await apiService.post('/help-topics', childFormData);
+                // Add to the master's children array
+                setMasterHelpTopics(prev => prev.map(master => {
+                    if (master.id === newChild.masterHelpTopicId) {
+                        return {
+                            ...master,
+                            helpTopics: [...(master.helpTopics || []), newChild]
+                        };
+                    }
+                    return master;
+                }));
+            }
+            resetChildForm();
         } catch (error) {
             console.error('Error saving help topic:', error);
             alert('Error saving help topic. Please try again.');
         }
     };
 
-    const handleStepSubmit = async (e) => {
+    // Step Help functions (similar pattern)
+    const handleStepMasterSubmit = async (e) => {
         e.preventDefault();
         try {
-            if (editingStepHelp) {
-                const updated = await apiService.put(`/step-help/${editingStepHelp.id}`, stepFormData);
-                setStepHelp(prev => prev.map(help =>
-                    help.id === editingStepHelp.id ? updated : help
+            if (editingStepMaster) {
+                const updated = await apiService.put(`/master-step-helps/${editingStepMaster.id}`, stepMasterFormData);
+                setMasterStepHelps(prev => prev.map(master =>
+                    master.id === editingStepMaster.id ? updated : master
                 ));
             } else {
-                const newStepHelp = await apiService.post('/step-help', stepFormData);
-                setStepHelp(prev => [newStepHelp, ...prev]);
+                const newMaster = await apiService.post('/master-step-helps', stepMasterFormData);
+                setMasterStepHelps(prev => [newMaster, ...prev]);
             }
-            resetStepForm();
+            resetStepMasterForm();
+        } catch (error) {
+            console.error('Error saving master step help:', error);
+            alert('Error saving master step help. Please try again.');
+        }
+    };
+
+    const handleStepChildSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            if (editingStepChild) {
+                const updated = await apiService.put(`/step-helps/${editingStepChild.id}`, stepChildFormData);
+                setMasterStepHelps(prev => prev.map(master => {
+                    if (master.id === updated.masterStepHelpId) {
+                        return {
+                            ...master,
+                            stepHelps: master.stepHelps.map(child =>
+                                child.id === updated.id ? updated : child
+                            )
+                        };
+                    }
+                    return master;
+                }));
+            } else {
+                const newChild = await apiService.post('/step-helps', stepChildFormData);
+                setMasterStepHelps(prev => prev.map(master => {
+                    if (master.id === newChild.masterStepHelpId) {
+                        return {
+                            ...master,
+                            stepHelps: [...(master.stepHelps || []), newChild]
+                        };
+                    }
+                    return master;
+                }));
+            }
+            resetStepChildForm();
         } catch (error) {
             console.error('Error saving step help:', error);
             alert('Error saving step help. Please try again.');
         }
     };
 
-    const resetStepForm = () => {
-        setStepFormData({
-            step: '',
+    // Reset form functions
+    const resetMasterForm = () => {
+        setShowMasterForm(false);
+        setEditingMaster(null);
+        setMasterFormData({ analysisQuestionId: '', title: '' });
+    };
+
+    const resetChildForm = () => {
+        setShowChildForm(false);
+        setEditingChild(null);
+        setChildFormData({
+            masterHelpTopicId: '',
             title: '',
             description: '',
             videoBoxUrl: '',
-            helpDocumentUrl: ''
+            helpDocumentUrl: '',
+            order: 0
         });
-        setShowStepForm(false);
-        setEditingStepHelp(null);
     };
 
-    const editStepHelp = (help) => {
-        setStepFormData(help);
-        setEditingStepHelp(help);
-        setShowStepForm(true);
+    const resetStepMasterForm = () => {
+        setShowStepMasterForm(false);
+        setEditingStepMaster(null);
+        setStepMasterFormData({ step: '', title: '', description: '' });
     };
 
-    const deleteStepHelp = async (helpId) => {
-        if (!window.confirm('Are you sure you want to delete this step help?')) return;
+    const resetStepChildForm = () => {
+        setShowStepChildForm(false);
+        setEditingStepChild(null);
+        setStepChildFormData({
+            masterStepHelpId: '',
+            title: '',
+            description: '',
+            videoBoxUrl: '',
+            helpDocumentUrl: '',
+            order: 0
+        });
+    };
+
+    // Delete functions
+    const deleteMasterHelpTopic = async (masterId) => {
+        if (!window.confirm('This will delete the master help topic and all its child topics. Continue?')) return;
         try {
-            await apiService.delete(`/step-help/${helpId}`);
-            setStepHelp(prev => prev.filter(help => help.id !== helpId));
+            await apiService.delete(`/master-help-topics/${masterId}`);
+            setMasterHelpTopics(prev => prev.filter(master => master.id !== masterId));
         } catch (error) {
-            console.error('Error deleting step help:', error);
-            alert('Error deleting step help. Please try again.');
+            console.error('Error deleting master help topic:', error);
+            alert('Error deleting master help topic. Please try again.');
         }
     };
 
-    const getAvailableSteps = () => {
-        const allSteps = [
-            { id: 'clone-editing', name: 'Clone Editing' },
-            { id: 'blast', name: 'BLAST Analysis' },
-            { id: 'analysis-submission', name: 'Analysis & Submission' },
-            { id: 'review', name: 'Review' }
-        ];
-        return allSteps.filter(step =>
-            !stepHelp.some(help => help.step === step.id)
-        );
-    };
-
-    const resetForm = () => {
-        setFormData({
-            analysisQuestionId: '',
-            title: '',
-            videoBoxUrl: '',
-            helpDocumentUrl: ''
-        });
-        setShowForm(false);
-        setEditingTopic(null);
-    };
-
-    const editTopic = (topic) => {
-        setFormData(topic);
-        setEditingTopic(topic);
-        setShowForm(true);
-    };
-
-    const deleteTopic = async (topicId) => {
-        if (!window.confirm('Are you sure you want to delete this help topic?')) return;
+    const deleteChildHelpTopic = async (childId, masterId) => {
+        if (!window.confirm('Delete this help topic?')) return;
         try {
-            await apiService.delete(`/help-topics/${topicId}`);
-            setHelpTopics(prev => prev.filter(topic => topic.id !== topicId));
+            await apiService.delete(`/help-topics/${childId}`);
+            setMasterHelpTopics(prev => prev.map(master => {
+                if (master.id === masterId) {
+                    return {
+                        ...master,
+                        helpTopics: master.helpTopics.filter(child => child.id !== childId)
+                    };
+                }
+                return master;
+            }));
         } catch (error) {
             console.error('Error deleting help topic:', error);
             alert('Error deleting help topic. Please try again.');
         }
     };
 
-    const getQuestionText = (questionId) => {
-        const question = analysisQuestions.find(q => q.id === questionId);
-        return question ? question.text : 'Unknown Question';
-    };
-
+    // Utility functions
     const getQuestionsForStep = (step) => {
         return analysisQuestions
             .filter(q => q.step === step)
             .sort((a, b) => a.order - b.order);
     };
 
-    const getHelpTopicForQuestion = (questionId) => {
-        return helpTopics.find(topic => topic.analysisQuestionId === questionId);
+    const getMasterForQuestion = (questionId) => {
+        return masterHelpTopics.find(master => master.analysisQuestionId === questionId);
+    };
+
+    const getMasterForStep = (step) => {
+        return masterStepHelps.find(master => master.step === step);
     };
 
     const toggleStep = (step) => {
@@ -190,6 +296,26 @@ const DirectorHelp = () => {
             newExpanded.add(step);
         }
         setExpandedSteps(newExpanded);
+    };
+
+    const toggleMaster = (masterId) => {
+        const newExpanded = new Set(expandedMasters);
+        if (newExpanded.has(masterId)) {
+            newExpanded.delete(masterId);
+        } else {
+            newExpanded.add(masterId);
+        }
+        setExpandedMasters(newExpanded);
+    };
+
+    const toggleStepMaster = (masterId) => {
+        const newExpanded = new Set(expandedStepMasters);
+        if (newExpanded.has(masterId)) {
+            newExpanded.delete(masterId);
+        } else {
+            newExpanded.add(masterId);
+        }
+        setExpandedStepMasters(newExpanded);
     };
 
     const getStepDisplayName = (step) => {
@@ -204,7 +330,14 @@ const DirectorHelp = () => {
 
     const getAvailableQuestions = () => {
         return analysisQuestions.filter(question =>
-            !helpTopics.some(topic => topic.analysisQuestionId === question.id)
+            !masterHelpTopics.some(master => master.analysisQuestionId === question.id)
+        );
+    };
+
+    const getAvailableSteps = () => {
+        const allSteps = ['clone-editing', 'blast', 'analysis-submission', 'review'];
+        return allSteps.filter(step =>
+            !masterStepHelps.some(master => master.step === step)
         );
     };
 
@@ -221,187 +354,403 @@ const DirectorHelp = () => {
 
     return (
         <>
+            {/* Master Help Topic Form Modal */}
+            {showMasterForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">
+                                {editingMaster ? 'Edit Master Help Topic' : 'Create Master Help Topic'}
+                            </h3>
+                            <button onClick={resetMasterForm} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleMasterSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Question
+                                </label>
+                                <select
+                                    value={masterFormData.analysisQuestionId}
+                                    onChange={(e) => setMasterFormData(prev => ({
+                                        ...prev,
+                                        analysisQuestionId: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                    disabled={editingMaster} // Can't change question when editing
+                                >
+                                    <option value="">Select a question</option>
+                                    {(editingMaster ? analysisQuestions : getAvailableQuestions()).map(question => (
+                                        <option key={question.id} value={question.id}>
+                                            {question.text.substring(0, 50)}...
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Master Topic Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={masterFormData.title}
+                                    onChange={(e) => setMasterFormData(prev => ({
+                                        ...prev,
+                                        title: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="e.g., BLAST Analysis Help"
+                                    required
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={resetMasterForm}
+                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                                >
+                                    {editingMaster ? 'Update Master Topic' : 'Create Master Topic'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Child Help Topic Form Modal */}
+            {showChildForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">
+                                {editingChild ? 'Edit Help Topic' : 'Add Help Topic'}
+                            </h3>
+                            <button onClick={resetChildForm} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleChildSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={childFormData.title}
+                                    onChange={(e) => setChildFormData(prev => ({
+                                        ...prev,
+                                        title: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="e.g., Basic BLAST Search"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description
+                                </label>
+                                <textarea
+                                    value={childFormData.description}
+                                    onChange={(e) => setChildFormData(prev => ({
+                                        ...prev,
+                                        description: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    rows="2"
+                                    placeholder="Brief description of what this help topic covers"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Video URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={childFormData.videoBoxUrl}
+                                    onChange={(e) => setChildFormData(prev => ({
+                                        ...prev,
+                                        videoBoxUrl: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="https://..."
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Document URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={childFormData.helpDocumentUrl}
+                                    onChange={(e) => setChildFormData(prev => ({
+                                        ...prev,
+                                        helpDocumentUrl: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="https://..."
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Order
+                                </label>
+                                <input
+                                    type="number"
+                                    value={childFormData.order}
+                                    onChange={(e) => setChildFormData(prev => ({
+                                        ...prev,
+                                        order: parseInt(e.target.value) || 0
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={resetChildForm}
+                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                                >
+                                    {editingChild ? 'Update Topic' : 'Add Topic'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Step Master Help Form Modal */}
+            {showStepMasterForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">
+                                {editingStepMaster ? 'Edit Master Step Help' : 'Create Master Step Help'}
+                            </h3>
+                            <button onClick={resetStepMasterForm} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleStepMasterSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Step
+                                </label>
+                                <select
+                                    value={stepMasterFormData.step}
+                                    onChange={(e) => setStepMasterFormData(prev => ({
+                                        ...prev,
+                                        step: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    required
+                                    disabled={editingStepMaster} // Can't change step when editing
+                                >
+                                    <option value="">Select a step</option>
+                                    {(editingStepMaster ?
+                                        ['clone-editing', 'blast', 'analysis-submission', 'review'] :
+                                        getAvailableSteps()
+                                    ).map(step => (
+                                        <option key={step} value={step}>
+                                            {getStepDisplayName(step)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Master Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={stepMasterFormData.title}
+                                    onChange={(e) => setStepMasterFormData(prev => ({
+                                        ...prev,
+                                        title: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="e.g., Clone Editing Background Help"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description
+                                </label>
+                                <textarea
+                                    value={stepMasterFormData.description}
+                                    onChange={(e) => setStepMasterFormData(prev => ({
+                                        ...prev,
+                                        description: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    rows="3"
+                                    placeholder="Description of what this step help covers"
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={resetStepMasterForm}
+                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                                >
+                                    {editingStepMaster ? 'Update Master' : 'Create Master'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Step Child Help Form Modal */}
+            {showStepChildForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">
+                                {editingStepChild ? 'Edit Step Help Topic' : 'Add Step Help Topic'}
+                            </h3>
+                            <button onClick={resetStepChildForm} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleStepChildSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={stepChildFormData.title}
+                                    onChange={(e) => setStepChildFormData(prev => ({
+                                        ...prev,
+                                        title: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="e.g., Understanding Chromatograms"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description
+                                </label>
+                                <textarea
+                                    value={stepChildFormData.description}
+                                    onChange={(e) => setStepChildFormData(prev => ({
+                                        ...prev,
+                                        description: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    rows="2"
+                                    placeholder="Brief description of what this help topic covers"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Video URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={stepChildFormData.videoBoxUrl}
+                                    onChange={(e) => setStepChildFormData(prev => ({
+                                        ...prev,
+                                        videoBoxUrl: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="https://..."
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Document URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={stepChildFormData.helpDocumentUrl}
+                                    onChange={(e) => setStepChildFormData(prev => ({
+                                        ...prev,
+                                        helpDocumentUrl: e.target.value
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="https://..."
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Order
+                                </label>
+                                <input
+                                    type="number"
+                                    value={stepChildFormData.order}
+                                    onChange={(e) => setStepChildFormData(prev => ({
+                                        ...prev,
+                                        order: parseInt(e.target.value) || 0
+                                    }))}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={resetStepChildForm}
+                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                                >
+                                    {editingStepChild ? 'Update Topic' : 'Add Topic'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Main Content */}
             <div className="bg-white rounded-xl shadow-sm border">
                 <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                     <div>
                         <h3 className="text-lg font-semibold text-gray-900">Help Topic Management</h3>
-                        <p className="text-sm text-gray-600 mt-1">Create help videos and documents for analysis questions</p>
+                        <p className="text-sm text-gray-600 mt-1">Create and organize help content for analysis questions and steps</p>
                     </div>
                     <button
-                        onClick={() => setShowForm(true)}
+                        onClick={() => setShowMasterForm(true)}
                         className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center space-x-2"
                     >
                         <Plus className="w-4 h-4" />
-                        <span>Add Help Topic</span>
+                        <span>Add Master Help Topic</span>
                     </button>
                 </div>
-
-                {/* Background Help Section */}
-                <div className="bg-white rounded-xl shadow-sm border mb-6">
-                    <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900">Background Help Topics</h3>
-                            <p className="text-sm text-gray-600 mt-1">Create help content for each analysis step</p>
-                        </div>
-                        <button
-                            onClick={() => setShowStepForm(true)}
-                            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition duration-200 flex items-center space-x-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>Add Step Help</span>
-                        </button>
-                    </div>
-
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {['clone-editing', 'blast', 'analysis-submission', 'review'].map(step => {
-                                const help = stepHelp.find(h => h.step === step);
-                                return (
-                                    <div key={step} className={`border rounded-lg p-4 ${help ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h4 className="font-medium text-gray-900">{getStepDisplayName(step)}</h4>
-                                            {help ? (
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                                        Has Help
-                                                    </span>
-                                                    <button
-                                                        onClick={() => editStepHelp(help)}
-                                                        className="text-blue-600 hover:text-blue-800"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deleteStepHelp(help.id)}
-                                                        className="text-red-600 hover:text-red-800"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                                                    No Help
-                                                </span>
-                                            )}
-                                        </div>
-                                        {help && (
-                                            <div className="text-sm text-gray-600">
-                                                <p className="font-medium">{help.title}</p>
-                                                {help.description && <p className="text-xs mt-1">{help.description}</p>}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Step Help Form Modal */}
-                {showStepForm && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                            <div className="p-6 border-b border-gray-200">
-                                <div className="flex justify-between items-center">
-                                    <h4 className="text-lg font-semibold text-gray-900">
-                                        {editingStepHelp ? 'Edit Step Help' : 'Add Step Help'}
-                                    </h4>
-                                    <button onClick={resetStepForm} className="text-gray-400 hover:text-gray-600">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                            <form onSubmit={handleStepSubmit} className="p-6 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Analysis Step</label>
-                                    <select
-                                        value={stepFormData.step}
-                                        onChange={(e) => setStepFormData({ ...stepFormData, step: e.target.value })}
-                                        required
-                                        disabled={editingStepHelp}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                    >
-                                        <option value="">Select Step</option>
-                                        {editingStepHelp ? (
-                                            <option value={stepFormData.step}>
-                                                {getStepDisplayName(stepFormData.step)}
-                                            </option>
-                                        ) : (
-                                            getAvailableSteps().map(step => (
-                                                <option key={step.id} value={step.id}>
-                                                    {step.name}
-                                                </option>
-                                            ))
-                                        )}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                                    <input
-                                        type="text"
-                                        value={stepFormData.title}
-                                        onChange={(e) => setStepFormData({ ...stepFormData, title: e.target.value })}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                        placeholder="e.g., Clone Editing Overview"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
-                                    <textarea
-                                        value={stepFormData.description || ''}
-                                        onChange={(e) => setStepFormData({ ...stepFormData, description: e.target.value })}
-                                        rows={3}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                        placeholder="Brief description of what this step involves..."
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Video URL (Box)</label>
-                                    <input
-                                        type="url"
-                                        value={stepFormData.videoBoxUrl}
-                                        onChange={(e) => setStepFormData({ ...stepFormData, videoBoxUrl: e.target.value })}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                        placeholder="https://..."
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Help Document URL (Box)</label>
-                                    <input
-                                        type="url"
-                                        value={stepFormData.helpDocumentUrl}
-                                        onChange={(e) => setStepFormData({ ...stepFormData, helpDocumentUrl: e.target.value })}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                        placeholder="https://..."
-                                    />
-                                </div>
-
-                                <div className="flex justify-end space-x-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={resetStepForm}
-                                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-200"
-                                    >
-                                        {editingStepHelp ? 'Update Step Help' : 'Create Step Help'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
 
                 <div className="p-6">
                     {/* Help Topics by Analysis Step */}
@@ -421,10 +770,7 @@ const DirectorHelp = () => {
                                             <div className="text-left">
                                                 <h4 className="font-medium text-gray-900">{getStepDisplayName(step)}</h4>
                                                 <p className="text-sm text-gray-500">
-                                                    {stepQuestions.length} questions, {helpTopics.filter(topic => {
-                                                        const question = analysisQuestions.find(q => q.id === topic.analysisQuestionId);
-                                                        return question && question.step === step;
-                                                    }).length} with help
+                                                    {stepQuestions.length} questions, {stepQuestions.filter(q => getMasterForQuestion(q.id)).length} with help masters
                                                 </p>
                                             </div>
                                         </div>
@@ -438,118 +784,162 @@ const DirectorHelp = () => {
                                     {isExpanded && (
                                         <div className="p-4 bg-white border-t border-gray-200">
                                             {stepQuestions.length === 0 ? (
-                                                <div className="text-center py-6 text-gray-500">
-                                                    <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                    <p>No questions configured for this step</p>
-                                                    <p className="text-xs mt-1">Add questions in "Edit Questions" first</p>
-                                                </div>
+                                                <p className="text-gray-500 text-center py-4">No questions found for this step</p>
                                             ) : (
                                                 <div className="space-y-3">
                                                     {stepQuestions.map(question => {
-                                                        const helpTopic = getHelpTopicForQuestion(question.id);
+                                                        const master = getMasterForQuestion(question.id);
 
                                                         return (
-                                                            <div
-                                                                key={question.id}
-                                                                className={`border rounded-lg p-4 ${helpTopic ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}
-                                                            >
-                                                                <div className="flex items-start justify-between">
-                                                                    <div className="flex-1">
-                                                                        <div className="flex items-center space-x-2 mb-2">
-                                                                            <span className="text-sm font-medium text-gray-900">
-                                                                                Question {question.order}
-                                                                            </span>
-                                                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                                                                {question.type}
-                                                                            </span>
-                                                                            {question.required && (
-                                                                                <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                                                                                    Required
-                                                                                </span>
-                                                                            )}
-                                                                            {helpTopic && (
-                                                                                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded flex items-center space-x-1">
-                                                                                    <HelpCircle className="w-3 h-3" />
-                                                                                    <span>Has Help</span>
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-
-                                                                        <p className="text-sm text-gray-700 mb-2">{question.text}</p>
-
-                                                                        {helpTopic && (
-                                                                            <div className="mt-3 space-y-2">
-                                                                                <div className="text-sm font-medium text-gray-900">Help Content:</div>
-                                                                                <div className="text-sm text-gray-600 space-y-1">
-                                                                                    <div className="flex items-center space-x-2">
-                                                                                        <span className="font-medium">Title:</span>
-                                                                                        <span>{helpTopic.title}</span>
-                                                                                    </div>
-                                                                                    {helpTopic.videoBoxUrl && (
+                                                            <div key={question.id} className="border border-gray-200 rounded-lg">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div className="flex-1">
+                                                                            <p className="text-sm text-gray-900 font-medium">
+                                                                                {question.text}
+                                                                            </p>
+                                                                            {master ? (
+                                                                                <div className="mt-2">
+                                                                                    <div className="flex items-center justify-between">
                                                                                         <div className="flex items-center space-x-2">
-                                                                                            <Video className="w-4 h-4 text-blue-600" />
-                                                                                            <a
-                                                                                                href={helpTopic.videoBoxUrl}
-                                                                                                target="_blank"
-                                                                                                rel="noopener noreferrer"
-                                                                                                className="text-blue-600 hover:text-blue-800 hover:underline"
-                                                                                            >
-                                                                                                View help video
-                                                                                            </a>
+                                                                                            <HelpCircle className="w-4 h-4 text-green-600" />
+                                                                                            <span className="text-sm text-green-600 font-medium">
+                                                                                                {master.title}
+                                                                                            </span>
+                                                                                            <span className="text-xs text-gray-500">
+                                                                                                ({master.helpTopics?.length || 0} topics)
+                                                                                            </span>
                                                                                         </div>
-                                                                                    )}
-                                                                                    {helpTopic.helpDocumentUrl && (
                                                                                         <div className="flex items-center space-x-2">
-                                                                                            <FileText className="w-4 h-4 text-green-600" />
-                                                                                            <a
-                                                                                                href={helpTopic.helpDocumentUrl}
-                                                                                                target="_blank"
-                                                                                                rel="noopener noreferrer"
-                                                                                                className="text-green-600 hover:text-green-800 hover:underline"
+                                                                                            <button
+                                                                                                onClick={() => toggleMaster(master.id)}
+                                                                                                className="text-gray-400 hover:text-gray-600"
                                                                                             >
-                                                                                                View help document
-                                                                                            </a>
+                                                                                                {expandedMasters.has(master.id) ?
+                                                                                                    <ChevronDown className="w-4 h-4" /> :
+                                                                                                    <ChevronRight className="w-4 h-4" />
+                                                                                                }
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={() => {
+                                                                                                    setEditingMaster(master);
+                                                                                                    setMasterFormData({
+                                                                                                        analysisQuestionId: master.analysisQuestionId,
+                                                                                                        title: master.title
+                                                                                                    });
+                                                                                                    setShowMasterForm(true);
+                                                                                                }}
+                                                                                                className="text-gray-400 hover:text-indigo-600"
+                                                                                            >
+                                                                                                <Edit className="w-4 h-4" />
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={() => deleteMasterHelpTopic(master.id)}
+                                                                                                className="text-gray-400 hover:text-red-600"
+                                                                                            >
+                                                                                                <Trash2 className="w-4 h-4" />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    {/* Expanded Master Content */}
+                                                                                    {expandedMasters.has(master.id) && (
+                                                                                        <div className="mt-3 pl-6 border-l-2 border-gray-100">
+                                                                                            <div className="flex items-center justify-between mb-3">
+                                                                                                <h5 className="text-sm font-medium text-gray-700">Help Topics</h5>
+                                                                                                <button
+                                                                                                    onClick={() => {
+                                                                                                        setChildFormData(prev => ({
+                                                                                                            ...prev,
+                                                                                                            masterHelpTopicId: master.id
+                                                                                                        }));
+                                                                                                        setShowChildForm(true);
+                                                                                                    }}
+                                                                                                    className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200"
+                                                                                                >
+                                                                                                    <Plus className="w-3 h-3 inline mr-1" />
+                                                                                                    Add Topic
+                                                                                                </button>
+                                                                                            </div>
+
+                                                                                            {master.helpTopics?.length ? (
+                                                                                                <div className="space-y-2">
+                                                                                                    {master.helpTopics.map((child, index) => (
+                                                                                                        <div key={child.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                                                                                            <div className="flex items-center space-x-2">
+                                                                                                                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
+                                                                                                                    {index + 1}
+                                                                                                                </span>
+                                                                                                                <span className="text-sm">{child.title}</span>
+                                                                                                                {child.description && (
+                                                                                                                    <span className="text-xs text-gray-500">
+                                                                                                                        - {child.description}
+                                                                                                                    </span>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                            <div className="flex items-center space-x-1">
+                                                                                                                <a
+                                                                                                                    href={child.videoBoxUrl}
+                                                                                                                    target="_blank"
+                                                                                                                    rel="noopener noreferrer"
+                                                                                                                    className="text-gray-400 hover:text-blue-600"
+                                                                                                                >
+                                                                                                                    <Video className="w-3 h-3" />
+                                                                                                                </a>
+                                                                                                                <a
+                                                                                                                    href={child.helpDocumentUrl}
+                                                                                                                    target="_blank"
+                                                                                                                    rel="noopener noreferrer"
+                                                                                                                    className="text-gray-400 hover:text-green-600"
+                                                                                                                >
+                                                                                                                    <FileText className="w-3 h-3" />
+                                                                                                                </a>
+                                                                                                                <button
+                                                                                                                    onClick={() => {
+                                                                                                                        setEditingChild(child);
+                                                                                                                        setChildFormData(child);
+                                                                                                                        setShowChildForm(true);
+                                                                                                                    }}
+                                                                                                                    className="text-gray-400 hover:text-indigo-600"
+                                                                                                                >
+                                                                                                                    <Edit className="w-3 h-3" />
+                                                                                                                </button>
+                                                                                                                <button
+                                                                                                                    onClick={() => deleteChildHelpTopic(child.id, master.id)}
+                                                                                                                    className="text-gray-400 hover:text-red-600"
+                                                                                                                >
+                                                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                                                </button>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <p className="text-xs text-gray-500 text-center py-4">
+                                                                                                    No help topics yet. Click "Add Topic" to create one.
+                                                                                                </p>
+                                                                                            )}
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="flex items-center space-x-2 ml-4">
-                                                                        {helpTopic ? (
-                                                                            <>
-                                                                                <button
-                                                                                    onClick={() => editTopic(helpTopic)}
-                                                                                    className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-100"
-                                                                                    title="Edit help topic"
-                                                                                >
-                                                                                    <Edit className="w-4 h-4" />
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => deleteTopic(helpTopic.id)}
-                                                                                    className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100"
-                                                                                    title="Delete help topic"
-                                                                                >
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </button>
-                                                                            </>
-                                                                        ) : (
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setFormData({
-                                                                                        analysisQuestionId: question.id,
-                                                                                        title: `Help for: ${question.text.substring(0, 50)}${question.text.length > 50 ? '...' : ''}`,
-                                                                                        videoBoxUrl: '',
-                                                                                        helpDocumentUrl: ''
-                                                                                    });
-                                                                                    setShowForm(true);
-                                                                                }}
-                                                                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium hover:bg-indigo-50 px-3 py-1 rounded"
-                                                                            >
-                                                                                Add Help
-                                                                            </button>
-                                                                        )}
+                                                                            ) : (
+                                                                                <div className="mt-2 flex items-center justify-between">
+                                                                                    <span className="text-sm text-gray-500">No help available</span>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setMasterFormData(prev => ({
+                                                                                                ...prev,
+                                                                                                analysisQuestionId: question.id
+                                                                                            }));
+                                                                                            setShowMasterForm(true);
+                                                                                        }}
+                                                                                        className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200"
+                                                                                    >
+                                                                                        Create Help
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -563,181 +953,151 @@ const DirectorHelp = () => {
                             );
                         })}
                     </div>
-
-                    {/* Empty State */}
-                    {helpTopics.length === 0 && analysisQuestions.length === 0 && (
-                        <div className="text-center py-12">
-                            <HelpCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h4 className="text-lg font-medium text-gray-900 mb-2">No Questions Available</h4>
-                            <p className="text-gray-600 mb-4">You need to create analysis questions before you can add help topics.</p>
-                            <button
-                                onClick={() => {/* Navigate to Edit Questions tab */ }}
-                                className="text-indigo-600 hover:text-indigo-800 font-medium"
-                            >
-                                Go to Edit Questions →
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
 
-            {/* Add/Edit Help Topic Modal */}
-            {showForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
-                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                                {editingTopic ? 'Edit Help Topic' : 'Add New Help Topic'}
-                            </h3>
-                            <button
-                                onClick={resetForm}
-                                className="text-gray-400 hover:text-gray-600"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
+            {/* Background Help Section */}
+            <div className="bg-white rounded-xl shadow-sm border mt-6">
+                <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Background Help Topics</h3>
+                        <p className="text-sm text-gray-600 mt-1">Create step-level help content that applies to all questions in a step</p>
+                    </div>
+                    <button
+                        onClick={() => setShowStepMasterForm(true)}
+                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition duration-200 flex items-center space-x-2"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Step Help Master</span>
+                    </button>
+                </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-                            {/* Question Selection */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Analysis Question
-                                </label>
-                                <select
-                                    value={formData.analysisQuestionId}
-                                    onChange={(e) => setFormData({ ...formData, analysisQuestionId: e.target.value })}
-                                    required
-                                    disabled={editingTopic} // Can't change question when editing
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                                >
-                                    <option value="">Select a question...</option>
-                                    {editingTopic ? (
-                                        // Show current question when editing
-                                        <option value={formData.analysisQuestionId}>
-                                            {getQuestionText(formData.analysisQuestionId)}
-                                        </option>
-                                    ) : (
-                                        // Show available questions when adding new
-                                        getAvailableQuestions().map(question => (
-                                            <option key={question.id} value={question.id}>
-                                                [{getStepDisplayName(question.step)}] {question.text}
-                                            </option>
-                                        ))
+                <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {['clone-editing', 'blast', 'analysis-submission', 'review'].map(step => {
+                            const master = getMasterForStep(step);
+                            return (
+                                <div key={step} className={`border rounded-lg p-4 ${master ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="font-medium text-gray-900">{getStepDisplayName(step)}</h4>
+                                        {master ? (
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded">
+                                                    {master.stepHelps?.length || 0} topics
+                                                </span>
+                                                <button
+                                                    onClick={() => toggleStepMaster(master.id)}
+                                                    className="text-gray-400 hover:text-gray-600"
+                                                >
+                                                    {expandedStepMasters.has(master.id) ?
+                                                        <ChevronDown className="w-4 h-4" /> :
+                                                        <List className="w-4 h-4" />
+                                                    }
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingStepMaster(master);
+                                                        setStepMasterFormData(master);
+                                                        setShowStepMasterForm(true);
+                                                    }}
+                                                    className="text-gray-400 hover:text-purple-600"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    setStepMasterFormData(prev => ({
+                                                        ...prev,
+                                                        step: step
+                                                    }));
+                                                    setShowStepMasterForm(true);
+                                                }}
+                                                className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded hover:bg-purple-200"
+                                            >
+                                                Create Help
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {master && (
+                                        <>
+                                            <p className="text-sm text-gray-600 mb-2">{master.title}</p>
+                                            {master.description && (
+                                                <p className="text-xs text-gray-500 mb-2">{master.description}</p>
+                                            )}
+
+                                            {/* Expanded Step Master Content */}
+                                            {expandedStepMasters.has(master.id) && (
+                                                <div className="mt-3 pt-3 border-t border-purple-200">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <h5 className="text-sm font-medium text-gray-700">Step Help Topics</h5>
+                                                        <button
+                                                            onClick={() => {
+                                                                setStepChildFormData(prev => ({
+                                                                    ...prev,
+                                                                    masterStepHelpId: master.id
+                                                                }));
+                                                                setShowStepChildForm(true);
+                                                            }}
+                                                            className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded hover:bg-purple-200"
+                                                        >
+                                                            <Plus className="w-3 h-3 inline mr-1" />
+                                                            Add
+                                                        </button>
+                                                    </div>
+
+                                                    {master.stepHelps?.length ? (
+                                                        <div className="space-y-1">
+                                                            {master.stepHelps.map((child, index) => (
+                                                                <div key={child.id} className="flex items-center justify-between text-xs p-2 bg-white rounded">
+                                                                    <span>{index + 1}. {child.title}</span>
+                                                                    <div className="flex items-center space-x-1">
+                                                                        <a href={child.videoBoxUrl} target="_blank" rel="noopener noreferrer">
+                                                                            <Video className="w-3 h-3 text-blue-500" />
+                                                                        </a>
+                                                                        <a href={child.helpDocumentUrl} target="_blank" rel="noopener noreferrer">
+                                                                            <FileText className="w-3 h-3 text-green-500" />
+                                                                        </a>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setEditingStepChild(child);
+                                                                                setStepChildFormData(child);
+                                                                                setShowStepChildForm(true);
+                                                                            }}
+                                                                            className="text-gray-400 hover:text-purple-600"
+                                                                        >
+                                                                            <Edit className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-gray-500 text-center py-2">No topics yet</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
-                                </select>
-                                {!editingTopic && getAvailableQuestions().length === 0 && (
-                                    <p className="text-sm text-amber-600 mt-1">
-                                        All questions already have help topics. Edit existing topics or create new questions first.
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Title */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Help Topic Title
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.title}
-                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    required
-                                    placeholder="e.g., How to analyze chromatogram peaks"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-
-                            {/* Video URL */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <div className="flex items-center space-x-2">
-                                        <Video className="w-4 h-4" />
-                                        <span>Box Video URL</span>
-                                    </div>
-                                </label>
-                                <input
-                                    type="url"
-                                    value={formData.videoBoxUrl}
-                                    onChange={(e) => setFormData({ ...formData, videoBoxUrl: e.target.value })}
-                                    placeholder="https://app.box.com/s/..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Upload your video to Box and paste the shared link here
-                                </p>
-                            </div>
-
-                            {/* Help Document URL */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <div className="flex items-center space-x-2">
-                                        <FileText className="w-4 h-4" />
-                                        <span>Box Help Document URL</span>
-                                    </div>
-                                </label>
-                                <input
-                                    type="url"
-                                    value={formData.helpDocumentUrl}
-                                    onChange={(e) => setFormData({ ...formData, helpDocumentUrl: e.target.value })}
-                                    placeholder="https://app.box.com/s/..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Upload your PDF help document to Box and paste the shared link here
-                                </p>
-                            </div>
-
-                            {/* Box Integration Info */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <div className="flex items-start space-x-2">
-                                    <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-                                    <div>
-                                        <h5 className="text-sm font-medium text-blue-900 mb-2">Box Integration Tips:</h5>
-                                        <ul className="text-xs text-blue-800 space-y-1">
-                                            <li>• Upload videos and PDFs to your Box account</li>
-                                            <li>• Share the files with "People with the link" access</li>
-                                            <li>• Copy the shared link and paste it above</li>
-                                            <li>• Students will be able to view content directly in their browser</li>
-                                            <li>• For videos, Box supports MP4, MOV, and other common formats</li>
-                                        </ul>
-                                    </div>
                                 </div>
-                            </div>
-
-                            {/* Form Actions */}
-                            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                                <button
-                                    type="button"
-                                    onClick={resetForm}
-                                    className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={!formData.analysisQuestionId || !formData.title || (!formData.videoBoxUrl && !formData.helpDocumentUrl)}
-                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                >
-                                    {editingTopic ? 'Update Help Topic' : 'Create Help Topic'}
-                                </button>
-                            </div>
-                        </form>
+                            );
+                        })}
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Summary Stats */}
-            {helpTopics.length > 0 && (
-                <div className="mt-6 bg-white rounded-xl shadow-sm border p-6">
+            <div className="bg-white rounded-xl shadow-sm border mt-6">
+                <div className="p-6">
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">Help Coverage Summary</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {['clone-editing', 'blast', 'analysis-submission', 'review'].map(step => {
                             const stepQuestions = getQuestionsForStep(step);
-                            const helpCount = helpTopics.filter(topic => {
-                                const question = analysisQuestions.find(q => q.id === topic.analysisQuestionId);
-                                return question && question.step === step;
-                            }).length;
+                            const helpCount = stepQuestions.filter(q => getMasterForQuestion(q.id)).length;
                             const coverage = stepQuestions.length > 0 ? Math.round((helpCount / stepQuestions.length) * 100) : 0;
+                            const stepMaster = getMasterForStep(step);
 
                             return (
                                 <div key={step} className="text-center p-4 bg-gray-50 rounded-lg">
@@ -746,12 +1106,17 @@ const DirectorHelp = () => {
                                     <div className="text-xs text-gray-500 mt-1">
                                         {helpCount} of {stepQuestions.length} questions
                                     </div>
+                                    {stepMaster && (
+                                        <div className="text-xs text-purple-600 mt-1">
+                                            + {stepMaster.stepHelps?.length || 0} step topics
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-            )}
+            </div>
         </>
     );
 };

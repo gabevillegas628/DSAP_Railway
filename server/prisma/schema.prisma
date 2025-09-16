@@ -170,7 +170,7 @@ model AnalysisQuestion {
 
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
-  HelpTopic        HelpTopic[]
+  masterHelpTopic  MasterHelpTopic?
 }
 
 model CommonFeedback {
@@ -335,29 +335,65 @@ model UserPracticeProgress {
 }
 
 model HelpTopic {
+  id                String           @id @default(cuid())
+  masterHelpTopicId String           // Foreign key to MasterHelpTopic
+  masterHelpTopic   MasterHelpTopic  @relation(fields: [masterHelpTopicId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?          // Brief description of this specific help topic
+  videoBoxUrl       String
+  helpDocumentUrl   String
+  order             Int              @default(0) // For ordering multiple topics
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([masterHelpTopicId])
+  @@index([order])
+}
+
+model StepHelp {
+  id               String          @id @default(cuid())
+  masterStepHelpId String          // Foreign key to MasterStepHelp
+  masterStepHelp   MasterStepHelp  @relation(fields: [masterStepHelpId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  videoBoxUrl      String
+  helpDocumentUrl  String
+  order            Int             @default(0)
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([masterStepHelpId])
+  @@index([order])
+}
+
+model MasterHelpTopic {
   id                 String           @id @default(cuid())
-  analysisQuestionId String // Foreign key to AnalysisQuestion.id
+  analysisQuestionId String           @unique // One master per question
   analysisQuestion   AnalysisQuestion @relation(fields: [analysisQuestionId], references: [id], onDelete: Cascade)
-  title              String
-  videoBoxUrl        String // URL to the video on Box
-  helpDocumentUrl    String // URL to the PDF help document on Box
+  title              String           // Overall title for this question's help
   isActive           Boolean          @default(true)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
+  // One-to-many relationship with actual help topics
+  helpTopics         HelpTopic[]
+
   @@index([analysisQuestionId])
 }
 
-model StepHelp {
-  id              String   @id @default(cuid())
-  step            String   @unique // 'clone-editing', 'blast', 'analysis-submission', 'review'
-  title           String
-  description     String?  // Optional description of what this step involves
-  videoBoxUrl     String   // URL to the video on Box
-  helpDocumentUrl String   // URL to the PDF help document on Box
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+model MasterStepHelp {
+  id          String     @id @default(cuid())
+  step        String     @unique // 'clone-editing', 'blast', etc.
+  title       String     // Overall title for this step's help
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // One-to-many relationship with actual step help topics
+  stepHelps   StepHelp[]
 
   @@index([step])
 }

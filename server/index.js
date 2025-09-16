@@ -6790,7 +6790,276 @@ app.get('/api/students/with-progress/paginated', authenticateToken, requireRole(
   }
 });
 
+// ======================================
 // Help Topics API endpoints
+// ======================================
+
+// Get ALL master help topics
+app.get('/api/master-help-topics', async (req, res) => {
+  try {
+    const masterHelpTopics = await prisma.masterHelpTopic.findMany({
+      include: {
+        helpTopics: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        },
+        analysisQuestion: {
+          select: { id: true, text: true, step: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(masterHelpTopics);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get ALL master step helps
+app.get('/api/master-step-helps', async (req, res) => {
+  try {
+    const masterStepHelps = await prisma.masterStepHelp.findMany({
+      include: {
+        stepHelps: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        }
+      },
+      orderBy: { step: 'asc' }
+    });
+    res.json(masterStepHelps);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get master help topic with all its child topics
+app.get('/api/master-help-topics/:questionId', async (req, res) => {
+  try {
+    const { questionId } = req.params;
+    const masterHelpTopic = await prisma.masterHelpTopic.findUnique({
+      where: { analysisQuestionId: questionId },
+      include: {
+        helpTopics: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        }
+      }
+    });
+    res.json(masterHelpTopic);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get master step help with all its child topics  
+app.get('/api/master-step-help/:step', async (req, res) => {
+  try {
+    const { step } = req.params;
+    const masterStepHelp = await prisma.masterStepHelp.findUnique({
+      where: { step },
+      include: {
+        stepHelps: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        }
+      }
+    });
+    res.json(masterStepHelp);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Create master help topic
+app.post('/api/master-help-topics', async (req, res) => {
+  try {
+    const { analysisQuestionId, title } = req.body;
+    const masterHelpTopic = await prisma.masterHelpTopic.create({
+      data: {
+        analysisQuestionId,
+        title
+      },
+      include: {
+        helpTopics: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        },
+        analysisQuestion: {
+          select: { id: true, text: true, step: true }
+        }
+      }
+    });
+    res.json(masterHelpTopic);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT - Update master help topic
+app.put('/api/master-help-topics/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+    const masterHelpTopic = await prisma.masterHelpTopic.update({
+      where: { id },
+      data: { title },
+      include: {
+        helpTopics: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        },
+        analysisQuestion: {
+          select: { id: true, text: true, step: true }
+        }
+      }
+    });
+    res.json(masterHelpTopic);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE - Delete master help topic
+app.delete('/api/master-help-topics/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.masterHelpTopic.delete({
+      where: { id }
+    });
+    res.json({ message: 'Master help topic deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Create master step help
+app.post('/api/master-step-helps', async (req, res) => {
+  try {
+    const { step, title, description } = req.body;
+    const masterStepHelp = await prisma.masterStepHelp.create({
+      data: {
+        step,
+        title,
+        description
+      },
+      include: {
+        stepHelps: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        }
+      }
+    });
+    res.json(masterStepHelp);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT - Update master step help
+app.put('/api/master-step-helps/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description } = req.body;
+    const masterStepHelp = await prisma.masterStepHelp.update({
+      where: { id },
+      data: { title, description },
+      include: {
+        stepHelps: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' }
+        }
+      }
+    });
+    res.json(masterStepHelp);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE - Delete master step help
+app.delete('/api/master-step-helps/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.masterStepHelp.delete({
+      where: { id }
+    });
+    res.json({ message: 'Master step help deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update the existing help-topics POST to work with new schema
+app.post('/api/help-topics', async (req, res) => {
+  try {
+    const { masterHelpTopicId, title, description, videoBoxUrl, helpDocumentUrl, order } = req.body;
+    const helpTopic = await prisma.helpTopic.create({
+      data: {
+        masterHelpTopicId,
+        title,
+        description,
+        videoBoxUrl,
+        helpDocumentUrl,
+        order: order || 0
+      }
+    });
+    res.json(helpTopic);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update the existing step-helps POST to work with new schema
+app.post('/api/step-helps', async (req, res) => {
+  try {
+    const { masterStepHelpId, title, description, videoBoxUrl, helpDocumentUrl, order } = req.body;
+    const stepHelp = await prisma.stepHelp.create({
+      data: {
+        masterStepHelpId,
+        title,
+        description,
+        videoBoxUrl,
+        helpDocumentUrl,
+        order: order || 0
+      }
+    });
+    res.json(stepHelp);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT - Update help topic
+app.put('/api/help-topics/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const helpTopic = await prisma.helpTopic.update({
+      where: { id },
+      data: updates
+    });
+    res.json(helpTopic);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT - Update step help
+app.put('/api/step-helps/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const stepHelp = await prisma.stepHelp.update({
+      where: { id },
+      data: updates
+    });
+    res.json(stepHelp);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/help-topics', async (req, res) => {
   try {
     const helpTopics = await prisma.helpTopic.findMany({

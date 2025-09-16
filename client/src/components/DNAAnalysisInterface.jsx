@@ -534,6 +534,9 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   const [messageModalPrepopulatedSubject, setMessageModalPrepopulatedSubject] = useState('');
   const [stepHelp, setStepHelp] = useState({});
   const [currentGroup, setCurrentGroup] = useState(null);
+  //const [helpTopics, setHelpTopics] = useState({});
+  const [masterHelpTopics, setMasterHelpTopics] = useState({});
+
 
 
   const steps = [
@@ -543,21 +546,22 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     { id: 'review', name: 'Review', description: 'Instructor feedback and corrections' }
   ];
 
+  // Fetch master step help on mount
   useEffect(() => {
-    const fetchStepHelp = async () => {
+    const fetchMasterStepHelp = async () => {
       try {
-        const stepHelpData = await apiService.get('/step-help');
+        const masterStepHelpData = await apiService.get('/master-step-helps');
         const stepHelpMap = {};
-        stepHelpData.forEach(help => {
-          stepHelpMap[help.step] = help;
+        masterStepHelpData.forEach(master => {
+          stepHelpMap[master.step] = master;
         });
         setStepHelp(stepHelpMap);
       } catch (error) {
-        console.error('Error fetching step help:', error);
+        console.error('Error fetching master step help:', error);
       }
     };
 
-    fetchStepHelp();
+    fetchMasterStepHelp();
   }, []);
 
   useEffect(() => {
@@ -585,26 +589,25 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     setLoadingChromatogram(false);
   }, [cloneData.id, cloneData.type]); // Dependency on both ID and type
 
-  // Add state for help topics
-  const [helpTopics, setHelpTopics] = useState({});
 
-  // Fetch help topics when questions load
+
+  // Fetch master help topics when questions load
   useEffect(() => {
-    const fetchHelpTopics = async () => {
+    const fetchMasterHelpTopics = async () => {
       try {
-        const topics = await apiService.get('/help-topics');
+        const masterTopics = await apiService.get('/master-help-topics');
         const topicMap = {};
-        topics.forEach(topic => {
-          topicMap[topic.analysisQuestionId] = topic;
+        masterTopics.forEach(master => {
+          topicMap[master.analysisQuestionId] = master;
         });
-        setHelpTopics(topicMap);
+        setMasterHelpTopics(topicMap);
       } catch (error) {
-        console.error('Error fetching help topics:', error);
+        console.error('Error fetching master help topics:', error);
       }
     };
 
     if (analysisQuestions.length > 0) {
-      fetchHelpTopics();
+      fetchMasterHelpTopics();
     }
   }, [analysisQuestions]);
 
@@ -627,19 +630,12 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     }
   }, [analysisQuestions]);
 
-  // Function to open help in new tab
-  const openHelp = (questionId) => {
-    const helpTopic = helpTopics[questionId];
-    if (helpTopic) {
-      const url = `/student-help/${helpTopic.id}`;
-      window.open(url, '_blank');
-    }
-  };
+
 
   const openStepHelp = (step) => {
-    const help = stepHelp[step];
-    if (help && onOpenHelp) {
-      onOpenHelp(help.id, help.title, true); // Pass true for isStepHelp
+    const masterStepHelp = stepHelp[step];
+    if (masterStepHelp && onOpenHelp) {
+      onOpenHelp(null, step, true); // Pass step name and true for isStepHelp
     }
   };
 
@@ -2233,9 +2229,9 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                 Question {index + 1}
                                 {question.required && <span className="text-red-500 ml-1">*</span>}
                               </span>
-                              {helpTopics[question.id] && (
+                              {masterHelpTopics[question.id] && (
                                 <button
-                                  onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
+                                  onClick={() => onOpenHelp && onOpenHelp(question.id, question.text)}
                                   className="text-blue-600 hover:text-blue-800"
                                   title="Get help with this question"
                                 >
@@ -2284,9 +2280,9 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                 Question {index + 1}
                                 {question.required && <span className="text-red-500 ml-1">*</span>}
                               </span>
-                              {helpTopics[question.id] && (
+                              {masterHelpTopics[question.id] && (
                                 <button
-                                  onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
+                                  onClick={() => onOpenHelp && onOpenHelp(question.id, question.text)}
                                   className="text-blue-600 hover:text-blue-800"
                                   title="Get help with this question"
                                 >
@@ -2348,9 +2344,9 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
                                     Question {globalQuestionIndex}
                                     {question.required && <span className="text-red-500 ml-1">*</span>}
                                   </span>
-                                  {helpTopics[question.id] && (
+                                  {masterHelpTopics[question.id] && (
                                     <button
-                                      onClick={() => onOpenHelp && onOpenHelp(helpTopics[question.id].id, question.text)}
+                                      onClick={() => onOpenHelp && onOpenHelp(question.id, question.text)}
                                       className="text-blue-600 hover:text-blue-800"
                                       title="Get help with this question"
                                     >

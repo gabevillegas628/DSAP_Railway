@@ -39,27 +39,27 @@ const StudentDashboard = () => {
 
   // In StudentDashboard.jsx, modify the openHelpTab function to handle both types:
 
-  const openHelpTab = (helpTopicId, questionText, isStepHelp = false) => {
-    console.log('Opening help tab for topic:', helpTopicId, 'isStepHelp:', isStepHelp);
+  const openHelpTab = (questionId, questionText, isStepHelp = false) => {
+    console.log('Opening help tab for:', isStepHelp ? 'step' : 'question', questionId);
 
-    const tabId = `help-${helpTopicId}`;
+    const tabId = `help-${isStepHelp ? questionText : questionId}`; // Use step name for step help
 
     // Check if tab is already open
     if (!openHelpTabs.find(tab => tab.id === tabId)) {
       const newTab = {
         id: tabId,
-        name: isStepHelp
-          ? `Step Help: ${questionText}`
-          : `Help: ${questionText?.substring(0, 30)}...` || 'Help',
-        helpTopicId: helpTopicId,
-        questionText: questionText,
-        isStepHelp: isStepHelp, // Add this flag
-        closable: true
+        name: isStepHelp ? `Step Help: ${questionText}` : `Help: ${questionText?.substring(0, 30)}...`,
+        type: 'help',
+        questionId: isStepHelp ? null : questionId,
+        stepName: isStepHelp ? questionText : null, // questionText will be the step name for step help
+        questionText: isStepHelp ? null : questionText
       };
-      setOpenHelpTabs(prev => [...prev, newTab]);
-    }
 
-    setActiveTab(tabId);
+      setOpenHelpTabs(prev => [...prev, newTab]);
+      setActiveTab(tabId);
+    } else {
+      setActiveTab(tabId);
+    }
   };
 
   // Function to close help tab
@@ -360,7 +360,8 @@ const StudentDashboard = () => {
     return (
       <StudentHelp
         key={helpTab.id}
-        helpTopicId={helpTab.helpTopicId}
+        questionId={helpTab.questionId}        // ✅ Use questionId for question-specific help
+        stepName={helpTab.stepName}            // ✅ Use stepName for step-level help  
         questionText={helpTab.questionText}
         onClose={() => closeHelpTab(helpTab.id)}
       />
