@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, ChevronDown, CheckCircle, AlertCircle, Save, Eye, AlertTriangle, X, BarChart3, ZoomIn, ZoomOut, RotateCcw, MessageCircle, Clock, XCircle, RefreshCw, User, Dna, HelpCircle } from 'lucide-react';
 import MessageModal from './MessageModal';
 import ChromatogramViewer from './ChromatogramViewer';
@@ -536,6 +536,9 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   const [currentGroup, setCurrentGroup] = useState(null);
   //const [helpTopics, setHelpTopics] = useState({});
   const [masterHelpTopics, setMasterHelpTopics] = useState({});
+  const [selectedText, setSelectedText] = useState('');
+  const [highlightPositions, setHighlightPositions] = useState([]);
+  const [currentSequenceQuestionId, setCurrentSequenceQuestionId] = useState(null);
 
 
 
@@ -1150,7 +1153,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
   const getStepProgress = (stepId) => {
     // Define which types don't require answers
-    const nonQuestionTypes = ['text_header', 'section_divider', 'info_text', 'blast_comparison'];
+    const nonQuestionTypes = ['text_header', 'section_divider', 'info_text', 'blast_comparison', 'sequence_display'];
 
     // Only count actual questions (excluding display-only types)
     const stepQuestions = analysisQuestions
@@ -1327,7 +1330,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
   // Get progress for a specific group
   const getGroupProgress = (stepId, groupName) => {
-    const nonQuestionTypes = ['text_header', 'section_divider', 'info_text', 'blast_comparison'];
+    const nonQuestionTypes = ['text_header', 'section_divider', 'info_text', 'blast_comparison', 'sequence_display'];
 
     const groupQuestions = analysisQuestions
       .filter(q => q.step === stepId)
@@ -1428,6 +1431,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     // Render special types first
     if (question.type === 'blast_comparison') {
       return renderBlastComparison(question);
+    }
+
+    // Add this after the blast_comparison check
+    if (question.type === 'sequence_display') {
+      return renderSequenceDisplay(question);
     }
 
     if (question.type === 'text_header') {
@@ -1698,11 +1706,12 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
               </div>
             </div>
           )}
-          {!['yes_no', 'select', 'text', 'textarea', 'dna_sequence', 'protein_sequence', 'number', 'blast', 'sequence_range'].includes(question.type) && (<div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">
-              Unknown question type: "{question.type}". Please contact your instructor.
-            </p>
-          </div>
+          {!['yes_no', 'select', 'text', 'textarea', 'dna_sequence', 'protein_sequence', 'number', 'blast', 'sequence_range', 'sequence_display'].includes(question.type) && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">
+                Unknown question type: "{question.type}". Please contact your instructor.
+              </p>
+            </div>
           )}
         </div>
 
@@ -1912,6 +1921,149 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
             )}
           </div>
         </div>
+      </div>
+    );
+  };
+
+  const renderSequenceDisplay = (question) => {
+    const { sourceQuestionId } = question.options || {};
+
+    // Get the source sequence from the referenced question
+    const sourceAnswer = answers[sourceQuestionId];
+    const sourceQuestion = analysisQuestions.find(q => q.id === sourceQuestionId);
+
+    // Clean the sequence (remove whitespace and convert to uppercase)
+    const cleanSequence = sourceAnswer ? sourceAnswer.replace(/\s/g, '').toUpperCase() : '';
+
+    // Reset selection when switching to a different sequence question
+    if (currentSequenceQuestionId !== question.id) {
+      setCurrentSequenceQuestionId(question.id);
+      setSelectedText('');
+      setHighlightPositions([]);
+    }
+
+    const updateSelection = () => {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const container = range.commonAncestorContainer.parentElement;
+
+        // Make sure selection is within our sequence container
+        if (container && container.classList.contains('sequence-display')) {
+          const selectedText = selection.toString();
+
+          if (selectedText.length > 0) {
+            // Calculate position in the sequence (1-based indexing)
+            const startPos = range.startOffset + 1;
+            const endPos = range.endOffset;
+
+            setSelectedText(selectedText);
+
+            // Create array of highlighted positions
+            const positions = [];
+            for (let i = startPos; i <= endPos; i++) {
+              positions.push(i);
+            }
+            setHighlightPositions(positions);
+          } else {
+            // Clear selection if nothing is selected
+            setSelectedText('');
+            setHighlightPositions([]);
+          }
+        }
+      } else {
+        // Clear selection if no range
+        setSelectedText('');
+        setHighlightPositions([]);
+      }
+    };
+
+    // Real-time selection tracking
+    const handleMouseDown = () => {
+      // Start tracking for real-time updates
+      const interval = setInterval(() => {
+        updateSelection();
+      }, 50); // Update every 50ms for smooth real-time feedback
+
+      // Clean up interval when mouse is released
+      const handleMouseUp = () => {
+        clearInterval(interval);
+        updateSelection(); // Final update
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    return (
+      <div className="mb-6">
+        <h4 className="text-lg font-medium text-gray-800 mb-4">{question.text}</h4>
+
+        {!sourceAnswer ? (
+          <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
+            Sequence will appear here once you complete the source question: {sourceQuestion?.text}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Sequence Display */}
+            <div className="border border-gray-300 rounded-lg p-4 bg-white">
+              <div
+                className="sequence-display font-mono text-lg leading-relaxed cursor-text select-text"
+                onMouseDown={handleMouseDown}
+                onMouseUp={updateSelection}
+                onKeyUp={updateSelection}
+                style={{
+                  wordBreak: 'break-all',
+                  userSelect: 'text',
+                  lineHeight: '1.8'
+                }}
+              >
+                {cleanSequence}
+              </div>
+            </div>
+
+            {/* Real-time Position Display - Show above sequence */}
+            {highlightPositions.length > 0 && currentSequenceQuestionId === question.id && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <span className="font-medium text-blue-900">Positions:</span>
+                      <span className="ml-2 bg-blue-100 px-2 py-1 rounded font-mono">
+                        {highlightPositions[0]} - {highlightPositions[highlightPositions.length - 1]}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-blue-900">Length:</span>
+                      <span className="ml-2 bg-blue-100 px-2 py-1 rounded font-mono">
+                        {selectedText.length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-blue-700 text-xs">
+                    Highlighting {highlightPositions.length} positions
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Instruction text */}
+            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span>
+                  <strong>Instructions:</strong> Click and drag to select any portion of the sequence.
+                  Position numbers update in real-time as you select.
+                </span>
+              </div>
+            </div>
+
+            {/* Sequence Info */}
+            <div className="text-sm text-gray-600">
+              Total sequence length: {cleanSequence.length} characters
+            </div>
+          </div>
+        )}
       </div>
     );
   };

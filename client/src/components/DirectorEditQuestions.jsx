@@ -56,7 +56,10 @@ const DirectorEditQuestions = () => {
                 newAnalysisQuestion.type === 'sequence_range' ? {
                   label1: newAnalysisQuestion.options?.label1 || 'Begin',
                   label2: newAnalysisQuestion.options?.label2 || 'End'
-                } : undefined,
+                } :
+                  newAnalysisQuestion.type === 'sequence_display' ? {
+                    sourceQuestionId: newAnalysisQuestion.options?.sourceQuestionId
+                  } : undefined,
           questionGroup: newAnalysisQuestion.questionGroup || null,
           groupOrder: newAnalysisQuestion.groupOrder || 0
         };
@@ -99,7 +102,10 @@ const DirectorEditQuestions = () => {
               updates.type === 'sequence_range' ? {
                 label1: updates.options?.label1 || 'Begin',
                 label2: updates.options?.label2 || 'End'
-              } : undefined
+              } :
+                newAnalysisQuestion.type === 'sequence_display' ? {
+                  sourceQuestionId: newAnalysisQuestion.options?.sourceQuestionId
+                } : undefined
       };
 
       const updatedQuestion = await apiService.put(`/analysis-questions/${questionId}`, updateData);
@@ -371,6 +377,7 @@ const DirectorEditQuestions = () => {
                         <option value="select">Multiple Choice</option>
                         <option value="blast">BLAST Results</option>
                         <option value="blast_comparison">BLAST Table Comparison</option>
+                        <option value="sequence_display">Sequence Display</option>
                       </select>
                     </div>
 
@@ -522,6 +529,7 @@ const DirectorEditQuestions = () => {
                     </div>
                   )}
 
+                  {/* BLAST Comparison Configuration */}
                   {newAnalysisQuestion.type === 'blast_comparison' && (
                     <div className="space-y-4 border-t pt-4">
                       <h5 className="font-medium text-gray-700">BLAST Comparison Configuration</h5>
@@ -595,6 +603,45 @@ const DirectorEditQuestions = () => {
                       {newAnalysisQuestion.options?.blastQuestion1Id && newAnalysisQuestion.options?.blastQuestion2Id && (
                         <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
                           ✓ Comparison will show results from these two BLAST questions side by side
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sequence Display Configuration */}
+                  {newAnalysisQuestion.type === 'sequence_display' && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h5 className="font-medium text-gray-700">Sequence Display Configuration</h5>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Source Sequence Question
+                        </label>
+                        <select
+                          value={newAnalysisQuestion.options?.sourceQuestionId || ''}
+                          onChange={(e) => setNewAnalysisQuestion({
+                            ...newAnalysisQuestion,
+                            options: {
+                              ...newAnalysisQuestion.options,
+                              sourceQuestionId: e.target.value || null
+                            }
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        >
+                          <option value="">Select a sequence question...</option>
+                          {analysisQuestions
+                            .filter(q => q.type === 'dna_sequence' || q.type === 'protein_sequence')
+                            .map(q => (
+                              <option key={q.id} value={q.id}>
+                                {q.text.length > 50 ? `${q.text.substring(0, 50)}...` : q.text}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+
+                      {newAnalysisQuestion.options?.sourceQuestionId && (
+                        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                          ✓ Will display sequence from the selected question for highlighting
                         </div>
                       )}
                     </div>
