@@ -2340,18 +2340,25 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
                                                                                             return (
                                                                                                 <div>
                                                                                                     <p className="text-xs text-gray-600 mb-2 font-medium">Quick feedback templates:</p>
-                                                                                                    <div className="flex flex-wrap gap-2">
+                                                                                                    <select
+                                                                                                        onChange={(e) => {
+                                                                                                            if (e.target.value) {
+                                                                                                                const selectedOption = sortedOptions.find(option => option.id.toString() === e.target.value);
+                                                                                                                if (selectedOption) {
+                                                                                                                    selectCommonFeedback(question.id, selectedOption.text);
+                                                                                                                }
+                                                                                                                e.target.value = '';
+                                                                                                            }
+                                                                                                        }}
+                                                                                                        className="max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                                                                                    >
+                                                                                                        <option value="">Select feedback template...</option>
                                                                                                         {sortedOptions.map(option => (
-                                                                                                            <button
-                                                                                                                key={option.id}
-                                                                                                                onClick={() => selectCommonFeedback(question.id, option.text)}
-                                                                                                                className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-100 hover:border-blue-300 transition-colors"
-                                                                                                                title={option.text}
-                                                                                                            >
+                                                                                                            <option key={option.id} value={option.id} title={option.text}>
                                                                                                                 {option.title}
-                                                                                                            </button>
+                                                                                                            </option>
                                                                                                         ))}
-                                                                                                    </div>
+                                                                                                    </select>
                                                                                                 </div>
                                                                                             );
                                                                                         }
