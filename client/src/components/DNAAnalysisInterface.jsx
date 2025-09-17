@@ -1831,8 +1831,14 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     });
 
     return (
-      <div className="mb-6">
-        <h4 className="text-lg font-medium text-gray-800 mb-4">{question.text}</h4>
+      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2 mb-4">
+          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          <h4 className="text-lg font-medium text-blue-900">{question.text}</h4>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            Analysis Tool
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* First BLAST Results Table */}
@@ -1996,8 +2002,14 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     };
 
     return (
-      <div className="mb-6">
-        <h4 className="text-lg font-medium text-gray-800 mb-4">{question.text}</h4>
+      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2 mb-4">
+          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          <h4 className="text-lg font-medium text-blue-900">{question.text}</h4>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            Interactive Tool
+          </span>
+        </div>
 
         {!sourceAnswer ? (
           <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
