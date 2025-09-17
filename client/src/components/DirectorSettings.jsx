@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { useProgramSettingsContext } from '../context/ProgramSettingsContext';
-import { Plus, Edit2, Trash2, Save, X, MessageSquare, Download, Upload, Database, AlertCircle, CheckCircle, ChevronDown, ChevronRight, ProjectIcon, Users, Building, BookOpen, Settings, FlaskConical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, MessageSquare, Download, Upload, Database, AlertCircle, CheckCircle, ChevronDown, ChevronRight, ProjectIcon, Users, Building, BookOpen, Settings, FlaskConical, User, Camera } from 'lucide-react';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import apiService from '../services/apiService';
+import { useDNAContext } from '../context/DNAContext';
 
 // Add this CSS for animations
 const animationStyles = `
@@ -113,9 +114,10 @@ const DirectorSettings = () => {
 
   // Section visibility states
   const [expandedSections, setExpandedSections] = useState({
-    projectInfo: true,
+    projectInfo: false,
     commonFeedback: false,
-    dataManagement: false
+    dataManagement: false,
+    accountSettings: false
   });
 
   // Common Feedback states
@@ -128,10 +130,63 @@ const DirectorSettings = () => {
     title: '',
     text: ''
   });
+  // Profile Picture states
+  const { currentUser } = useDNAContext();
+  const [uploadingPicture, setUploadingPicture] = useState(false);
+  const [profileMessage, setProfileMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     loadInitialData();
   }, []);
+
+
+  const handleProfilePictureUpload = async (file) => {
+  if (!file || !currentUser) return;
+
+  if (!file.type.startsWith('image/')) {
+    setProfileMessage({ type: 'error', text: 'Please select an image file' });
+    return;
+  }
+  
+  if (file.size > 5 * 1024 * 1024) {
+    setProfileMessage({ type: 'error', text: 'Image must be smaller than 5MB' });
+    return;
+  }
+
+  setUploadingPicture(true);
+  setProfileMessage({ type: '', text: '' });
+
+  try {
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+
+    const updatedUser = await apiService.uploadFiles(
+      `/users/${currentUser.id}/profile-picture`,
+      formData
+    );
+
+    setProfileMessage({ type: 'success', text: 'Profile picture updated successfully!' });
+    // The context will handle the user update
+  } catch (error) {
+    setProfileMessage({ type: 'error', text: 'Failed to upload profile picture' });
+  } finally {
+    setUploadingPicture(false);
+  }
+};
+
+const handleRemoveProfilePicture = async () => {
+  if (!currentUser) return;
+
+  setUploadingPicture(true);
+  try {
+    await apiService.delete(`/users/${currentUser.id}/profile-picture`);
+    setProfileMessage({ type: 'success', text: 'Profile picture removed successfully!' });
+  } catch (error) {
+    setProfileMessage({ type: 'error', text: 'Failed to remove profile picture' });
+  } finally {
+    setUploadingPicture(false);
+  }
+};
 
   const loadInitialData = async () => {
     try {
@@ -332,6 +387,128 @@ const DirectorSettings = () => {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Program Settings</h2>
         <p className="text-gray-600">Configure your DNA Analysis Program settings and manage data.</p>
       </div>
+
+      {/* Account Settings Section */}
+      <CollapsibleSection
+        sectionKey="accountSettings"
+        title="Account Settings"
+        description="Manage your personal account information"
+        icon={User}
+        expandedSections={expandedSections}
+        toggleSection={toggleSection}
+      >
+        {/* Profile Picture Section */}
+        <div className="space-y-6">
+          {profileMessage.text && (
+            <div className={`p-4 rounded-lg border ${profileMessage.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+              <div className="flex items-center space-x-2">
+                {profileMessage.type === 'success' ? (
+                  <CheckCircle className="w-4 h-4" />
+                ) : (
+                  <AlertCircle className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium">{profileMessage.text}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-4 flex items-center space-x-2">
+              <Camera className="w-4 h-4" />
+              <span>Profile Picture</span>
+            </h4>
+
+            {currentUser && (
+              <div className="flex items-center space-x-6">
+                {/* Profile Picture Display */}
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200">
+                    {currentUser.profilePicture ? (
+                      <img
+                        src={currentUser.profilePicture}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <User className="w-8 h-8" />
+                      </div>
+                    )}
+                  </div>
+                  {uploadingPicture && (
+                    <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Profile Picture Controls */}
+                <div className="flex-1">
+                  <div className="flex space-x-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) handleProfilePictureUpload(file);
+                      }}
+                      className="hidden"
+                      id="director-profile-upload"
+                    />
+                    <label
+                      htmlFor="director-profile-upload"
+                      className="cursor-pointer px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 disabled:opacity-50 inline-block text-sm"
+                    >
+                      {uploadingPicture ? 'Uploading...' : (currentUser.profilePicture ? 'Change Picture' : 'Upload Picture')}
+                    </label>
+
+                    {currentUser.profilePicture && (
+                      <button
+                        onClick={handleRemoveProfilePicture}
+                        disabled={uploadingPicture}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50 text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    JPG, PNG, or GIF up to 5MB. Recommended: 400x400px
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Account Information Display */}
+          {currentUser && (
+            <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Account Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Name:</span>
+                  <span className="ml-2 font-medium">{currentUser.name}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Email:</span>
+                  <span className="ml-2 font-medium">{currentUser.email}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Role:</span>
+                  <span className="ml-2 font-medium capitalize">{currentUser.role}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Status:</span>
+                  <span className="ml-2 font-medium capitalize text-green-600">{currentUser.status}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
 
       {/* Project Information Section */}
       <CollapsibleSection
