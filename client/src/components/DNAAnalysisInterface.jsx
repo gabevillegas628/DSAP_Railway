@@ -1,62 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, ChevronDown, CheckCircle, AlertCircle, Save, Eye, AlertTriangle, X, BarChart3, ZoomIn, ZoomOut, RotateCcw, MessageCircle, Clock, XCircle, RefreshCw, User, Dna, HelpCircle } from 'lucide-react';
+import { FileText, ChevronDown, CheckCircle, AlertCircle, Save, Eye, AlertTriangle, X, BarChart3, MessageCircle, Clock, RefreshCw, User, Dna, HelpCircle } from 'lucide-react';
 import MessageModal from './MessageModal';
 import ChromatogramViewer from './ChromatogramViewer';
 import ORFTranslator from './ORFTranslator';
 import apiService from '../services/apiService';
 import {
   CLONE_STATUSES,
-  STATUS_CONFIGS,
   getStatusConfig,
   canStudentEdit,
   isReadOnly,
-  shouldShowFeedback,
   validateAndWarnStatus
 } from '../statusConstraints.js';
 
 
-// Review Status Banner Component
-const ReviewStatusBanner = ({ status, onRefresh }) => {
-  const config = getStatusConfig(status);
-  if (!config) return null;
-
-  // Convert string icon name to actual icon component
-  let Icon;
-  switch (config.icon) {
-    case 'Clock':
-      Icon = Clock;
-      break;
-    case 'RefreshCw':
-      Icon = RefreshCw;
-      break;
-    case 'CheckCircle':
-      Icon = CheckCircle;
-      break;
-    default:
-      Icon = AlertCircle;
-  }
-
-  return (
-    <div className={`${config.bgColor} ${config.borderColor} border rounded-lg p-4 mb-6`}>
-      <div className="flex items-start space-x-3">
-        <Icon className={`w-6 h-6 ${config.iconColor} mt-0.5`} />
-        <div className="flex-1">
-          <h4 className={`font-semibold ${config.textColor} mb-1`}>{config.title}</h4>
-          <p className={`text-sm ${config.textColor}`}>{config.message}</p>
-          {config.showRefresh && (
-            <button
-              onClick={onRefresh}
-              className={`mt-2 text-sm ${config.textColor} hover:underline flex items-center space-x-1`}
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Check for updates</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Submit Confirmation Modal Component
 const SubmitConfirmationModal = ({ isOpen, onClose, onConfirm, cloneName, progress, isSubmitting }) => {
@@ -1364,20 +1320,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     }
   };
 
-  const getSaveButtonClass = () => {
-    const baseClass = "px-3 py-1 text-white text-sm rounded transition duration-200 flex items-center space-x-1";
-
-    switch (saveStatus) {
-      case 'saved': return "bg-green-500 hover:bg-green-600 " + baseClass;
-      case 'error': return "bg-red-600 hover:bg-red-700 " + baseClass;
-      default:
-        if (hasUnsavedChanges) {
-          return "bg-green-600 hover:bg-green-700 " + baseClass;
-        } else {
-          return "bg-gray-400 cursor-not-allowed " + baseClass;
-        }
-    }
-  };
 
   // Helper function to count unsaved changes
   const getUnsavedChangesCount = () => {
@@ -1403,15 +1345,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     }
   };
 
-  // Add this helper function near the top of your component
-  const initializeAnswer = (question, existingAnswer) => {
-    if (existingAnswer !== undefined) return existingAnswer;
-
-    if (question.type === 'sequence_range') {
-      return { value1: '', value2: '' };
-    }
-    return '';
-  };
 
 
   const renderQuestion = (question) => {
@@ -2100,11 +2033,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     );
   }
 
-  const currentStepQuestions = getCurrentStepQuestions();
-
-  // Fixed return statement structure - replace your current return statement with this:
-
-  // Replace your current return statement with this updated version:
 
   return (
     <div className="flex items-start space-x-4">

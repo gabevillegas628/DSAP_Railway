@@ -4,7 +4,9 @@ const {
   isValidStatusTransition,
   validateAndWarnStatus,
   getReviewStatus,
-  REVIEW_ACTION_MAP
+  REVIEW_ACTION_MAP,
+  STATUS_GROUPS,
+  isReviewReady
 } = require('./statusConstraints.js');
 
 const express = require('express');
@@ -8071,25 +8073,235 @@ app.get('/api/users/:id/demographics', authenticateToken, async (req, res) => {
   }
 });
 
-// Temporary fix for sequence reset - REMOVE after running once
-app.post('/api/admin/fix-sequences', async (req, res) => {
-  console.log("=== fixing sequences ===");
+// ==========================================
+// Instructor Smart Suggestions Endpoint
+// ==========================================
+app.get('/api/instructor-suggestions/:instructorId', async (req, res) => {
   try {
-    await prisma.$executeRaw`SELECT setval('CloneDiscussion_id_seq', (SELECT MAX(id) FROM "CloneDiscussion") + 1)`;
-    await prisma.$executeRaw`SELECT setval('LoginLog_id_seq', (SELECT MAX(id) FROM "LoginLog") + 1)`;
-    await prisma.$executeRaw`SELECT setval('User_id_seq', (SELECT MAX(id) FROM "User") + 1)`;
-    await prisma.$executeRaw`SELECT setval('School_id_seq', (SELECT MAX(id) FROM "School") + 1)`;
-    await prisma.$executeRaw`SELECT setval('UploadedFile_id_seq', (SELECT MAX(id) FROM "UploadedFile") + 1)`;
-    await prisma.$executeRaw`SELECT setval('Message_id_seq', (SELECT MAX(id) FROM "Message") + 1)`;
-    await prisma.$executeRaw`SELECT setval('PracticeClone_id_seq', (SELECT MAX(id) FROM "PracticeClone") + 1)`;
-    await prisma.$executeRaw`SELECT setval('UserPracticeProgress_id_seq', (SELECT MAX(id) FROM "UserPracticeProgress") + 1)`;
-    await prisma.$executeRaw`SELECT setval('CommonFeedback_id_seq', (SELECT MAX(id) FROM "CommonFeedback") + 1)`;
-    await prisma.$executeRaw`SELECT setval('ProgramSettings_id_seq', (SELECT MAX(id) FROM "ProgramSettings") + 1)`;
-    await prisma.$executeRaw`SELECT setval('Demographics_id_seq', (SELECT MAX(id) FROM "Demographics") + 1)`;
-    await prisma.$executeRaw`SELECT setval('DiscussionMessage_id_seq', (SELECT MAX(id) FROM "DiscussionMessage") + 1)`;
+    const { instructorId } = req.params;
+    const instructor = await prisma.user.findUnique({
+      where: { id: parseInt(instructorId) },
+      include: { school: true }
+    });
 
-    res.json({ message: 'Sequences fixed successfully' });
+    if (!instructor?.school) {
+      return res.status(400).json({ error: 'Instructor not found or not assigned to a school' });
+    }
+
+    const suggestions = [];
+    const now = new Date();
+    const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+
+    // 1. PATTERN DETECTION: Multiple resubmissions = common issue
+    const recentResubmissions = await prisma.uploadedFile.findMany({
+      where: {
+        status: 'Corrected by student, waiting review',
+        assignedTo: { schoolId: instructor.schoolId },
+        updatedAt: { gt: oneWeekAgo }
+      },
+      include: { assignedTo: true },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    if (recentResubmissions.length >= 3) {
+      const resubmissionDetails = recentResubmissions.map(file => ({
+        studentName: file.assignedTo.name,
+        studentEmail: file.assignedTo.email,
+        cloneName: file.cloneName || file.originalName,
+        resubmittedDate: file.updatedAt,
+        daysAgo: Math.floor((now - new Date(file.updatedAt)) / (1000 * 60 * 60 * 24))
+      }));
+
+      suggestions.push({
+        type: 'common_issues',
+        priority: 'medium',
+        icon: 'AlertTriangle',
+        title: `${recentResubmissions.length} resubmissions this week`,
+        subtitle: 'Multiple students struggling - consider group guidance',
+        action: 'review_submissions',
+        count: recentResubmissions.length,
+        details: resubmissionDetails,
+        expandable: true
+      });
+    }
+
+    // 2. WORKFLOW OPTIMIZATION: Batch approvals
+    const readyForApproval = await prisma.uploadedFile.findMany({
+      where: {
+        status: 'Completed, waiting review by staff',
+        assignedTo: { schoolId: instructor.schoolId },
+        updatedAt: { gt: new Date(now - 2 * 24 * 60 * 60 * 1000) }
+      },
+      include: { assignedTo: true },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    if (readyForApproval.length >= 3) {
+      const approvalDetails = readyForApproval.map(file => ({
+        studentName: file.assignedTo.name,
+        studentEmail: file.assignedTo.email,
+        cloneName: file.cloneName || file.originalName,
+        submittedDate: file.updatedAt,
+        progress: file.progress || 0,
+        hoursAgo: Math.floor((now - new Date(file.updatedAt)) / (1000 * 60 * 60))
+      }));
+
+      suggestions.push({
+        type: 'batch_opportunity',
+        priority: 'low',
+        icon: 'Zap',
+        title: `${readyForApproval.length} recent submissions ready for review`,
+        subtitle: 'Perfect for batch processing',
+        action: 'review_submissions',
+        count: readyForApproval.length,
+        details: approvalDetails,
+        expandable: true
+      });
+    }
+
+    // 3. RISK MANAGEMENT: Students going silent (already implemented)
+    const allSchoolStudents = await prisma.user.findMany({
+      where: {
+        schoolId: instructor.schoolId,
+        role: 'student',
+        status: 'approved'
+      }
+    });
+
+    const silentStudents = [];
+    for (const student of allSchoolStudents) {
+      const recentActivity = await prisma.uploadedFile.findFirst({
+        where: {
+          assignedToId: student.id,
+          updatedAt: { gt: twoWeeksAgo }
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+      
+      if (!recentActivity) {
+        const lastActivity = await prisma.uploadedFile.findFirst({
+          where: { assignedToId: student.id },
+          orderBy: { updatedAt: 'desc' }
+        });
+        
+        silentStudents.push({
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          lastActivityDate: lastActivity?.updatedAt || student.createdAt,
+          daysSinceActivity: lastActivity 
+            ? Math.floor((now - new Date(lastActivity.updatedAt)) / (1000 * 60 * 60 * 24))
+            : Math.floor((now - new Date(student.createdAt)) / (1000 * 60 * 60 * 24))
+        });
+      }
+    }
+
+    if (silentStudents.length >= 2) {
+      suggestions.push({
+        type: 'silent_students',
+        priority: 'medium',
+        icon: 'UserX',
+        title: `${silentStudents.length} students haven't been active in 2+ weeks`,
+        subtitle: 'May need check-ins or assignment clarification',
+        action: 'view_students',
+        count: silentStudents.length,
+        details: silentStudents,
+        expandable: true
+      });
+    }
+
+    // 4. TEACHING INSIGHTS: High-maintenance assignments
+    const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const allRecentSubmissions = await prisma.uploadedFile.findMany({
+      where: {
+        assignedTo: { schoolId: instructor.schoolId },
+        createdAt: { gt: monthAgo }
+      },
+      include: { assignedTo: true }
+    });
+
+    // Group by clone name and analyze
+    const cloneStats = {};
+    allRecentSubmissions.forEach(file => {
+      const cloneName = file.cloneName || 'Unknown';
+      if (!cloneStats[cloneName]) {
+        cloneStats[cloneName] = { 
+          total: 0, 
+          resubmissions: 0, 
+          students: new Set(),
+          resubmittingStudents: []
+        };
+      }
+      cloneStats[cloneName].total++;
+      cloneStats[cloneName].students.add(file.assignedTo.name);
+      
+      if (file.status === 'Corrected by student, waiting review' || 
+          file.status === 'Reviewed, needs to be reanalyzed') {
+        cloneStats[cloneName].resubmissions++;
+        cloneStats[cloneName].resubmittingStudents.push({
+          name: file.assignedTo.name,
+          email: file.assignedTo.email,
+          lastUpdate: file.updatedAt
+        });
+      }
+    });
+
+    const problematicClones = Object.entries(cloneStats)
+      .filter(([name, stats]) => stats.total >= 3 && (stats.resubmissions / stats.total) > 0.6)
+      .sort((a, b) => (b[1].resubmissions / b[1].total) - (a[1].resubmissions / a[1].total));
+
+    if (problematicClones.length > 0) {
+      const [cloneName, stats] = problematicClones[0];
+      const resubRate = Math.round((stats.resubmissions / stats.total) * 100);
+      
+      const assignmentDetails = {
+        cloneName,
+        totalStudents: stats.students.size,
+        totalSubmissions: stats.total,
+        resubmissions: stats.resubmissions,
+        resubmissionRate: resubRate,
+        strugglingStudents: stats.resubmittingStudents.map(student => ({
+          name: student.name,
+          email: student.email,
+          lastResubmission: student.lastUpdate,
+          daysAgo: Math.floor((now - new Date(student.lastUpdate)) / (1000 * 60 * 60 * 24))
+        }))
+      };
+      
+      suggestions.push({
+        type: 'difficult_assignment',
+        priority: 'low',
+        icon: 'BookOpen',
+        title: `${cloneName} has ${resubRate}% resubmission rate`,
+        subtitle: 'Consider reviewing assignment instructions',
+        action: 'review_submissions',
+        count: stats.resubmissions,
+        details: assignmentDetails,
+        expandable: true
+      });
+    }
+
+    // Sort by priority and return top 3
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    suggestions.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
+
+    if (suggestions.length > 0) {
+      res.json(suggestions.slice(0, 3));
+    } else {
+      res.json([{
+        type: 'all_good',
+        priority: 'low',
+        icon: 'CheckCircle',
+        title: 'No patterns detected',
+        subtitle: 'Your students are progressing smoothly',
+        action: 'celebrate',
+        count: 0
+      }]);
+    }
+
   } catch (error) {
+    console.error('Error generating smart suggestions:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -8391,7 +8603,7 @@ app.get('/api/clone-discussions/director', async (req, res) => {
     const discussions = await prisma.cloneDiscussion.findMany({
       include: {
         student: {
-          select: { id: true, name: true, email: true, school: { select: { name: true } } }
+          select: { id: true, name: true, email: true, profilePicture: true, school: { select: { name: true } } }
         },
         clone: {
           select: { id: true, cloneName: true, originalName: true }

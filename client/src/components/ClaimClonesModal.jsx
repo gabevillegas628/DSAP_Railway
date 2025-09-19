@@ -19,11 +19,6 @@ const ClaimClonesModal = ({ isOpen, onClose, currentUser, onCloneClaimed }) => {
     const [claiming, setClaiming] = useState(null); // Track which clone is being claimed
     const [sortBy, setSortBy] = useState('name'); // 'name', 'date'
 
-    useEffect(() => {
-        if (isOpen && currentUser) {
-            fetchUnassignedClones();
-        }
-    }, [isOpen, currentUser]);
 
     const fetchUnassignedClones = async () => {
         try {
@@ -37,6 +32,13 @@ const ClaimClonesModal = ({ isOpen, onClose, currentUser, onCloneClaimed }) => {
             setLoading(false);
         }
     };
+
+    
+    useEffect(() => {
+        if (isOpen && currentUser) {
+            fetchUnassignedClones();
+        }
+    }, [isOpen, currentUser, fetchUnassignedClones]);
 
     const handleClaimClone = async (cloneId, cloneName) => {
         try {

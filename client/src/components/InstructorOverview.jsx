@@ -1,13 +1,216 @@
 // components/InstructorOverview.jsx
 import React, { useState, useEffect } from 'react';
-import { Users, FileText, CheckCircle, MessageCircle, Clock, BookOpen, AlertCircle } from 'lucide-react';
+import { Users, FileText, CheckCircle, MessageCircle, Clock, BookOpen, AlertCircle, Loader, AlertTriangle, UserX, RefreshCw, TrendingUp, Zap, ChevronDown } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import apiService from '../services/apiService';
+import { CLONE_STATUSES, STATUS_GROUPS, getReviewStatus } from '../statusConstraints.js';
+
+const SuggestionCard = ({ suggestion, onNavigate }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const IconComponent = suggestion.icon === 'AlertTriangle' ? AlertTriangle :
+                        suggestion.icon === 'UserX' ? UserX :
+                        suggestion.icon === 'RefreshCw' ? RefreshCw :
+                        suggestion.icon === 'TrendingUp' ? TrendingUp :
+                        suggestion.icon === 'BookOpen' ? BookOpen :
+                        Zap;
+
+    const priorityColor = suggestion.priority === 'high' ? 'text-red-500' :
+                        suggestion.priority === 'medium' ? 'text-yellow-500' :
+                        'text-green-500';
+
+    const handleMainClick = () => {
+        if (suggestion.expandable) {
+            setIsExpanded(!isExpanded);
+        } else {
+            handleSuggestionAction(suggestion);
+        }
+    };
+
+    const handleSuggestionAction = (suggestion) => {
+        switch (suggestion.action) {
+            case 'review_submissions':
+                onNavigate('analysis-review');
+                break;
+            case 'view_students':
+                onNavigate('students');
+                break;
+            default:
+                break;
+        }
+    };
+
+    const formatTimeAgo = (date, type = 'days') => {
+        if (type === 'hours') {
+            return date < 24 ? `${date}h ago` : `${Math.floor(date / 24)}d ago`;
+        }
+        if (date < 7) return `${date} days ago`;
+        const weeks = Math.floor(date / 7);
+        return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+    };
+
+    const renderExpandedContent = () => {
+        if (!suggestion.details) return null;
+
+        switch (suggestion.type) {
+            case 'silent_students':
+                return (
+                    <div className="space-y-2 mt-3">
+                        {suggestion.details.map((student, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-2 px-3 bg-white rounded border">
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900">{student.name}</p>
+                                    <p className="text-xs text-gray-500">{student.email}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500">Last activity</p>
+                                    <p className="text-sm font-medium text-gray-700">
+                                        {formatTimeAgo(student.daysSinceActivity)}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                );
+
+            case 'common_issues':
+                return (
+                    <div className="space-y-2 mt-3">
+                        {suggestion.details.map((resubmission, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-2 px-3 bg-white rounded border">
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900">{resubmission.studentName}</p>
+                                    <p className="text-xs text-gray-500">{resubmission.cloneName}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500">Resubmitted</p>
+                                    <p className="text-sm font-medium text-orange-600">
+                                        {formatTimeAgo(resubmission.daysAgo)}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                );
+
+            case 'batch_opportunity':
+                return (
+                    <div className="space-y-2 mt-3">
+                        {suggestion.details.map((submission, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-2 px-3 bg-white rounded border">
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900">{submission.studentName}</p>
+                                    <p className="text-xs text-gray-500">{submission.cloneName}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500">
+                                        {submission.progress}% • {formatTimeAgo(submission.hoursAgo, 'hours')}
+                                    </p>
+                                    <span className="inline-block w-2 h-2 bg-green-400 rounded-full"></span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                );
+
+            case 'difficult_assignment':
+                return (
+                    <div className="space-y-3 mt-3">
+                        <div className="bg-white rounded border p-3">
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <p className="text-lg font-bold text-gray-900">{suggestion.details.totalStudents}</p>
+                                    <p className="text-xs text-gray-500">Students attempted</p>
+                                </div>
+                                <div>
+                                    <p className="text-lg font-bold text-orange-600">{suggestion.details.resubmissionRate}%</p>
+                                    <p className="text-xs text-gray-500">Resubmission rate</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-700">Students who resubmitted:</p>
+                            {suggestion.details.strugglingStudents.map((student, idx) => (
+                                <div key={idx} className="flex items-center justify-between py-2 px-3 bg-white rounded border">
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-gray-900">{student.name}</p>
+                                        <p className="text-xs text-gray-500">{student.email}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-gray-500">Last resubmission</p>
+                                        <p className="text-sm font-medium text-orange-600">
+                                            {formatTimeAgo(student.daysAgo)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="border border-gray-100 rounded-lg">
+            <button
+                onClick={handleMainClick}
+                className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
+            >
+                <IconComponent className={`w-5 h-5 ${priorityColor}`} />
+                <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                        {suggestion.title}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                        {suggestion.subtitle}
+                    </div>
+                </div>
+                {suggestion.count > 0 && (
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                        suggestion.priority === 'high' ? 'bg-red-100 text-red-700' :
+                        suggestion.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                    }`}>
+                        {suggestion.count}
+                    </span>
+                )}
+                {suggestion.expandable && (
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${
+                        isExpanded ? 'rotate-180' : ''
+                    }`} />
+                )}
+            </button>
+
+            {/* Expandable Content */}
+            {isExpanded && (
+                <div className="px-3 pb-3 border-t border-gray-100 bg-gray-50">
+                    {renderExpandedContent()}
+                    <div className="mt-3 flex justify-end">
+                        <button
+                            onClick={() => handleSuggestionAction(suggestion)}
+                            className="text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                        >
+                            {suggestion.action === 'view_students' ? 'View All Students' : 'Review Submissions'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const InstructorOverview = ({ onNavigateToTab }) => {
     const { currentUser } = useDNAContext();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // State for smart suggestions
+    const [smartSuggestions, setSmartSuggestions] = useState([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(true);
 
     // State for metrics
     const [myStudents, setMyStudents] = useState([]);
@@ -37,7 +240,8 @@ const InstructorOverview = ({ onNavigateToTab }) => {
             await Promise.all([
                 fetchPendingReviews(),
                 fetchUnreadMessages(),
-                fetchRecentActivity(students) // Pass students directly
+                fetchRecentActivity(students), // Pass students directly
+                fetchSmartSuggestions()  // ADD THIS LINE
             ]);
 
         } catch (error) {
@@ -48,7 +252,35 @@ const InstructorOverview = ({ onNavigateToTab }) => {
         }
     };
 
+    const fetchSmartSuggestions = async () => {
+        try {
+            setLoadingSuggestions(true);
+            const suggestions = await apiService.get(`/instructor-suggestions/${currentUser.id}`);
+            setSmartSuggestions(suggestions);
+        } catch (error) {
+            console.error('🚨 SMART SUGGESTIONS: Error fetching:', error);
+            console.error('🚨 SMART SUGGESTIONS: Error message:', error.message);
+            console.error('🚨 SMART SUGGESTIONS: Full error:', error);
+            setSmartSuggestions([]);
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    };
 
+    const handleSuggestionAction = async (suggestion) => {
+        switch (suggestion.action) {
+            case 'review_oldest':
+                onNavigateToTab('analysis-review');
+                break;
+            case 'message_inactive':
+                // Open bulk message modal with pre-selected students
+                break;
+            case 'bulk_feedback':
+                // Open common issues template
+                break;
+            // ... handle other actions
+        }
+    };
 
     const fetchMyStudents = async () => {
         try {
@@ -86,20 +318,28 @@ const InstructorOverview = ({ onNavigateToTab }) => {
                 apiService.get(`/practice-submissions?schoolName=${encodeURIComponent(currentUser.school.name)}`)
             ]);
 
-            // FIXED: Use correct status values
-            const myPendingFiles = uploadedFiles.filter(file =>
-                [
-                    'Completed, waiting review by staff',
-                    'Corrected by student, waiting review'
-                ].includes(file.status)
-            );
+            // DEBUG: See what statuses actually exist
+            console.log('🔍 All uploaded files statuses:', [...new Set(uploadedFiles.map(f => f.status))]);
+
+            // FIXED: Use statusConstraints instead of hardcoded strings
+            const myPendingFiles = uploadedFiles.filter(file => {
+                const needsReview = getReviewStatus(file.status) !== null;
+                if (needsReview) {
+                    console.log('🔍 File needs review:', file.cloneName, 'Status:', file.status, 'Student:', file.assignedTo?.name);
+                }
+                return needsReview;
+            });
 
             const myPendingPractice = practiceSubmissions.filter(submission =>
                 ['pending', 'resubmitted'].includes(submission.reviewStatus || submission.status)
             );
 
             setPendingReviews(myPendingFiles.length + myPendingPractice.length);
-            console.log('Pending reviews:', { files: myPendingFiles.length, practice: myPendingPractice.length });
+            console.log('📊 Pending reviews using statusConstraints:', {
+                files: myPendingFiles.length,
+                practice: myPendingPractice.length,
+                fileDetails: myPendingFiles.map(f => ({ name: f.cloneName, status: f.status, student: f.assignedTo?.name }))
+            });
         } catch (error) {
             console.error('Error fetching pending reviews:', error);
             setPendingReviews(0);
@@ -441,14 +681,6 @@ const InstructorOverview = ({ onNavigateToTab }) => {
 
     return (
         <div className="space-y-6">
-            {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-sm text-white p-6">
-                <h3 className="text-2xl font-bold mb-2">Welcome back!</h3>
-                <p className="text-indigo-100">
-                    {schoolInfo?.name || 'Your School'} • {myStudents.length} students under your guidance
-                </p>
-            </div>
-
             {/* Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div
@@ -560,35 +792,32 @@ const InstructorOverview = ({ onNavigateToTab }) => {
                     </div>
                 </div>
 
-                {/* Quick Actions */}
+                {/* Smart Suggestions */}
                 <div className="bg-white rounded-xl shadow-sm border">
                     <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                            Smart Suggestions - Today's Focus
+                            {loadingSuggestions && <Loader className="inline w-4 h-4 ml-2 animate-spin" />}
+                        </h3>
                     </div>
-                    <div className="p-6 space-y-3">
-                        <button
-                            onClick={() => onNavigateToTab && onNavigateToTab('students')}
-                            className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            <Users className="w-5 h-5 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-700">View All Students</span>
-                        </button>
-
-                        <button
-                            onClick={() => onNavigateToTab && onNavigateToTab('analysis-review')}
-                            className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            <FileText className="w-5 h-5 text-orange-600" />
-                            <span className="text-sm font-medium text-gray-700">Review Submissions</span>
-                        </button>
-
-                        <button
-                            onClick={() => onNavigateToTab && onNavigateToTab('messages')}
-                            className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            <MessageCircle className="w-5 h-5 text-indigo-600" />
-                            <span className="text-sm font-medium text-gray-700">Send Message</span>
-                        </button>
+                    <div className="p-6">
+                        {smartSuggestions.length > 0 ? (
+                            <div className="space-y-3">
+                                {smartSuggestions.map((suggestion, index) => (
+                                    <SuggestionCard
+                                        key={index}
+                                        suggestion={suggestion}
+                                        onNavigate={onNavigateToTab}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-4">
+                                <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600">All caught up!</p>
+                                <p className="text-xs text-gray-400">Check back later for new priorities</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

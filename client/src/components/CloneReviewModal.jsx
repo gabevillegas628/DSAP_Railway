@@ -6,8 +6,6 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
-  Download,
-  Send,
   Save,
   Clock,
   User,
@@ -30,14 +28,6 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
   const [saving, setSaving] = useState(false);
 
 
-
-  // Fetch clone data and analysis questions when modal opens
-  useEffect(() => {
-    if (isOpen && cloneId) {
-      fetchCloneData();
-      fetchAnalysisQuestions();
-    }
-  }, [isOpen, cloneId]);
 
   const fetchCloneData = async () => {
     try {
@@ -137,6 +127,14 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
     }
   };
 
+  // Fetch clone data and analysis questions when modal opens
+  useEffect(() => {
+    if (isOpen && cloneId) {
+      fetchCloneData();
+      fetchAnalysisQuestions();
+    }
+  }, [isOpen, cloneId, fetchCloneData]);
+
   const fetchAnalysisQuestions = async () => {
     try {
       console.log('🔍 Fetching analysis questions...');
@@ -152,11 +150,6 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
   const getQuestionText = (questionId) => {
     const question = analysisQuestions.find(q => q.id === questionId);
     return question ? question.text : 'Question not found';
-  };
-
-  const getQuestionType = (questionId) => {
-    const question = analysisQuestions.find(q => q.id === questionId);
-    return question ? question.type : 'text';
   };
 
   const getSectionsWithAnswers = (answers) => {
@@ -199,15 +192,6 @@ const CloneReviewModal = ({ isOpen, onClose, cloneId, studentName, cloneType = '
     setExpandedSections(newExpanded);
   };
 
-  const toggleAnswerExpanded = (questionId) => {
-    const newExpanded = new Set(expandedAnswers);
-    if (newExpanded.has(questionId)) {
-      newExpanded.delete(questionId);
-    } else {
-      newExpanded.add(questionId);
-    }
-    setExpandedAnswers(newExpanded);
-  };
 
   const addQuestionComment = (questionId, comment) => {
     if (!comment.trim()) return;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Download, Eye, EyeOff } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Download } from 'lucide-react';
 
 const ChromatogramViewer = ({ fileData, fileName, onClose }) => {
   console.log('ChromatogramViewer props:', { fileData, fileName }); // Debug log

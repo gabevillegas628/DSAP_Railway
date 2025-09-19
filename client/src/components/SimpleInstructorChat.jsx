@@ -287,6 +287,7 @@ const SimpleInstructorChat = ({
                                         </p>
                                     </div>
                                 </div>
+                                {/**
                                 <button
                                     onClick={() => {
                                         setDiscussionToDelete(selectedDiscussion);
@@ -297,6 +298,7 @@ const SimpleInstructorChat = ({
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
+                                    **/}
                             </div>
                         </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MessageCircle, Send, Trash2, User, FileText, Clock, AlertTriangle, Search, Filter, ChevronDown } from 'lucide-react';
 import { useDNAContext } from '../context/DNAContext';
 import apiService from '../services/apiService';
+import ProfilePicture from './ProfilePicture';
 import { markDiscussionAsRead } from '../utils/discussionUtils';
 
 const DirectorMessagesChat = ({ onMessageRead }) => {
@@ -228,7 +229,7 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
     }
 
     return (
-        <div className="h-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex">
+        <div className="h-[70vh] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex">
             {/* Left Sidebar - Discussion List */}
             <div className="w-1/3 border-r border-gray-200 flex flex-col">
                 {/* Header with filters - Fixed */}
@@ -295,9 +296,12 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center space-x-2">
-                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <User className="w-4 h-4 text-blue-600" />
-                                            </div>
+                                            <ProfilePicture
+                                                src={discussion.student.profilePicture}
+                                                name={discussion.student.name}
+                                                size="md"
+                                                className="flex-shrink-0"
+                                            />
                                             <div className="flex-1">
                                                 <p className="font-medium text-gray-900 text-sm">{discussion.student.name}</p>
                                                 <p className="text-xs text-gray-600">{discussion.student.school?.name}</p>
@@ -382,10 +386,17 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
                                 </div>
                             ) : (
                                 messages.map((message) => (
-                                    <div
-                                        key={message.id}
-                                        className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
-                                    >
+                                    <div className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'} items-start space-x-3`}>
+                                        {/* Profile picture - show on left for others, on right for current user */}
+                                        {message.sender.id !== currentUser.id && (
+                                            <ProfilePicture
+                                                src={message.sender.profilePicture}
+                                                name={message.sender.name}
+                                                size="lg"
+                                                className="flex-shrink-0 mt-1"
+                                            />
+                                        )}
+
                                         <div className={`max-w-3/4 ${message.sender.id === currentUser.id
                                             ? 'bg-blue-600 text-white'
                                             : 'bg-gray-100 text-gray-900'
@@ -400,6 +411,16 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
                                             </div>
                                             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                                         </div>
+
+                                        {/* Profile picture for current user - on the right */}
+                                        {message.sender.id === currentUser.id && (
+                                            <ProfilePicture
+                                                src={message.sender.profilePicture}
+                                                name={message.sender.name}
+                                                size="sm"
+                                                className="flex-shrink-0 mt-1"
+                                            />
+                                        )}
                                     </div>
                                 ))
                             )}

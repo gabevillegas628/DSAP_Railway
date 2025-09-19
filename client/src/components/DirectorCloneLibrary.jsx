@@ -65,7 +65,7 @@ const DirectorCloneLibrary = () => {
         await fetchPracticeClones();
       }
 
-  
+
 
     } catch (error) {
       alert(`Error checking for missing files: ${error.message}`);
@@ -507,6 +507,24 @@ const DirectorCloneLibrary = () => {
     } catch (error) {
       console.error('Error downloading file:', error);
       alert(error.message || 'Failed to download file');
+    }
+  };
+
+  const downloadPracticeClone = async (cloneId, originalName) => {
+    try {
+      const blob = await apiService.downloadBlob(`/practice-clones/${cloneId}/download`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = originalName || 'practice_clone.ab1';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading practice clone:', error);
+      alert(error.message || 'Failed to download practice clone');
     }
   };
 
@@ -1223,7 +1241,15 @@ const DirectorCloneLibrary = () => {
                   {practiceClones.map(clone => (
                     <tr key={clone.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4 font-bold text-purple-600">{clone.cloneName}</td>
-                      <td className="py-3 px-4 font-mono text-sm">{clone.originalName}</td>
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => downloadPracticeClone(clone.id, clone.originalName)}
+                          className="font-mono text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                          title="Click to download file"
+                        >
+                          {clone.originalName}
+                        </button>
+                      </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         {clone.description || 'No description'}
                       </td>

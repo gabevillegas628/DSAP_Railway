@@ -24,13 +24,17 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
       // Load analysis questions
       const questions = await apiService.get('/analysis-questions');
 
+      // Filter out non-answer question types
+      const answerableQuestions = questions.filter(question =>
+        !['text_header', 'section_divider', 'info_text', 'blast_comparison', 'sequence_display'].includes(question.type)
+      );
+
       // Load existing practice answers
       const existingAnswers = await apiService.get(`/practice-clones/${practiceClone.id}/answers`);
 
-      // Parse JSON strings back to objects for blast questions
       // Parse JSON strings back to objects for blast and sequence_range questions
       const parsedAnswers = existingAnswers.map(answer => {
-        const question = questions.find(q => q.id === answer.questionId);
+        const question = answerableQuestions.find(q => q.id === answer.questionId);
         if (question && (question.type === 'blast' || question.type === 'sequence_range') && typeof answer.correctAnswer === 'string') {
           try {
             return {
@@ -45,7 +49,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
         return answer;
       });
 
-      setAnalysisQuestions(questions);
+      setAnalysisQuestions(answerableQuestions);
       setPracticeAnswers(parsedAnswers);
 
       console.log('Loaded questions:', questions.length);
@@ -112,7 +116,7 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
     try {
       setSaving(true);
 
-      // Prepare answers for saving - convert blast answers to JSON strings
+      // Prepare answers for saving - convert blast and sequence_range answers to JSON strings
       const answersToSave = practiceAnswers.map(answer => {
         const question = analysisQuestions.find(q => q.id === answer.questionId);
         if (question && (question.type === 'blast' || question.type === 'sequence_range') && typeof answer.correctAnswer === 'object') {
@@ -122,11 +126,34 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
           };
         }
         return answer;
-      }).filter(answer =>
+      }).filter(answer => {
         // Only save answers that have content
-        answer.correctAnswer &&
-        (typeof answer.correctAnswer === 'string' ? answer.correctAnswer.trim() : true)
-      );
+        if (!answer.correctAnswer) return false;
+
+        const question = analysisQuestions.find(q => q.id === answer.questionId);
+
+        if (question && question.type === 'sequence_range') {
+          // For sequence_range, check if at least one field has content
+          if (typeof answer.correctAnswer === 'string') {
+            try {
+              const parsed = JSON.parse(answer.correctAnswer);
+              return (parsed.value1 && parsed.value1.trim()) || (parsed.value2 && parsed.value2.trim());
+            } catch (e) {
+              return false;
+            }
+          } else if (typeof answer.correctAnswer === 'object') {
+            return (answer.correctAnswer.value1 && answer.correctAnswer.value1.trim()) ||
+              (answer.correctAnswer.value2 && answer.correctAnswer.value2.trim());
+          }
+          return false;
+        } else if (question && question.type === 'blast') {
+          // For blast questions, assume if it's an object or non-empty string it has content
+          return typeof answer.correctAnswer === 'string' ? answer.correctAnswer.trim() : true;
+        } else {
+          // For regular string answers
+          return typeof answer.correctAnswer === 'string' ? answer.correctAnswer.trim() : !!answer.correctAnswer;
+        }
+      });
 
       console.log('Saving answers:', answersToSave.length);
 
@@ -135,10 +162,9 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
       });
 
       alert('Answers saved successfully!');
-
     } catch (error) {
       console.error('Error saving answers:', error);
-      alert(error.message || 'Failed to save answers');
+      alert('Failed to save answers');
     } finally {
       setSaving(false);
     }
@@ -411,10 +437,11 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                           </label>
                                           <input
                                             type="text"
-                                            value={(typeof currentAnswer.correctAnswer === 'object' ? currentAnswer.correctAnswer?.value1 : '') || ''}
+                                            value={(typeof currentAnswer.correctAnswer === 'object' ?
+                                              currentAnswer.correctAnswer.value1 : '') || ''}
                                             onChange={(e) => updateObjectAnswer(question.id, 'value1', e.target.value)}
+                                            placeholder="Enter start value..."
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder={`Enter ${question.options?.label1 || 'begin'} value...`}
                                           />
                                         </div>
                                         <div>
@@ -423,18 +450,20 @@ const DirectorPracticeAnswers = ({ isOpen, onClose, practiceClone }) => {
                                           </label>
                                           <input
                                             type="text"
-                                            value={(typeof currentAnswer.correctAnswer === 'object' ? currentAnswer.correctAnswer?.value2 : '') || ''}
+                                            value={(typeof currentAnswer.correctAnswer === 'object' ?
+                                              currentAnswer.correctAnswer.value2 : '') || ''}
                                             onChange={(e) => updateObjectAnswer(question.id, 'value2', e.target.value)}
+                                            placeholder="Enter end value..."
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder={`Enter ${question.options?.label2 || 'end'} value...`}
                                           />
                                         </div>
                                       </div>
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        Enter the correct values for both fields. Students will see these as the expected answers.
+                                    </div>
+                                    <div className="bg-blue-50 p-3 rounded-md">
+                                      <p className="text-sm text-blue-800">
+                                        Students will see these as the expected range values.
                                       </p>
                                     </div>
-
                                     <div>
                                       <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Explanation (Optional)
