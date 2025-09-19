@@ -29,6 +29,12 @@ const { group } = require('console');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
+const {
+  findMatchingQuestion,
+  validateQuestionHelpTopicRelationship,
+  validateMasterChildStructure
+} = require('./utils/importExportValidation');
+
 app.set('trust proxy', true);
 
 console.log('=== ENVIRONMENT VARIABLES CHECK ===');
@@ -5373,17 +5379,24 @@ app.post('/api/export-v2', async (req, res) => {
         }));
       }
 
-      // Export Help Topics (question-specific help)
+      // Enhanced export with full question details for validation
       if (exportHelpTopics) {
-        exportData.analysisContent.helpTopics = await prisma.helpTopic.findMany({
-          where: { isActive: true },
+        exportData.analysisContent.masterHelpTopics = await prisma.masterHelpTopic.findMany({
           include: {
+            helpTopics: {
+              where: { isActive: true },
+              orderBy: { order: 'asc' }
+            },
             analysisQuestion: {
               select: {
                 id: true,
                 text: true,
                 step: true,
-                order: true
+                order: true,
+                type: true,
+                required: true,
+                // Include enough detail for robust matching
+                createdAt: true
               }
             }
           },
@@ -5396,8 +5409,13 @@ app.post('/api/export-v2', async (req, res) => {
 
       // Export Step Help (general workflow help)
       if (exportStepHelp) {
-        exportData.analysisContent.stepHelp = await prisma.stepHelp.findMany({
-          where: { isActive: true },
+        exportData.analysisContent.masterStepHelps = await prisma.masterStepHelp.findMany({
+          include: {
+            stepHelps: {
+              where: { isActive: true },
+              orderBy: { order: 'asc' }
+            }
+          },
           orderBy: { step: 'asc' }
         });
       }
@@ -5476,56 +5494,59 @@ app.post('/api/export-v2', async (req, res) => {
 });
 
 // Update the user counts endpoint to include help topics and step help counts
+// Update the /api/export/counts endpoint to handle master/child structure:
 app.get('/api/export/counts', async (req, res) => {
   try {
-    // User counts by role
     const users = await prisma.user.findMany({
       where: { status: 'approved' },
       select: { role: true }
     });
 
-    // Content counts
+    const counts = {
+      directors: users.filter(u => u.role === 'director').length,
+      instructors: users.filter(u => u.role === 'instructor').length,
+      students: users.filter(u => u.role === 'student').length
+    };
+
+    // Count master help topics and their children
+    const masterHelpTopics = await prisma.masterHelpTopic.count();
+    const childHelpTopics = await prisma.helpTopic.count({ where: { isActive: true } });
+
+    // Count master step helps and their children
+    const masterStepHelps = await prisma.masterStepHelp.count();
+    const childStepHelps = await prisma.stepHelp.count({ where: { isActive: true } });
+
     const [
-      schoolCount,
-      questionsCount,
-      helpTopicsCount,
-      stepHelpCount,
-      commonFeedbackCount,
-      practiceClonesCount,
-      practiceAnswersCount,
-      programSettingsCount
+      schools,
+      analysisQuestions,
+      commonFeedback,
+      practiceClones,
+      practiceAnswers,
+      programSettings
     ] = await Promise.all([
       prisma.school.count(),
       prisma.analysisQuestion.count(),
-      prisma.helpTopic.count({ where: { isActive: true } }),
-      prisma.stepHelp.count({ where: { isActive: true } }),
       prisma.commonFeedback.count({ where: { isActive: true } }),
-      prisma.practiceClone.count({ where: { isActive: true } }),
+      prisma.practiceClone.count(),
       prisma.practiceAnswer.count(),
       prisma.programSettings.count()
     ]);
 
-    const counts = {
-      users: {
-        directors: users.filter(u => u.role === 'director').length,
-        instructors: users.filter(u => u.role === 'instructor').length,
-        students: users.filter(u => u.role === 'student').length
-      },
+    res.json({
+      users: counts,
       content: {
-        schools: schoolCount,
-        analysisQuestions: questionsCount,
-        helpTopics: helpTopicsCount,
-        stepHelp: stepHelpCount,
-        commonFeedback: commonFeedbackCount,
-        practiceClones: practiceClonesCount,
-        practiceAnswers: practiceAnswersCount,
-        programSettings: programSettingsCount
+        schools,
+        analysisQuestions,
+        helpTopics: `${masterHelpTopics} masters, ${childHelpTopics} children`,
+        stepHelp: `${masterStepHelps} masters, ${childStepHelps} children`,
+        commonFeedback,
+        practiceClones,
+        practiceAnswers,
+        programSettings
       }
-    };
-
-    res.json(counts);
+    });
   } catch (error) {
-    console.error('Error fetching export counts:', error);
+    console.error('Error fetching counts:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -5816,60 +5837,198 @@ app.post('/api/import-v2', importUpload.single('file'), async (req, res) => {
         if (questionsSkipped > 0) results.skipped.analysisQuestions = `${questionsSkipped} questions skipped`;
       }
 
-      // STEP 2: Import Help Topics (depends on questions)
-      if (options.helpTopics && importData.analysisContent.helpTopics) {
-        console.log('Importing help topics...');
-        let helpTopicsImported = 0;
-        let helpTopicsSkipped = 0;
+      // STEP 2: Import Master Help Topics with Enhanced Validation
+      if (options.helpTopics && importData.analysisContent.masterHelpTopics) {
+        console.log('Importing master help topics with enhanced validation...');
+        let masterHelpTopicsImported = 0;
+        let childHelpTopicsImported = 0;
+        let masterHelpTopicsSkipped = 0;
+        let childHelpTopicsSkipped = 0;
+        let validationWarnings = [];
 
-        for (const helpTopic of importData.analysisContent.helpTopics) {
+        for (const masterHelpTopic of importData.analysisContent.masterHelpTopics) {
           try {
-            // Map the question ID
-            const newQuestionId = questionIdMapping.get(helpTopic.analysisQuestionId);
-            if (!newQuestionId) {
-              results.errors.push(`Help topic "${helpTopic.title}": Referenced question not found`);
+            // Validate master/child structure
+            const structureWarnings = validateMasterChildStructure(masterHelpTopic);
+            if (structureWarnings.length > 0) {
+              validationWarnings.push(...structureWarnings.map(w =>
+                `Master "${masterHelpTopic.title}" - Structure: ${w}`
+              ));
+            }
+
+            // Get the exported question details for validation
+            const exportedQuestion = masterHelpTopic.analysisQuestion;
+            if (!exportedQuestion) {
+              results.errors.push(`Master help topic "${masterHelpTopic.title}": Missing question reference`);
               continue;
             }
 
-            // Check if help topic already exists for this question
-            const existingHelpTopic = await prisma.helpTopic.findFirst({
-              where: {
-                analysisQuestionId: newQuestionId,
-                title: helpTopic.title
-              }
+            // Enhanced question matching with validation (pass prisma parameter)
+            const matchResult = await findMatchingQuestion(exportedQuestion, questionIdMapping, prisma);
+
+            if (!matchResult.question) {
+              results.errors.push(
+                `Master help topic "${masterHelpTopic.title}": No matching question found for ` +
+                `${exportedQuestion.step}-${exportedQuestion.order}: "${exportedQuestion.text}"`
+              );
+              continue;
+            }
+
+            // Log validation confidence and warnings
+            if (matchResult.confidence === 'fuzzy') {
+              validationWarnings.push(
+                `Master help topic "${masterHelpTopic.title}": Fuzzy match found for question. ` +
+                `Expected: "${exportedQuestion.text}" | Found: "${matchResult.question.text}"`
+              );
+            }
+
+            if (matchResult.confidence === 'fuzzy-cross-order') {
+              validationWarnings.push(
+                `Master help topic "${masterHelpTopic.title}": Cross-order fuzzy match found. ` +
+                `Expected order: ${exportedQuestion.order}, Found order: ${matchResult.question.order}`
+              );
+            }
+
+            if (matchResult.warning) {
+              validationWarnings.push(`Master help topic "${masterHelpTopic.title}": ${matchResult.warning}`);
+            }
+
+            // Additional relationship validation
+            const relationshipWarnings = validateQuestionHelpTopicRelationship(
+              exportedQuestion,
+              masterHelpTopic,
+              matchResult.question
+            );
+            if (relationshipWarnings.length > 0) {
+              validationWarnings.push(...relationshipWarnings.map(w =>
+                `Master help topic "${masterHelpTopic.title}": ${w}`
+              ));
+            }
+
+            const targetQuestionId = matchResult.question.id;
+
+            // Check if master help topic already exists for this question
+            let existingMasterHelpTopic = await prisma.masterHelpTopic.findFirst({
+              where: { analysisQuestionId: targetQuestionId }
             });
 
-            if (existingHelpTopic && options.conflictResolution !== 'overwrite') {
-              helpTopicsSkipped++;
+            let currentMasterHelpTopicId;
+
+            if (existingMasterHelpTopic && options.conflictResolution !== 'overwrite') {
+              masterHelpTopicsSkipped++;
+              currentMasterHelpTopicId = existingMasterHelpTopic.id;
             } else {
-              const helpTopicData = {
-                analysisQuestionId: newQuestionId,
-                title: helpTopic.title,
-                videoBoxUrl: helpTopic.videoBoxUrl,
-                helpDocumentUrl: helpTopic.helpDocumentUrl,
-                isActive: helpTopic.isActive
+              // Validate that we're linking to the correct question
+              if (existingMasterHelpTopic &&
+                existingMasterHelpTopic.analysisQuestionId !== targetQuestionId) {
+                results.errors.push(
+                  `Master help topic "${masterHelpTopic.title}": Question mismatch detected. ` +
+                  `This could indicate data corruption.`
+                );
+                continue;
+              }
+
+              const masterHelpTopicData = {
+                analysisQuestionId: targetQuestionId,
+                title: masterHelpTopic.title
               };
 
-              if (existingHelpTopic) {
-                await prisma.helpTopic.update({
-                  where: { id: existingHelpTopic.id },
-                  data: helpTopicData
+              if (existingMasterHelpTopic) {
+                // Update existing master
+                const updated = await prisma.masterHelpTopic.update({
+                  where: { id: existingMasterHelpTopic.id },
+                  data: masterHelpTopicData
                 });
+                currentMasterHelpTopicId = updated.id;
               } else {
-                await prisma.helpTopic.create({
-                  data: helpTopicData
+                // Create new master
+                const newMaster = await prisma.masterHelpTopic.create({
+                  data: masterHelpTopicData
                 });
-                helpTopicsImported++;
+                currentMasterHelpTopicId = newMaster.id;
+                masterHelpTopicsImported++;
+              }
+            }
+
+            // Import child help topics with validation
+            if (masterHelpTopic.helpTopics && masterHelpTopic.helpTopics.length > 0) {
+              for (const childHelpTopic of masterHelpTopic.helpTopics) {
+                try {
+                  // Additional validation: ensure child belongs to this master
+                  if (childHelpTopic.masterHelpTopicId &&
+                    childHelpTopic.masterHelpTopicId !== masterHelpTopic.id) {
+                    validationWarnings.push(
+                      `Child help topic "${childHelpTopic.title}": Parent reference mismatch`
+                    );
+                  }
+
+                  // Validate required child topic fields
+                  if (!childHelpTopic.title || childHelpTopic.title.trim() === '') {
+                    results.errors.push(
+                      `Child help topic in master "${masterHelpTopic.title}": Missing or empty title`
+                    );
+                    continue;
+                  }
+
+                  if (!childHelpTopic.videoBoxUrl && !childHelpTopic.helpDocumentUrl) {
+                    validationWarnings.push(
+                      `Child help topic "${childHelpTopic.title}": No video or document URL provided`
+                    );
+                  }
+
+                  // Check if child help topic already exists
+                  const existingChildHelpTopic = await prisma.helpTopic.findFirst({
+                    where: {
+                      masterHelpTopicId: currentMasterHelpTopicId,
+                      title: childHelpTopic.title
+                    }
+                  });
+
+                  if (existingChildHelpTopic && options.conflictResolution !== 'overwrite') {
+                    childHelpTopicsSkipped++;
+                  } else {
+                    const childHelpTopicData = {
+                      masterHelpTopicId: currentMasterHelpTopicId,
+                      title: childHelpTopic.title.trim(),
+                      videoBoxUrl: childHelpTopic.videoBoxUrl || '',
+                      helpDocumentUrl: childHelpTopic.helpDocumentUrl || '',
+                      isActive: childHelpTopic.isActive !== false, // default to true if undefined
+                      order: childHelpTopic.order || 0
+                    };
+
+                    if (existingChildHelpTopic) {
+                      await prisma.helpTopic.update({
+                        where: { id: existingChildHelpTopic.id },
+                        data: childHelpTopicData
+                      });
+                    } else {
+                      await prisma.helpTopic.create({
+                        data: childHelpTopicData
+                      });
+                      childHelpTopicsImported++;
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error importing child help topic:', error);
+                  results.errors.push(`Child help topic "${childHelpTopic.title}": ${error.message}`);
+                }
               }
             }
           } catch (error) {
-            console.error('Error importing help topic:', error);
-            results.errors.push(`Help topic "${helpTopic.title}": ${error.message}`);
+            console.error('Error importing master help topic:', error);
+            results.errors.push(`Master help topic "${masterHelpTopic.title}": ${error.message}`);
           }
         }
 
-        if (helpTopicsImported > 0) results.imported.helpTopics = `${helpTopicsImported} help topics imported`;
-        if (helpTopicsSkipped > 0) results.skipped.helpTopics = `${helpTopicsSkipped} help topics skipped`;
+        // Add validation warnings to results
+        if (validationWarnings.length > 0) {
+          results.warnings = validationWarnings;
+        }
+
+        if (masterHelpTopicsImported > 0) results.imported.masterHelpTopics = `${masterHelpTopicsImported} master help topics imported`;
+        if (childHelpTopicsImported > 0) results.imported.childHelpTopics = `${childHelpTopicsImported} child help topics imported`;
+        if (masterHelpTopicsSkipped > 0) results.skipped.masterHelpTopics = `${masterHelpTopicsSkipped} master help topics skipped`;
+        if (childHelpTopicsSkipped > 0) results.skipped.childHelpTopics = `${childHelpTopicsSkipped} child help topics skipped`;
       }
 
       // STEP 3: Import Step Help (independent)

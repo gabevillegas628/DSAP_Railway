@@ -54,20 +54,20 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
 
             // Initialize import selections based on available data
             const initialImportData = {};
-            
+
             // Users
             if (data.users?.directors?.length > 0) initialImportData.directors = true;
             if (data.users?.instructors?.length > 0) initialImportData.instructors = true;
             if (data.users?.students?.length > 0) initialImportData.students = true;
-            
+
             // Configuration
             if (data.schools?.length > 0) initialImportData.schools = true;
             if (data.programSettings) initialImportData.programSettings = true;
-            
+
             // Educational Content
             if (data.analysisContent?.questions?.length > 0) initialImportData.analysisQuestions = true;
-            if (data.analysisContent?.helpTopics?.length > 0) initialImportData.helpTopics = true;
-            if (data.analysisContent?.stepHelp?.length > 0) initialImportData.stepHelp = true;
+            if (data.analysisContent?.masterHelpTopics?.length > 0) initialImportData.helpTopics = true;
+            if (data.analysisContent?.masterStepHelps?.length > 0) initialImportData.stepHelp = true;
             if (data.analysisContent?.commonFeedback?.length > 0) initialImportData.commonFeedback = true;
             if (data.practiceClones?.clones?.length > 0) initialImportData.practiceClones = true;
 
@@ -103,11 +103,11 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                 conflictResolution
             }));
 
-            // Use the new import endpoint
+            // Use the v2 import endpoint
             const result = await apiService.uploadFiles('/import-v2', formData);
 
             setImportStatus(`Import completed successfully!`);
-            
+
             setTimeout(() => {
                 onImportComplete?.(result);
                 onClose();
@@ -125,13 +125,13 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
     const getDataTypeIcon = (type) => {
         switch (type) {
             case 'directors':
-            case 'instructors': 
-            case 'students': 
+            case 'instructors':
+            case 'students':
             case 'users': return <Users className="text-blue-600" size={16} />;
             case 'schools': return <Building className="text-green-600" size={16} />;
             case 'practiceClones': return <FlaskConical className="text-purple-600" size={16} />;
             case 'analysisQuestions': return <HelpCircle className="text-orange-600" size={16} />;
-            case 'helpTopics': 
+            case 'helpTopics':
             case 'stepHelp': return <BookOpen className="text-indigo-600" size={16} />;
             case 'commonFeedback': return <MessageSquare className="text-teal-600" size={16} />;
             case 'programSettings': return <Settings className="text-gray-600" size={16} />;
@@ -147,8 +147,10 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
             case 'schools': return 'Schools';
             case 'practiceClones': return 'Practice Clones & Answers';
             case 'analysisQuestions': return 'Analysis Questions';
-            case 'helpTopics': return 'Help Topics (question-specific)';
-            case 'stepHelp': return 'Step Help (workflow guides)';
+            case 'masterHelpTopics': return 'Master Help Topics';
+            case 'masterStepHelps': return 'Master Step Help';
+            case 'helpTopics': return 'Help Topics (Legacy)'; // For backwards compatibility
+            case 'stepHelp': return 'Step Help (Legacy)'; // For backwards compatibility
             case 'commonFeedback': return 'Common Feedback';
             case 'programSettings': return 'Program Settings';
             default: return type;
@@ -157,19 +159,33 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
 
     const getDataTypeCount = (type) => {
         if (!filePreview) return 0;
-        
+
         switch (type) {
             case 'directors': return filePreview.users?.directors?.length || 0;
             case 'instructors': return filePreview.users?.instructors?.length || 0;
             case 'students': return filePreview.users?.students?.length || 0;
             case 'schools': return filePreview.schools?.length || 0;
-            case 'practiceClones': 
+            case 'practiceClones':
                 const clones = filePreview.practiceClones?.clones?.length || 0;
                 const answers = filePreview.practiceClones?.answers?.length || 0;
                 return clones > 0 ? `${clones} clones, ${answers} answers` : 0;
             case 'analysisQuestions': return filePreview.analysisContent?.questions?.length || 0;
-            case 'helpTopics': return filePreview.analysisContent?.helpTopics?.length || 0;
-            case 'stepHelp': return filePreview.analysisContent?.stepHelp?.length || 0;
+            case 'helpTopics':
+                const masterHelpTopics = filePreview.analysisContent?.masterHelpTopics?.length || 0;
+                if (masterHelpTopics > 0) {
+                    const totalChildren = filePreview.analysisContent.masterHelpTopics
+                        .reduce((sum, master) => sum + (master.helpTopics?.length || 0), 0);
+                    return `${masterHelpTopics} masters, ${totalChildren} children`;
+                }
+                return 0;
+            case 'stepHelp':
+                const masterStepHelps = filePreview.analysisContent?.masterStepHelps?.length || 0;
+                if (masterStepHelps > 0) {
+                    const totalChildren = filePreview.analysisContent.masterStepHelps
+                        .reduce((sum, master) => sum + (master.stepHelps?.length || 0), 0);
+                    return `${masterStepHelps} masters, ${totalChildren} children`;
+                }
+                return 0;
             case 'commonFeedback': return filePreview.analysisContent?.commonFeedback?.length || 0;
             case 'programSettings': return filePreview.programSettings ? 1 : 0;
             default: return 0;
@@ -296,7 +312,7 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                         {/* Data Selection */}
                         <div className="space-y-4">
                             <h4 className="font-medium text-gray-900">Select Data to Import</h4>
-                            
+
                             {/* Users Section */}
                             {renderDataSection(
                                 'Users',
@@ -324,8 +340,8 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                                 <BookOpen className="text-purple-600" size={20} />,
                                 [
                                     { key: 'analysisQuestions', label: 'Analysis Questions' },
-                                    { key: 'helpTopics', label: 'Help Topics (question-specific)' },
-                                    { key: 'stepHelp', label: 'Step Help (workflow guides)' },
+                                    { key: 'helpTopics', label: 'Master Help Topics & Children' },
+                                    { key: 'stepHelp', label: 'Master Step Help & Children' },
                                     { key: 'commonFeedback', label: 'Common Feedback' },
                                     { key: 'practiceClones', label: 'Practice Clones & Answers' }
                                 ]
@@ -418,13 +434,12 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
 
                         {/* Status Messages */}
                         {importStatus && (
-                            <div className={`p-3 rounded-lg border flex items-start space-x-2 ${
-                                importStatus.includes('successfully') || importStatus.includes('completed')
-                                    ? 'bg-green-50 border-green-200'
-                                    : importStatus.includes('failed') || importStatus.includes('Error')
+                            <div className={`p-3 rounded-lg border flex items-start space-x-2 ${importStatus.includes('successfully') || importStatus.includes('completed')
+                                ? 'bg-green-50 border-green-200'
+                                : importStatus.includes('failed') || importStatus.includes('Error')
                                     ? 'bg-red-50 border-red-200'
                                     : 'bg-blue-50 border-blue-200'
-                            }`}>
+                                }`}>
                                 {importStatus.includes('successfully') || importStatus.includes('completed') ? (
                                     <Check className="text-green-600 mt-0.5" size={16} />
                                 ) : importStatus.includes('failed') || importStatus.includes('Error') ? (
@@ -432,13 +447,12 @@ const ImportModal = ({ isOpen, onClose, onImportComplete }) => {
                                 ) : (
                                     <AlertCircle className="text-blue-600 mt-0.5" size={16} />
                                 )}
-                                <p className={`text-sm ${
-                                    importStatus.includes('successfully') || importStatus.includes('completed')
-                                        ? 'text-green-800'
-                                        : importStatus.includes('failed') || importStatus.includes('Error')
+                                <p className={`text-sm ${importStatus.includes('successfully') || importStatus.includes('completed')
+                                    ? 'text-green-800'
+                                    : importStatus.includes('failed') || importStatus.includes('Error')
                                         ? 'text-red-800'
                                         : 'text-blue-800'
-                                }`}>
+                                    }`}>
                                     {importStatus}
                                 </p>
                             </div>

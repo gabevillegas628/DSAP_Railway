@@ -69,7 +69,7 @@ const ExportModal = ({ isOpen, onClose }) => {
         setExportStatus('Preparing export...');
 
         try {
-            // Use the apiService downloadExport method
+            // Use apiService.downloadExport which should hit /export-v2
             const blob = await apiService.downloadExport(exportData);
 
             const url = window.URL.createObjectURL(blob);
@@ -242,9 +242,23 @@ const ExportModal = ({ isOpen, onClose }) => {
                                         className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
                                         disabled={isExporting}
                                     />
-                                    <span>Help Topics (question-specific)</span>
+                                    <span>Master Help Topics & Children</span>
                                 </div>
                                 <span className="text-sm text-gray-500">({counts.content.helpTopics})</span>
+                            </label>
+
+                            <label className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportData.stepHelp}
+                                        onChange={(e) => handleExportChange('stepHelp', e.target.checked)}
+                                        className="mr-3 h-4 w-4 text-indigo-600 rounded border-gray-300"
+                                        disabled={isExporting}
+                                    />
+                                    <span>Master Step Help & Children</span>
+                                </div>
+                                <span className="text-sm text-gray-500">({counts.content.stepHelp})</span>
                             </label>
 
                             <label className="flex items-center justify-between">
