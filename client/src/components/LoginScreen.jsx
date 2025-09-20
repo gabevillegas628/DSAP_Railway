@@ -379,8 +379,8 @@ const LoginScreen = ({ onLogin }) => {
             </div>
 
             {/* Overlapping Login Card - fixed positioning, center-based growth */}
-<div className="absolute inset-0 flex items-center justify-end pr-32 z-20 pointer-events-none">
-    <div className="flex justify-center items-center pointer-events-auto">
+            <div className="absolute inset-0 flex items-center justify-end pr-32 z-20 pointer-events-none">
+                <div className="flex justify-center items-center pointer-events-auto">
                     {/* Error Messages */}
                     {error && (
                         <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 w-full max-w-md p-4 bg-red-50 border border-red-200 rounded-lg shadow-lg">
@@ -428,8 +428,10 @@ const LoginScreen = ({ onLogin }) => {
 
                     {/* Login Form Card */}
                     <div className={`bg-white rounded-2xl shadow-2xl border border-blue-200 overflow-hidden backdrop-blur-sm transition-all duration-500 ease-in-out transform-gpu origin-center ${isRegistering && shouldCollectDemographics
-                        ? 'w-[60rem] h-[85vh] overflow-y-auto'
-                        : 'w-[28rem] h-[32rem]'
+                            ? 'w-[60rem] h-[85vh] overflow-y-auto'           // Registration WITH demographics
+                            : isRegistering
+                                ? 'w-[32rem] h-[40rem]'                      // Registration WITHOUT demographics  
+                                : 'w-[28rem] h-[32rem]'                      // Sign in only
                         }`}>
                         <div className="bg-blue-800 px-6 py-5">
                             <h2 className="text-2xl font-bold text-white text-center">
