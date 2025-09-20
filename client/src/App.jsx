@@ -5,6 +5,7 @@ import { DNAProvider } from './context/DNAContext';
 import { ProgramSettingsProvider } from './context/ProgramSettingsContext';
 import TitleManager from './components/TitleManager';
 import LoginScreen from './components/LoginScreen';
+import LoginScreenMobile from './components/LoginScreenMobile';
 import Navigation from './components/Navigation';
 import DirectorDashboard from './components/DirectorDashboard';
 import InstructorDashboard from './components/InstructorDashboard';
@@ -12,7 +13,24 @@ import StudentDashboard from './components/StudentDashboard';
 import StudentHelp from './components/StudentHelp';
 import ResetPasswordPage from './components/ResetPasswordPage';
 
+const useIsMobile = () => {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+};
+
 const App = () => {
+  const isMobile = useIsMobile();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -103,7 +121,13 @@ const App = () => {
               {/* Main app routes */}
               <Route path="/*" element={
                 !currentUser ? (
-                  <LoginScreen onLogin={loginAs} />
+                  <div>
+            {isMobile ? (
+                <LoginScreenMobile onLogin={loginAs} />
+            ) : (
+                <LoginScreen onLogin={loginAs} />
+            )}
+        </div>
                 ) : (
                   <div className="min-h-screen bg-gray-50">
                     <Navigation currentUser={currentUser} onLogout={logout} />
