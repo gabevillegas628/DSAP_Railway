@@ -9195,7 +9195,7 @@ app.get('/api/clone-discussions/:studentId/:cloneId', async (req, res) => {
     const cloneIdValue = (cloneId === 'general' || cloneId === 'null') ? null : parseInt(cloneId);
 
     // NEW: Determine if this is a practice clone or regular clone
-    let isePracticeClone = false;
+    let isPracticeClone = false;
     let practiceClone = null;
     let regularClone = null;
 

@@ -126,8 +126,6 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
   const [analysisQuestions, setAnalysisQuestions] = useState([]);
   const [expandedAnswers, setExpandedAnswers] = useState(new Set());
   const [expandedSections, setExpandedSections] = useState(new Set()); // Start with all sections closed
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [currentViewingSection, setCurrentViewingSection] = useState('blast');
   const [cloneTypeFilter, setCloneTypeFilter] = useState('all'); // 'all', 'practice', 'regular'
   const [commonFeedbackOptions, setCommonFeedbackOptions] = useState([]);
   const [practiceAnswers, setPracticeAnswers] = useState([]); // New state for practice answers
@@ -145,8 +143,6 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
   const [sendingMessages, setSendingMessages] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [statusChangeLoading, setStatusChangeLoading] = useState(false);
-  const [showNCBIDropdown, setShowNCBIDropdown] = useState(false);
-
 
 
 
@@ -167,39 +163,6 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
 
     loadCommonFeedback();
   }, []);
-
-  const handleNCBIStatusChange = async (ncbiStatus) => {
-  try {
-    // Update the submission with the new NCBI status
-    // You'll need to implement the API call based on your backend structure
-    await apiService.put(`/submissions/${selectedSubmission.id}/ncbi-status`, {
-      ncbiStatus: ncbiStatus
-    });
-    
-    // Update local state
-    setSelectedSubmission(prev => ({
-      ...prev,
-      ncbiStatus: ncbiStatus
-    }));
-    
-    console.log(`NCBI status updated to: ${ncbiStatus}`);
-  } catch (error) {
-    console.error('Error updating NCBI status:', error);
-    alert('Failed to update NCBI status');
-  }
-};
-
-// Add click outside handler to close dropdown
-useEffect(() => {
-  const handleClickOutside = (event) => {
-    if (showNCBIDropdown && !event.target.closest('.relative')) {
-      setShowNCBIDropdown(false);
-    }
-  };
-
-  document.addEventListener('mousedown', handleClickOutside);
-  return () => document.removeEventListener('mousedown', handleClickOutside);
-}, [showNCBIDropdown]);
 
 
 
@@ -225,7 +188,6 @@ useEffect(() => {
     }
     return null;
   };
-
 
   const checkForExistingDiscussion = async (studentId, cloneId) => {
     try {
@@ -809,7 +771,7 @@ useEffect(() => {
             <div className="flex items-center space-x-2 mb-1">
               <span className={`text-sm font-medium ${isCorrect ? 'text-green-800' : 'text-red-800'
                 }`}>
-                {isCorrect ? 'AutoGrade Correct' : 'Incorrect'}
+                {isCorrect ? 'Correct Answer' : 'Incorrect'}
               </span>
               {!isCorrect && (
                 question.type === 'blast' ? (
@@ -1309,7 +1271,12 @@ useEffect(() => {
 
       // Validate status transition
       const newStatusValue = statusMap[newStatus];
-
+      if (!isValidStatusTransition(selectedSubmission.status, newStatusValue)) {
+        console.warn('Invalid status transition attempted:', selectedSubmission.status, '->', newStatusValue);
+        alert('Invalid status transition. Please refresh and try again.');
+        setSaving(false);
+        return;
+      }
 
       // Collect all comments
       const allComments = [
@@ -1518,23 +1485,6 @@ useEffect(() => {
       });
   };
 
-  // Helper function to get question status for the new layout
-  const getQuestionStatus = (question, submission) => {
-    const correctComment = reviewData.comments?.find(c =>
-      c.questionId === question.id && c.comment === 'Correct!'
-    );
-    if (correctComment) return 'correct';
-
-    const hasComment = reviewData.comments?.find(c => c.questionId === question.id);
-    if (hasComment && hasComment.comment !== 'Correct!') return 'incorrect';
-
-    return 'pending';
-  };
-
-  // Helper function to check if question is marked correct (for button styling)
-  const isQuestionCorrect = (questionId) => {
-    return reviewData.comments?.find(c => c.questionId === questionId && c.comment === 'Correct!');
-  };
 
   // CORRECTED renderAnswerContent function (remove the useEffect from inside)
   // In renderAnswerContent, replace the parameter logic:
@@ -1876,491 +1826,630 @@ useEffect(() => {
 
   return (
     <>
-      <div className="h-[75vh] bg-gray-50 flex overflow-hidden border border-gray-200 rounded-lg shadow-sm">
-        {/* Collapsible Sidebar */}
-        <div className={`${sidebarCollapsed ? 'w-16' : 'w-80'} bg-white border-r border-gray-200 transition-all duration-300 flex-shrink-0 flex flex-col overflow-hidden`}>
-          {/* Sidebar Header with Collapse Toggle */}
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-            {!sidebarCollapsed && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Review Queue</h3>
-                <p className="text-sm text-gray-600">{filteredSubmissions.length} submissions</p>
-              </div>
-            )}
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        {/* Header */}
+
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+          <div className="flex items-center space-x-3">
+            {/* Clone Type Toggle */}
+            <div className="flex bg-white/10 rounded-xl p-1 backdrop-blur-sm border border-white/20">
+              <button
+                onClick={() => setCloneTypeFilter('all')}
+                className={`px-3 py-1 text-xs rounded-lg transition-all ${cloneTypeFilter === 'all'
+                  ? 'bg-white text-blue-600 shadow-sm font-medium'
+                  : 'text-white hover:bg-white/10'
+                  }`}
+              >
+                All ({counts.practice + counts.regular})
+              </button>
+              <button
+                onClick={() => setCloneTypeFilter('practice')}
+                className={`px-3 py-1 text-xs rounded-lg transition-all ${cloneTypeFilter === 'practice'
+                  ? 'bg-white text-blue-600 shadow-sm font-medium'
+                  : 'text-white hover:bg-white/10'
+                  }`}
+              >
+                PC's ({counts.practice})
+              </button>
+              <button
+                onClick={() => setCloneTypeFilter('regular')}
+                className={`px-3 py-1 text-xs rounded-lg transition-all ${cloneTypeFilter === 'regular'
+                  ? 'bg-white text-blue-600 shadow-sm font-medium'
+                  : 'text-white hover:bg-white/10'
+                  }`}
+              >
+                Unknowns ({counts.regular})
+              </button>
+            </div>
+
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-white/50"
             >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 rotate-90" />}
-            </button>
-          </div>
+              <option value="pending" className="text-gray-900">Pending Review ({counts.pending})</option>
+              <option value="resubmitted" className="text-gray-900">Resubmitted ({counts.resubmitted})</option>
+              <option value="teacher_reviewed" className="text-gray-900">Teacher Reviewed ({counts.teacher_reviewed})</option>
+              <option value="all" className="text-gray-900">All Submissions ({counts.all})</option>
+            </select>
 
-          {/* Sidebar Content */}
-          <div className="flex-1 overflow-y-auto">
-            {sidebarCollapsed ? (
-              // Collapsed view - show avatars and status dots
-              <div className="p-2 space-y-3">
-                {filteredSubmissions.slice(0, 10).map(submission => (
-                  <div
-                    key={submission.id}
-                    onClick={() => selectSubmission(submission)}
-                    className={`relative w-12 h-12 rounded-full cursor-pointer transition-all ${selectedSubmission?.id === submission.id
-                      ? 'ring-2 ring-blue-500 ring-offset-2'
-                      : 'hover:ring-2 hover:ring-gray-300'
-                      }`}
-                  >
-                    {/* Student Avatar */}
-                    <div className="w-full h-full bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                      {submission.assignedTo.name.charAt(0)}
-                    </div>
-                    {/* Status Indicator */}
-                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${submission.reviewStatus === 'pending' ? 'bg-yellow-500' :
-                      submission.reviewStatus === 'resubmitted' ? 'bg-orange-500' :
-                        submission.reviewStatus === 'teacher_reviewed' ? 'bg-green-500' :
-                          'bg-gray-400'
-                      }`} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              // Expanded view - keep your existing submission list structure
-              <div className="p-4">
-                {/* Filters */}
-                <div className="mb-4">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <select
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    >
-                      <option value="all">All Submissions</option>
-                      <option value="pending">Pending Review</option>
-                      <option value="resubmitted">Resubmitted</option>
-                      <option value="teacher_reviewed">Teacher Reviewed</option>
-                    </select>
-
-                    <select
-                      value={cloneTypeFilter}
-                      onChange={(e) => setCloneTypeFilter(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    >
-                      <option value="all">All Types</option>
-                      <option value="regular">Regular Clones</option>
-                      <option value="practice">Practice Clones</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Submissions List */}
-                {filteredSubmissions.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">No Submissions</h4>
-                    <p className="text-gray-500">
-                      {filter === 'pending' ? 'No submissions awaiting review' :
-                        filter === 'resubmitted' ? 'No resubmitted analyses waiting for review' :
-                          'No submissions found'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredSubmissions.map(submission => (
-                      <div
-                        key={submission.id}
-                        onClick={() => selectSubmission(submission)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm ${selectedSubmission?.id === submission.id
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 text-sm truncate flex-1 mr-2">{submission.cloneName}</h4>
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${submission.reviewStatus === 'pending' ? 'bg-amber-100 text-amber-800' :
-                            submission.reviewStatus === 'resubmitted' ? 'bg-purple-100 text-purple-800' :
-                              submission.reviewStatus === 'teacher_reviewed' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-600'
-                            }`}>
-                            {submission.reviewStatus === 'pending' ? 'Pending' :
-                              submission.reviewStatus === 'resubmitted' ? 'Resubmitted' :
-                                submission.reviewStatus === 'teacher_reviewed' ? 'Teacher Reviewed' :
-                                  'Unknown'}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          <p className="truncate">{submission.assignedTo.name}</p>
-                          <p>{submission.assignedTo.school?.name}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-white/50"
+            >
+              <option value="submitted" className="text-gray-900">Latest Submitted</option>
+              <option value="student" className="text-gray-900">Student Name</option>
+              <option value="clone" className="text-gray-900">Clone Name</option>
+              <option value="progress" className="text-gray-900">Progress</option>
+            </select>
           </div>
         </div>
 
-        {/* Main Content Area - New Layout */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel: Narrow Analysis Navigation (20%) */}
-          <div className="w-1/5 bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
-            {selectedSubmission ? (
-              <>
-                {/* Student Info */}
-                <div className="p-4 bg-white border-b border-gray-200 flex-shrink-0">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                      {selectedSubmission.assignedTo.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{selectedSubmission.assignedTo.name}</h3>
-                      <p className="text-sm text-gray-600">{selectedSubmission.cloneName}</p>
-                      <p className="text-xs text-gray-500">Submitted {new Date(selectedSubmission.submittedAt).toLocaleDateString()}</p>
-                    </div>
+        <div className="flex min-h-[600px]">
+          {/* Submissions List */}
+          <div className="w-2/5 border-r border-gray-200 bg-gray-50">
+            <div className="p-6">
+              {filteredSubmissions.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="w-8 h-8 text-gray-400" />
                   </div>
-
-                  {/* Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
-                      <span>Progress</span>
-                      <span>7/9 questions</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '78%' }}></div>
-                    </div>
-                  </div>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Submissions</h4>
+                  <p className="text-gray-500">
+                    {filter === 'pending' ? 'No submissions awaiting review' :
+                      filter === 'resubmitted' ? 'No resubmitted analyses waiting for review' :
+                        'No submissions found'}
+                  </p>
                 </div>
-
-                {/* Analysis Sections Navigation */}
-                <div className="flex-1 p-4 overflow-y-auto">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Analysis Sections</h4>
-                  <div className="space-y-1">
-                    {analysisSteps.map(step => {
-                      const questionsInSection = getQuestionsForSection(step.id, selectedSubmission.answers);
-                      const isCurrentSection = currentViewingSection === step.id;
-                      const colorClasses = {
-                        blue: 'border-blue-500 bg-blue-50',
-                        green: 'border-green-500 bg-green-50',
-                        purple: 'border-purple-500 bg-purple-50',
-                        orange: 'border-orange-500 bg-orange-50'
-                      };
-
-                      return (
-                        <button
-                          key={step.id}
-                          onClick={() => setCurrentViewingSection(step.id)}
-                          className={`w-full p-2 rounded-lg text-left transition-all ${isCurrentSection
-                            ? `border-2 ${colorClasses[step.color]}`
-                            : 'border border-gray-200 bg-white hover:bg-gray-50'
-                            }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <span className="font-medium text-sm">{step.name}</span>
-                              <span className="text-xs text-gray-500 ml-2">
-                                ({questionsInSection.length} question{questionsInSection.length !== 1 ? 's' : ''})
-                              </span>
-                            </div>
-                            {/* Status indicator */}
-                            <div className={`w-4 h-4 rounded-full ${questionsInSection.every(q => getQuestionStatus(q, selectedSubmission) === 'correct')
-                              ? 'bg-green-500'
-                              : questionsInSection.some(q => getQuestionStatus(q, selectedSubmission) === 'incorrect')
-                                ? 'bg-red-500'
-                                : 'bg-yellow-500'
-                              }`}>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Quick Review Actions */}
-                <div className="p-4 border-t border-gray-200 space-y-2 flex-shrink-0">
-                  Quick Actions:
-                  {selectedSubmission.type === 'practice' && (
-                    <button
-                      onClick={() => {
-                        setReviewData(prev => ({ ...prev, score: 100 }));
-                        submitReview('approved');
-                      }}
-                      disabled={saving}
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+              ) : (
+                <div className="space-y-2">
+                  {filteredSubmissions.map(submission => (
+                    <div
+                      key={submission.id}
+                      onClick={() => selectSubmission(submission)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm ${selectedSubmission?.id === submission.id
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}
                     >
-                      <CheckCircle className="w-5 h-5" />
-                      <span>Mark PC Complete</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => submitReview('approved')}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    ✓ Approve All
-                  </button>
-                  <button
-                    onClick={() => submitReview('rejected')}
-                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                  >
-                    ✗ Reject
-                  </button>
-                  <div className="relative">
-                    {/* NCBI Status Dropdown */}
-                    <button
-                      onClick={() => setShowNCBIDropdown(!showNCBIDropdown)}
-                      className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                    >
-                      <span>NCBI Statuses</span>
-                      <ChevronDown className={`w-4 h-4 transition-transform ${showNCBIDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showNCBIDropdown && (
-                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                        <button
-                          onClick={() => {
-                            handleNCBIStatusChange('Ready to submit to NCBI');
-                            setShowNCBIDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
-                        >
-                          Ready to submit to NCBI
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleNCBIStatusChange('Unreadable');
-                            setShowNCBIDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg border-t border-gray-100"
-                        >
-                          Unreadable
-                        </button>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-gray-900 text-sm truncate flex-1 mr-2">{submission.cloneName}</h4>
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${submission.reviewStatus === 'pending' ? 'bg-amber-100 text-amber-800' :
+                          submission.reviewStatus === 'resubmitted' ? 'bg-purple-100 text-purple-800' :
+                            submission.reviewStatus === 'teacher_reviewed' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-600'
+                          }`}>
+                          {submission.reviewStatus === 'pending' ? 'Pending' :
+                            submission.reviewStatus === 'resubmitted' ? 'Resubmitted' :
+                              submission.reviewStatus === 'teacher_reviewed' ? 'Teacher Reviewed' :
+                                'Unknown'}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-8 text-center">
-                <div>
-                  <Eye className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Select a submission to review</p>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Right Panel: Large Review Panel (80%) */}
-          <div className="flex-1 bg-white flex flex-col overflow-hidden">
-            {selectedSubmission ? (
-              <>
-                {/* Review Panel Header */}
-                <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+                      <div className="text-xs text-gray-600 mb-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium truncate">{submission.assignedTo.name}</span>
+                          <span className="text-gray-500">{formatTimeAgo(submission.submittedAt)}</span>
+                        </div>
+                        <div className="text-gray-500 truncate mt-1">{submission.assignedTo.school?.name}</div>
+                      </div>
 
-                  {/* File Action Buttons Row */}
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => downloadFile(selectedSubmission)}
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Download .ab1</span>
-                      </button>
-
-                      <button
-                        onClick={handleChromatogramToggle}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-sm ${showChromatogram
-                          ? 'bg-purple-600 text-white hover:bg-purple-700'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                      >
-                        <BarChart3 className="w-4 h-4" />
-                        <span>{showChromatogram ? 'Hide Chromatogram' : 'Show Chromatogram'}</span>
-                      </button>
-                    </div>
-                    {/* Chromatogram Section */}
-                    {showChromatogram && (
-                      <div className="mt-6 border-t border-gray-200 pt-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                          <BarChart3 className="w-5 h-5 text-purple-600" />
-                          <span>Chromatogram Viewer</span>
-                        </h3>
-
-                        {loadingChromatogram ? (
-                          <div className="bg-gray-50 rounded-lg p-8 text-center">
-                            <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                            <p className="text-gray-600">Loading chromatogram data...</p>
-                          </div>
-                        ) : chromatogramData ? (
-                          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                            <ChromatogramViewer
-                              fileData={chromatogramData}
-                              fileName={selectedSubmission.filename || selectedSubmission.originalName || selectedSubmission.cloneName}
-                              fileType={selectedSubmission.type}
-                              onClose={() => setShowChromatogram(false)}
-                            />
-                          </div>
-                        ) : (
-                          <div className="bg-gray-50 rounded-lg p-8 text-center">
-                            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600">No chromatogram data available</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-1">
+                          <BarChart3 className="w-3 h-3 text-indigo-500" />
+                          <span className="font-medium text-indigo-600">{submission.progress}%</span>
+                        </div>
+                        {submission.reviewScore && (
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-3 h-3 text-yellow-500" />
+                            <span className="font-medium text-gray-700">{submission.reviewScore}/100</span>
                           </div>
                         )}
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+
+          <div className="w-3/5 bg-white">
+            {selectedSubmission ? (
+              <div className="h-full flex flex-col">
+                {/* Review Header */}
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
+                        🧬 {selectedSubmission.cloneName}
+                      </h3>
+                      <p className="text-gray-600 flex items-center space-x-2">
+                        <span className="font-medium">{selectedSubmission.assignedTo.name}</span>
+                        <span>•</span>
+                        <span>{selectedSubmission.assignedTo.school?.name}</span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      {/* chromatogram button */}
+                      {selectedSubmission && (
+                        <button
+                          onClick={handleChromatogramToggle}
+                          disabled={loadingChromatogram}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-all duration-200"
+                        >
+                          {loadingChromatogram ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <BarChart3 className="w-4 h-4" />
+                          )}
+                          <span>{showChromatogram ? 'Hide Chromatogram' : 'View Chromatogram'}</span>
+                        </button>
+                      )}
+
+                      {selectedSubmission.type === 'practice' ? (
+                        // Practice clone - no download, but show message option
+                        <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg flex items-center space-x-2">
+                          <FileText className="w-4 h-4" />
+                          <span>Practice Clone</span>
+                        </div>
+                      ) : (
+                        // Regular clone - show download button
+                        <button
+                          onClick={() => downloadFile(selectedSubmission)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-sm"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download .ab1</span>
+                        </button>
+                      )}
+
+
+                      <button
+                        onClick={() => setShowFeedbackModal(true)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 shadow-sm"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>Send Message</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Progress Info */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <span className="text-gray-500 block">Completion</span>
+                      <span className="font-bold text-lg text-blue-600">{selectedSubmission.progress}%</span>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <span className="text-gray-500 block">Current Step</span>
+                      <span className="font-medium text-gray-900">{selectedSubmission.currentStep}</span>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <span className="text-gray-500 block">Submitted</span>
+                      <span className="font-medium text-gray-900">{new Date(selectedSubmission.submittedAt).toLocaleDateString()}</span>
+                    </div>
+                    {selectedSubmission.type === 'practice' && practiceAnswers.length > 0 ? (
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <span className="text-gray-500 block">Auto-Grade</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-lg text-green-600">
+                            {Object.keys(selectedSubmission.answers || {}).filter(qId =>
+                              isStudentAnswerCorrect(qId, selectedSubmission.answers[qId])
+                            ).length}
+                          </span>
+                          <span className="text-gray-400">/</span>
+                          <span className="font-bold text-lg text-gray-600">
+                            {practiceAnswers.length}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <span className="text-gray-500 block">Sections</span>
+                        <span className="font-bold text-lg text-green-600">{getSectionsWithAnswers(selectedSubmission.answers).size}</span>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Scrollable Content Area */}
-                <div className="flex-1 overflow-y-auto p-4">
-                  {/* Two-Column Questions Layout */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {getQuestionsForSection(currentViewingSection, selectedSubmission.answers).map((question, index) => (
-                      <div key={question.id} className={`border rounded-lg p-4 bg-white ${isQuestionCorrect(question.id)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200'
-                        }`}>
-                        {/* Question Header */}
-                        <div className={`-mx-4 -mt-4 px-4 py-2 mb-3 ${isQuestionCorrect(question.id)
-                          ? 'bg-green-100'
-                          : 'bg-gray-50'
-                          }`}>
-                          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                            {isQuestionCorrect(question.id) && (
-                              <CheckCircle className="w-5 h-5 text-green-600" />
-                            )}
-                            Q{index + 1}: {getQuestionText(question.id)}
-                          </h3>
-                        </div>
-
-                        {/* Student Answer */}
-                        <div className="mb-3">
-                          <p className="text-sm font-medium text-gray-700 mb-2">Student Answer:</p>
-                          <div className="bg-gray-50 p-3 rounded border text-sm">
-                            {renderAnswerContent(question, selectedSubmission.answers[question.id])}
-                          </div>
-
-                          {/* Practice Answer Comparison */}
-                          {selectedSubmission.type === 'practice' &&
-                            renderPracticeAnswerComparison(question, selectedSubmission.answers[question.id])
-                          }
-                        </div>
-
-                        {/* Review Section */}
-                        <div className="space-y-3">
-                          <p className="text-sm font-medium text-gray-700">Your Review:</p>
-
-                          {/* Feedback text input */}
-                          <input
-                            type="text"
-                            className="w-full p-2 border rounded text-sm"
-                            placeholder="Add feedback..."
-                            data-question-id={question.id}
-                            defaultValue={reviewData.comments?.find(c => c.questionId === question.id)?.comment || ''}
-                          />
-                          {/* Common Feedback Dropdown - only show if options exist */}
-                          {getCommonFeedbackForQuestion(question.id).length > 0 && (
-                            <select
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  const selectedOption = getCommonFeedbackForQuestion(question.id).find(
-                                    option => option.id === parseInt(e.target.value)
-                                  );
-                                  if (selectedOption) {
-                                    selectCommonFeedback(question.id, selectedOption.text);
-                                  }
-                                  setTimeout(() => {
-                                    e.target.value = '';
-                                  }, 100);
-                                }
-                              }}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">Select common feedback...</option>
-                              {getCommonFeedbackForQuestion(question.id).map(option => (
-                                <option key={option.id} value={option.id}>
-                                  {option.title}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-
-                          {/* Simplified Action Buttons */}
-                          <div className="space-y-2">
-                            {/* Mark Correct Button */}
-                            <button
-                              onClick={() => markQuestionAsCorrect(question.id)}
-                              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-green-700"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Mark Correct
-                            </button>
-                            {/* Submit Feedback Button */}
-                            <button
-                              onClick={() => {
-                                const input = document.querySelector(`input[data-question-id="${question.id}"]`);
-                                if (input && input.value.trim()) {
-                                  addComment(question.id, input.value.trim());
-                                  input.value = '';
-                                }
-                              }}
-                              className="w-full bg-blue-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-blue-700"
-                            >
-                              Submit Feedback
-                            </button>
-                          </div>
+                {/* Chromatogram Viewer Component */}
+                {showChromatogram && selectedSubmission && (
+                  <div className="mb-6">
+                    {loadingChromatogram ? (
+                      <div className="bg-white rounded-lg border p-6">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                          <p className="text-gray-600">Loading .ab1 file data...</p>
+                          <p className="text-sm text-gray-500 mt-2">
+                            {selectedSubmission.type === 'assigned' ? 'Downloading and parsing sequence file...' : 'Preparing sequence data...'}
+                          </p>
                         </div>
                       </div>
-                    ))}
+                    ) : chromatogramData ? (
+                      <ChromatogramViewer
+                        fileData={chromatogramData}
+                        fileName={selectedSubmission.filename || selectedSubmission.originalName || selectedSubmission.cloneName}
+                        fileType={selectedSubmission.type}
+                        onClose={() => setShowChromatogram(false)}
+                      />
+                    ) : (
+                      <div className="bg-white rounded-lg border p-6">
+                        <div className="text-center">
+                          <p className="text-red-600 mb-2">Unable to load chromatogram data</p>
+                          <button
+                            onClick={() => {
+                              setChromatogramData(null);
+                              loadChromatogramData();
+                            }}
+                            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                            Try Again
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  {/* Show message if no questions in section */}
-                  {getQuestionsForSection(currentViewingSection, selectedSubmission.answers).length === 0 && (
-                    <div className="text-center py-12">
-                      <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No questions in this section yet.</p>
-                    </div>
-                  )}
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  {/* Student Answers */}
+                  <div className="mb-8">
+                    <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center space-x-2">
+                      <Award className="w-5 h-5 text-blue-600" />
+                      <span>Student Analysis by Section</span>
+                    </h4>
 
-                  {/* Chromatogram Section */}
-                  {showChromatogram && (
-                    <div className="mt-6 border-t border-gray-200 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                        <BarChart3 className="w-5 h-5 text-purple-600" />
-                        <span>Chromatogram Viewer</span>
-                      </h3>
+                    {/* Analysis Sections */}
+                    <div className="space-y-4">
+                      {analysisSteps.map(step => {
+                        const questionsInSection = getQuestionsForSection(step.id, selectedSubmission.answers);
 
-                      {loadingChromatogram ? (
-                        <div className="bg-gray-50 rounded-lg p-8 text-center">
-                          <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                          <p className="text-gray-600">Loading chromatogram data...</p>
-                        </div>
-                      ) : chromatogramData ? (
-                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                          <ChromatogramViewer
-                            fileData={chromatogramData}
-                            fileName={selectedSubmission.filename || selectedSubmission.originalName || selectedSubmission.cloneName}
-                            fileType={selectedSubmission.type}
-                            onClose={() => setShowChromatogram(false)}
-                          />
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 rounded-lg p-8 text-center">
-                          <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-600">No chromatogram data available</p>
+                        // Only show sections that have answers
+                        if (questionsInSection.length === 0) {
+                          return null;
+                        }
+
+                        const isExpanded = expandedSections.has(step.id);
+                        const colorClasses = {
+                          blue: 'border-blue-200 bg-blue-50',
+                          green: 'border-green-200 bg-green-50',
+                          purple: 'border-purple-200 bg-purple-50',
+                          orange: 'border-orange-200 bg-orange-50'
+                        };
+
+                        return (
+                          <div key={step.id} className={`border-2 rounded-xl overflow-hidden ${colorClasses[step.color]}`}>
+                            {/* Section Header */}
+                            <button
+                              onClick={() => toggleSection(step.id)}
+                              className="w-full px-6 py-4 flex items-center justify-between hover:bg-black/5 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className="text-2xl">{step.icon}</span>
+                                <div className="text-left">
+                                  <h5 className="font-semibold text-gray-900">{step.name}</h5>
+                                  <p className="text-sm text-gray-600">{step.description}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <span className="bg-white px-3 py-1 rounded-full text-sm font-medium text-gray-700 shadow-sm">
+                                  {questionsInSection.length} question{questionsInSection.length !== 1 ? 's' : ''}
+                                </span>
+                                {isExpanded ?
+                                  <ChevronUp className="w-5 h-5 text-gray-600" /> :
+                                  <ChevronDown className="w-5 h-5 text-gray-600" />
+                                }
+                              </div>
+                            </button>
+
+                            {/* Section Content */}
+                            <div className={`section-content ${isExpanded ? 'expanded' : 'collapsed'}`}>
+                              <div className="border-t border-gray-200 bg-white p-6">
+                                <div className="space-y-6">
+                                  {questionsInSection.map((question, index) => {
+                                    const answer = selectedSubmission.answers[question.id];
+                                    const correctComment = reviewData.comments?.find(c =>
+                                      c.questionId === question.id && c.comment === 'Correct!'
+                                    );
+                                    const isMarkedCorrect = !!correctComment;
+
+                                    return (
+                                      <div
+                                        key={question.id}
+                                        className={`border rounded-lg p-3 ${isMarkedCorrect ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}
+                                      >
+                                        {/* Compact Question Header */}
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded">
+                                              Q{index + 1}
+                                            </span>
+                                            {isMarkedCorrect && (
+                                              <CheckCircle className="w-4 h-4 text-green-600" title="Marked correct" />
+                                            )}
+                                            <p className="font-medium text-sm text-gray-900 flex-1">
+                                              {getQuestionText(question.id)}
+                                            </p>
+                                          </div>
+                                          <button
+                                            onClick={() => toggleQuestionCorrect(question.id)}
+                                            className={`px-2 py-1 text-xs rounded transition-colors flex items-center space-x-1 flex-shrink-0 ${isMarkedCorrect
+                                              ? 'bg-red-600 text-white hover:bg-red-700'
+                                              : 'bg-green-600 text-white hover:bg-green-700'
+                                              }`}
+                                          >
+                                            {isMarkedCorrect ? (
+                                              <>
+                                                <XCircle className="w-3 h-3" />
+                                                <span>Remove</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <CheckCircle className="w-3 h-3" />
+                                                <span>Correct</span>
+                                              </>
+                                            )}
+                                          </button>
+                                        </div>
+
+                                        {/* Compact Answer Display */}
+                                        <div className="mb-3">
+                                          {renderAnswerContent(question, answer)}
+                                        </div>
+
+                                        {renderPracticeAnswerComparison(question, answer)}
+
+                                        {/* Enhanced Comment Input with Common Feedback */}
+                                        <div className="space-y-3">
+                                          {/* Common Feedback Options */}
+                                          {(() => {
+                                            const commonOptions = getCommonFeedbackForQuestion(question.id);
+                                            if (commonOptions.length > 0) {
+                                              // Sort alphabetically by title
+                                              const sortedOptions = [...commonOptions].sort((a, b) =>
+                                                a.title.localeCompare(b.title)
+                                              );
+
+                                              return (
+                                                <div>
+                                                  <p className="text-xs text-gray-600 mb-2 font-medium">Quick feedback templates:</p>
+                                                  <select
+                                                    onChange={(e) => {
+                                                      if (e.target.value) {
+                                                        const selectedOption = sortedOptions.find(option => option.id.toString() === e.target.value);
+                                                        if (selectedOption) {
+                                                          selectCommonFeedback(question.id, selectedOption.text);
+                                                        }
+                                                        e.target.value = '';
+                                                      }
+                                                    }}
+                                                    className="max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                                  >
+                                                    <option value="">Select feedback template...</option>
+                                                    {sortedOptions.map(option => (
+                                                      <option key={option.id} value={option.id} title={option.text}>
+                                                        {option.title}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+
+                                          {/* Custom Feedback Input */}
+                                          <div className="flex items-center space-x-2">
+                                            <input
+                                              type="text"
+                                              data-question-id={question.id}
+                                              placeholder="Or enter custom feedback..."
+                                              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                              onKeyPress={(e) => {
+                                                if (e.key === 'Enter' && e.target.value.trim()) {
+                                                  addComment(question.id, e.target.value.trim());
+                                                  e.target.value = '';
+                                                }
+                                              }}
+                                            />
+                                            <button
+                                              onClick={() => {
+                                                const input = document.querySelector(`input[data-question-id="${question.id}"]`);
+                                                if (input && input.value.trim()) {
+                                                  addComment(question.id, input.value.trim());
+                                                  input.value = '';
+                                                }
+                                              }}
+                                              className="px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                            >
+                                              Add
+                                            </button>
+                                          </div>
+
+                                          {/* Existing Comments Display */}
+                                          {reviewData.comments?.filter(c => c.questionId === question.id).map((comment, idx) => (
+                                            <div
+                                              key={idx}
+                                              className={`p-2 rounded text-sm ${comment.comment === 'Correct!'
+                                                ? 'text-green-700 bg-green-100 border border-green-200'
+                                                : 'text-blue-700 bg-blue-50 border border-blue-200'
+                                                }`}
+                                            >
+                                              <div className="flex items-center space-x-1">
+                                                {comment.comment === 'Correct!' && (
+                                                  <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
+                                                )}
+                                                <span className="font-medium">{comment.comment}</span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* No Sections Message */}
+                      {getSectionsWithAnswers(selectedSubmission.answers).size === 0 && (
+                        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FileText className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <h5 className="text-lg font-medium text-gray-900 mb-2">No Answers Submitted</h5>
+                          <p className="text-gray-500">This student hasn't provided any answers yet.</p>
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Review Controls */}
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 space-y-6">
+                    <h4 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
+                      <Star className="w-5 h-5 text-yellow-500" />
+                      <span>Final Review</span>
+                    </h4>
+
+                    {/* Practice Clone Quick Complete Button - Only for practice clones */}
+                    {selectedSubmission.type === 'practice' && (
+                      <div className="mb-4">
+                        <button
+                          onClick={() => {
+                            setReviewData(prev => ({ ...prev, score: 100 }));
+                            submitReview('approved');
+                          }}
+                          disabled={saving}
+                          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-500 transition-all duration-200 flex items-center justify-center space-x-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] mb-4"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                          <span>Mark Practice Clone Complete (Score: 100)</span>
+                        </button>
+                        <div className="text-center text-sm text-gray-600 mb-4">
+                          or use standard review options below:
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Remove the Score Input section for regular clones, keep it only for practice if needed */}
+                    {selectedSubmission.type === 'practice' && (
+                      <div className="flex items-center space-x-4">
+                        <label className="text-sm font-semibold text-gray-700">
+                          Manual Score (optional):
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={reviewData.score || 0}
+                            onChange={(e) => updateScore(parseInt(e.target.value) || 0)}
+                            className="w-20 px-3 py-2 text-center border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-lg"
+                          />
+                          <span className="text-sm text-gray-600">/ 100</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons - Keep these for all clone types */}
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => submitReview('approved')}
+                        disabled={saving}
+                        className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-6 rounded-xl hover:from-green-700 hover:to-green-800 disabled:from-green-400 disabled:to-green-500 transition-all duration-200 flex items-center justify-center space-x-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Approve & Mark Complete</span>
+                      </button>
+
+                      <button
+                        onClick={() => submitReview('rejected')}
+                        disabled={saving}
+                        className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 px-6 rounded-xl hover:from-red-700 hover:to-red-800 disabled:from-red-400 disabled:to-red-500 transition-all duration-200 flex items-center justify-center space-x-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                      >
+                        <XCircle className="w-5 h-5" />
+                        <span>Request Revision</span>
+                      </button>
+                    </div>
+
+                    {/* Director Status Controls - Only show for teacher-reviewed items */}
+                    {selectedSubmission?.reviewStatus === 'teacher_reviewed' && (
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mt-6">
+                        <h4 className="text-lg font-bold text-gray-900 flex items-center space-x-2 mb-4">
+                          <Settings className="w-5 h-5 text-indigo-600" />
+                          <span>Director Actions</span>
+                        </h4>
+
+                        <div className="space-y-3">
+                          <p className="text-sm text-gray-600 mb-3">
+                            This submission has been reviewed and approved by the instructor.
+                            Select the appropriate next action:
+                          </p>
+
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                              disabled={statusChangeLoading}
+                              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-xl hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors flex items-center justify-between font-medium"
+                            >
+                              <span>Change Status</span>
+                              <ChevronDown className={`w-4 h-4 transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showStatusDropdown && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                                {DIRECTOR_STATUS_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    onClick={() => handleStatusChange(option.value)}
+                                    disabled={statusChangeLoading}
+                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-50 transition-colors first:rounded-t-xl last:rounded-b-xl border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <div className="font-medium text-gray-900">{option.label}</div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {statusChangeLoading && (
+                            <div className="flex items-center justify-center py-2">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                              <span className="ml-2 text-sm text-gray-600">Updating status...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {saving && (
+                      <div className="text-center">
+                        <div className="inline-flex items-center space-x-2 text-blue-600">
+                          <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                          <span className="font-medium">Submitting review...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-center p-8">
+              <div className="h-full flex items-center justify-center text-center p-8">
                 <div>
-                  <Eye className="w-16 h-16 text-gray-400 mx-auto mb-6" />
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Eye className="w-10 h-10 text-blue-600" />
+                  </div>
                   <h4 className="text-xl font-bold text-gray-900 mb-3">Select a Submission to Review</h4>
-                  <p className="text-gray-600">Choose a submission from the list to start reviewing questions</p>
+                  <p className="text-gray-600 max-w-sm">
+                    Choose a submission from the list to start reviewing student answers organized by analysis sections
+                  </p>
                 </div>
               </div>
             )}

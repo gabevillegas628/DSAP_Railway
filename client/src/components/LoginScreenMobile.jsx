@@ -1,8 +1,11 @@
-// LoginScreenMobile.jsx - Mobile-optimized login screen
+// LoginScreenMobile.jsx - Mobile-optimized login screen with enhanced visuals
 import React, { useState, useEffect } from 'react';
 import { FileText, Eye, EyeOff, X, ArrowLeft } from 'lucide-react';
 import apiService from './apiService';
 import TermsOfServiceModal from './TermsOfServiceModal';
+
+const rutgersLogo = "/images/RSUNJ_H_RED_WHITE_RGB.png";
+const waksmanLogo = "/images/wssp-banner-bldg.png";
 
 const LoginScreenMobile = ({ onLogin }) => {
     const [isRegistering, setIsRegistering] = useState(false);
@@ -85,9 +88,6 @@ const LoginScreenMobile = ({ onLogin }) => {
                 : [...prev.classesTaken, className]
         }));
     };
-
-    // Copy all your existing handler functions (handleLogin, handleRegister, etc.) here
-    // I'll abbreviate for space, but include all the same logic
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -221,52 +221,71 @@ const LoginScreenMobile = ({ onLogin }) => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col">
-            {/* Mobile Header */}
-            <div className="bg-white shadow-sm border-b border-blue-200 px-4 py-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-blue-900">DSAP</h1>
-                            <p className="text-xs text-blue-700">DNA Sequence Analysis</p>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 relative overflow-hidden">
+            {/* Project Name Tab - Top Right Corner */}
+            {programSettings?.projectName && (
+                <div className="absolute top-0 right-0 z-20">
+                    <div className="bg-blue-700 px-4 py-2 rounded-bl-2xl shadow-lg">
+                        <div className="text-white font-semibold text-xs tracking-wide">
+                            {programSettings.projectName}
                         </div>
                     </div>
-                    {programSettings?.projectName && (
-                        <div className="text-right">
-                            <p className="text-sm font-semibold text-blue-900">{programSettings.projectName}</p>
-                        </div>
-                    )}
                 </div>
-            </div>
+            )}
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col">
-                {/* Welcome Section */}
-                <div className="bg-blue-800 text-white px-4 py-6 text-center">
-                    <h2 className="text-2xl font-bold mb-2">
-                        {programSettings?.welcomeText || "Welcome to WISE"}
-                    </h2>
-                    <p className="text-blue-100 text-sm leading-relaxed">
-                        {programSettings?.overview || "Waksman Institute Summer Experience - DNA Sequence Analysis Platform"}
-                    </p>
+                {/* Enhanced Welcome Section */}
+                <div className="bg-blue-800 relative overflow-hidden">
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-800 via-blue-900 to-blue-800"></div>
+                        <svg className="absolute bottom-0 left-0 w-full h-16" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                            <path d="M0,32L48,37.3C96,43,192,53,288,53.3C384,53,480,43,576,42.7C672,43,768,53,864,58.7C960,64,1056,64,1152,58.7L1200,53L1200,120L1152,120C1056,120,960,120,864,120C768,120,672,120,576,120C480,120,384,120,288,120C192,120,96,120,48,120L0,120Z" fill="rgba(59, 130, 246, 0.1)"></path>
+                        </svg>
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative z-10 text-white px-4 py-8">
+                        <h2 className="text-3xl font-bold mb-4 leading-tight">
+                            {programSettings?.welcomeText || "Welcome to WISE"}
+                        </h2>
+                        <div className="w-12 h-1 bg-blue-400 rounded mb-4"></div>
+                        <p className="text-blue-100 text-sm leading-relaxed mb-6">
+                            {programSettings?.overview || "Waksman Institute Summer Experience - DNA Sequence Analysis Platform"}
+                        </p>
+
+                        {/* Feature bullets */}
+                        <div className="space-y-3 text-blue-200 text-sm">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
+                                <span>Advanced DNA sequence analysis tools</span>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
+                                <span>Collaborative research environment</span>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
+                                <span>Real-world genomic data analysis</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Form Container */}
                 <div className="flex-1 px-4 py-6">
                     {/* Error Messages */}
                     {error && (
-                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl shadow-lg">
                             <div className="flex items-start space-x-3">
                                 <X className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                                 <div className="flex-1">
-                                    <p className="text-red-800 text-sm font-medium">{error}</p>
+                                    <p className="text-red-800 text-sm font-medium leading-relaxed">{error}</p>
                                     {error.includes('pending approval') && programSettings?.staffEmail && (
                                         <button
                                             onClick={handleContactUs}
-                                            className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                                            className="mt-2 text-xs text-red-600 hover:text-red-800 underline transition-colors"
                                         >
                                             Contact Support
                                         </button>
@@ -278,19 +297,19 @@ const LoginScreenMobile = ({ onLogin }) => {
 
                     {/* Success Messages */}
                     {successMessage && (
-                        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl shadow-lg">
                             <div className="flex items-start space-x-3">
                                 <div className="w-5 h-5 bg-green-500 rounded-full mt-0.5 flex-shrink-0 flex items-center justify-center">
                                     <div className="w-2 h-2 bg-white rounded-full"></div>
                                 </div>
-                                <p className="text-green-800 text-sm font-medium flex-1">{successMessage}</p>
+                                <p className="text-green-800 text-sm font-medium flex-1 leading-relaxed">{successMessage}</p>
                             </div>
                         </div>
                     )}
 
-                    {/* Form Card */}
-                    <div className="bg-white rounded-xl shadow-lg border border-blue-200 overflow-hidden">
-                        <div className="bg-blue-800 px-4 py-3">
+                    {/* Enhanced Form Card */}
+                    <div className="bg-white rounded-2xl shadow-2xl border border-blue-200 overflow-hidden backdrop-blur-sm">
+                        <div className="bg-blue-800 px-4 py-4">
                             <h3 className="text-xl font-bold text-white text-center">
                                 {isRegistering ? 'Create Account' : 'Sign In'}
                             </h3>
@@ -308,7 +327,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
                                             required
-                                            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-colors bg-white"
                                             placeholder="Enter your full name"
                                         />
                                     </div>
@@ -323,7 +342,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-colors bg-white"
                                         placeholder="Enter your email address"
                                     />
                                 </div>
@@ -338,14 +357,14 @@ const LoginScreenMobile = ({ onLogin }) => {
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             required
-                                            className="w-full px-3 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            className="w-full px-3 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-colors bg-white"
                                             placeholder={isRegistering ? "Choose a password (minimum 6 characters)" : "Enter your password"}
                                             minLength={isRegistering ? 6 : undefined}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-600"
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
                                         >
                                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                         </button>
@@ -361,7 +380,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                             value={schoolId}
                                             onChange={(e) => setSchoolId(e.target.value)}
                                             required
-                                            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-colors bg-white"
                                         >
                                             <option value="">Select your school...</option>
                                             {schools.map(school => (
@@ -383,7 +402,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                 <select
                                                     value={demographics.academicYear}
                                                     onChange={(e) => setDemographics(prev => ({ ...prev, academicYear: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                 >
                                                     <option value="">Select...</option>
                                                     <option value="freshman">Freshman</option>
@@ -399,7 +418,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                 <select
                                                     value={demographics.yearsInProgram}
                                                     onChange={(e) => setDemographics(prev => ({ ...prev, yearsInProgram: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                 >
                                                     <option value="">Select...</option>
                                                     <option value="first">First</option>
@@ -438,7 +457,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                         type="number"
                                                         value={demographics.age}
                                                         onChange={(e) => setDemographics(prev => ({ ...prev, age: e.target.value }))}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                         placeholder="Age"
                                                         min="1"
                                                         max="120"
@@ -449,7 +468,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                     <select
                                                         value={demographics.gender}
                                                         onChange={(e) => setDemographics(prev => ({ ...prev, gender: e.target.value }))}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                     >
                                                         <option value="">Select...</option>
                                                         <option value="Male">Male</option>
@@ -466,7 +485,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                 <textarea
                                                     value={demographics.otherScienceCourses}
                                                     onChange={(e) => setDemographics(prev => ({ ...prev, otherScienceCourses: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none bg-white"
                                                     placeholder="List any other relevant science courses..."
                                                     rows="2"
                                                 />
@@ -477,7 +496,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                 <select
                                                     value={demographics.ethnicity}
                                                     onChange={(e) => setDemographics(prev => ({ ...prev, ethnicity: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                 >
                                                     <option value="">Select...</option>
                                                     <option value="american-indian-alaska-native">American Indian or Alaska Native</option>
@@ -496,7 +515,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                     type="text"
                                                     value={demographics.location}
                                                     onChange={(e) => setDemographics(prev => ({ ...prev, location: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                     placeholder="e.g., New York, NY"
                                                 />
                                             </div>
@@ -507,7 +526,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                                     type="text"
                                                     value={demographics.country}
                                                     onChange={(e) => setDemographics(prev => ({ ...prev, country: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                                     placeholder="e.g., United States"
                                                 />
                                             </div>
@@ -518,7 +537,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-blue-800 text-white py-4 px-6 rounded-lg hover:bg-blue-900 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-base"
+                                    className="w-full bg-blue-800 text-white py-4 px-6 rounded-lg hover:bg-blue-900 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] text-base"
                                 >
                                     {loading ? (
                                         <div className="flex items-center justify-center space-x-2">
@@ -555,37 +574,54 @@ const LoginScreenMobile = ({ onLogin }) => {
                     </div>
                 </div>
 
-                {/* Mobile Footer */}
-                <div className="bg-white border-t border-gray-200 px-4 py-3">
-                    <div className="flex flex-col items-center space-y-2 text-center">
-                        <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-                            {programSettings?.aboutText && (
-                                <button
-                                    onClick={() => setShowProjectModal(true)}
-                                    className="text-blue-600 hover:text-blue-800 underline"
-                                >
-                                    About This Project
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setShowTOSModal(true)}
-                                className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                                Terms of Service
-                            </button>
-                            {programSettings?.staffEmail && (
-                                <button
-                                    onClick={handleContactUs}
-                                    className="text-blue-600 hover:text-blue-800 underline"
-                                >
-                                    Contact Support
-                                </button>
-                            )}
+                {/* Enhanced Mobile Footer */}
+                <div className="bg-white/90 backdrop-blur-sm border-t border-gray-200 px-4 py-4">
+                    <div className="flex flex-col space-y-3">
+                        {/* Logos */}
+                        <div className="flex justify-between items-center">
+                            <img
+                                src={rutgersLogo}
+                                alt="Rutgers University"
+                                className="h-8 w-auto opacity-70"
+                            />
+                            <img
+                                src={waksmanLogo}
+                                alt="Waksman Institute"
+                                className="h-12 w-auto opacity-70"
+                            />
                         </div>
-                        <div className="text-xs text-gray-500">
-                            <span>© 2025 Rutgers University</span>
-                            <span className="mx-2">•</span>
-                            <span>DSAP v0.9β</span>
+                        
+                        {/* Links and Info */}
+                        <div className="flex flex-col items-center space-y-2 text-center">
+                            <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+                                {programSettings?.aboutText && (
+                                    <button
+                                        onClick={() => setShowProjectModal(true)}
+                                        className="text-blue-600 hover:text-blue-800 underline transition-colors"
+                                    >
+                                        About This Project
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setShowTOSModal(true)}
+                                    className="text-blue-600 hover:text-blue-800 underline transition-colors"
+                                >
+                                    Terms of Service
+                                </button>
+                                {programSettings?.staffEmail && (
+                                    <button
+                                        onClick={handleContactUs}
+                                        className="text-blue-600 hover:text-blue-800 underline transition-colors"
+                                    >
+                                        Contact Support
+                                    </button>
+                                )}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                                <span>© 2025 Rutgers University</span>
+                                <span className="mx-2">•</span>
+                                <span>DSAP v0.9β</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -594,12 +630,12 @@ const LoginScreenMobile = ({ onLogin }) => {
             {/* Forgot Password Modal */}
             {showForgotPassword && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg w-full max-w-sm">
-                        <div className="px-4 py-3 border-b border-gray-200 bg-blue-800 flex items-center justify-between">
+                    <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl">
+                        <div className="px-4 py-3 border-b border-gray-200 bg-blue-800 flex items-center justify-between rounded-t-xl">
                             <h3 className="text-lg font-semibold text-white">Reset Password</h3>
                             <button
                                 onClick={() => setShowForgotPassword(false)}
-                                className="text-white hover:text-gray-200"
+                                className="text-white hover:text-gray-200 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -612,7 +648,7 @@ const LoginScreenMobile = ({ onLogin }) => {
                                     onChange={(e) => setForgotEmail(e.target.value)}
                                     placeholder="Enter your email address"
                                     required
-                                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white"
                                 />
                                 {forgotMessage && (
                                     <p className="text-sm text-blue-600">{forgotMessage}</p>
@@ -621,14 +657,14 @@ const LoginScreenMobile = ({ onLogin }) => {
                                     <button
                                         type="submit"
                                         disabled={forgotLoading}
-                                        className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-base"
+                                        className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-base transition-colors"
                                     >
                                         {forgotLoading ? 'Sending...' : 'Send Reset Link'}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setShowForgotPassword(false)}
-                                        className="px-4 py-3 text-gray-600 hover:text-gray-800 text-base"
+                                        className="px-4 py-3 text-gray-600 hover:text-gray-800 text-base transition-colors"
                                     >
                                         Cancel
                                     </button>
@@ -642,12 +678,12 @@ const LoginScreenMobile = ({ onLogin }) => {
             {/* Project Modal */}
             {showProjectModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg w-full max-w-lg max-h-[80vh] overflow-hidden">
+                    <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden shadow-2xl">
                         <div className="px-4 py-3 border-b border-gray-200 bg-blue-800 flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-white">About This Project</h3>
                             <button
                                 onClick={() => setShowProjectModal(false)}
-                                className="text-white hover:text-gray-200"
+                                className="text-white hover:text-gray-200 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
