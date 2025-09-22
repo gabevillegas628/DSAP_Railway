@@ -169,37 +169,37 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
   }, []);
 
   const handleNCBIStatusChange = async (ncbiStatus) => {
-  try {
-    // Update the submission with the new NCBI status
-    // You'll need to implement the API call based on your backend structure
-    await apiService.put(`/submissions/${selectedSubmission.id}/ncbi-status`, {
-      ncbiStatus: ncbiStatus
-    });
-    
-    // Update local state
-    setSelectedSubmission(prev => ({
-      ...prev,
-      ncbiStatus: ncbiStatus
-    }));
-    
-    console.log(`NCBI status updated to: ${ncbiStatus}`);
-  } catch (error) {
-    console.error('Error updating NCBI status:', error);
-    alert('Failed to update NCBI status');
-  }
-};
+    try {
+      // Update the submission with the new NCBI status
+      // You'll need to implement the API call based on your backend structure
+      await apiService.put(`/submissions/${selectedSubmission.id}/ncbi-status`, {
+        ncbiStatus: ncbiStatus
+      });
 
-// Add click outside handler to close dropdown
-useEffect(() => {
-  const handleClickOutside = (event) => {
-    if (showNCBIDropdown && !event.target.closest('.relative')) {
-      setShowNCBIDropdown(false);
+      // Update local state
+      setSelectedSubmission(prev => ({
+        ...prev,
+        ncbiStatus: ncbiStatus
+      }));
+
+      console.log(`NCBI status updated to: ${ncbiStatus}`);
+    } catch (error) {
+      console.error('Error updating NCBI status:', error);
+      alert('Failed to update NCBI status');
     }
   };
 
-  document.addEventListener('mousedown', handleClickOutside);
-  return () => document.removeEventListener('mousedown', handleClickOutside);
-}, [showNCBIDropdown]);
+  // Add click outside handler to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNCBIDropdown && !event.target.closest('.relative')) {
+        setShowNCBIDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNCBIDropdown]);
 
 
 
@@ -2016,7 +2016,16 @@ useEffect(() => {
                     <div>
                       <h3 className="font-semibold text-gray-900">{selectedSubmission.assignedTo.name}</h3>
                       <p className="text-sm text-gray-600">{selectedSubmission.cloneName}</p>
-                      <p className="text-xs text-gray-500">Submitted {new Date(selectedSubmission.submittedAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">
+                        Submitted {new Date(selectedSubmission.submittedAt).toLocaleString(undefined, {
+                          year: 'numeric',
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </p>
                     </div>
                   </div>
 
@@ -2097,13 +2106,13 @@ useEffect(() => {
                     onClick={() => submitReview('approved')}
                     className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                   >
-                    ✓ Approve All
+                    ✓ Reviewed & Correct
                   </button>
                   <button
                     onClick={() => submitReview('rejected')}
                     className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
                   >
-                    ✗ Reject
+                    ✗ Needs reanalysis
                   </button>
                   <div className="relative">
                     {/* NCBI Status Dropdown */}

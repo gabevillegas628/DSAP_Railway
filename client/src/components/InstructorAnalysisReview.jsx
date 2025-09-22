@@ -2109,7 +2109,16 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
                                         <div>
                                             <h3 className="font-semibold text-gray-900">{selectedSubmission.assignedTo.name}</h3>
                                             <p className="text-sm text-gray-600">{selectedSubmission.cloneName}</p>
-                                            <p className="text-xs text-gray-500">Submitted {new Date(selectedSubmission.submittedAt).toLocaleDateString()}</p>
+                                            <p className="text-xs text-gray-500">
+                                                Submitted {new Date(selectedSubmission.submittedAt).toLocaleString(undefined, {
+                                                    year: 'numeric',
+                                                    month: 'numeric',
+                                                    day: 'numeric',
+                                                    hour: 'numeric',
+                                                    minute: '2-digit',
+                                                    hour12: true
+                                                })}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -2190,13 +2199,13 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
                                         onClick={() => submitReview('approved')}
                                         className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                                     >
-                                        ✓ Approve All
+                                        ✓ Correct & Complete
                                     </button>
                                     <button
                                         onClick={() => submitReview('rejected')}
                                         className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
                                     >
-                                        ✗ Reject
+                                        ✗ Needs Reanalysis
                                     </button>
                                     <button
                                         onClick={() => setShowFeedbackModal(true)}

@@ -667,7 +667,7 @@ const handleRemoveProfilePicture = async () => {
 
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Welcome Text
+            Welcome Text (Main heading on Login Screen)
           </label>
           <textarea
             name="welcomeText"
@@ -681,7 +681,7 @@ const handleRemoveProfilePicture = async () => {
 
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Overview
+            Overview (Appears on Login Screen)
           </label>
           <textarea
             name="overview"
