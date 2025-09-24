@@ -265,7 +265,7 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
 
             // Add initial feedback message if this is the first feedback
             await apiService.post(`/clone-discussions/${discussion.id}/messages`, {
-                senderId: 1, // Current director ID - you might want to use currentUser.id
+                senderId: currentUser.id, // Current director ID - you might want to use currentUser.id
                 content: `📝 **Review Feedback Completed** - Individual question feedback follows below:`,
                 messageType: 'feedback'
             });
@@ -284,7 +284,7 @@ const InstructorAnalysisReview = ({ onReviewCompleted }) => {
             💬 **Instructor Feedback:** ${comment.comment}`;
 
                 await apiService.post(`/clone-discussions/${discussion.id}/messages`, {
-                    senderId: 1, // Current director ID
+                    senderId: currentUser.id, // Current director ID
                     content: feedbackContent,
                     messageType: 'feedback'
                 });

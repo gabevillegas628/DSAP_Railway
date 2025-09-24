@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import {
   FileText,
   CheckCircle,
@@ -26,6 +26,7 @@ import {
 import { CheckCircle2 } from 'lucide-react';
 import ChromatogramViewer from './ChromatogramViewer';
 import SequenceAlignmentModal from './SequenceAlignmentModal.jsx';
+import { useDNAContext } from '../context/DNAContext';
 import apiService from '../services/apiService';
 
 // Add these imports after your existing imports
@@ -146,8 +147,7 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [statusChangeLoading, setStatusChangeLoading] = useState(false);
   const [showNCBIDropdown, setShowNCBIDropdown] = useState(false);
-
-
+  const { currentUser } = useDNAContext();
 
 
   useEffect(() => {
@@ -287,7 +287,7 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
 
       // Add initial feedback message if this is the first feedback
       await apiService.post(`/clone-discussions/${discussion.id}/messages`, {
-        senderId: 1, // Current director ID - you might want to use currentUser.id
+        senderId: currentUser.id, // Current director ID - you might want to use currentUser.id
         content: `📝 **Review Feedback Completed** - Individual question feedback follows below:`,
         messageType: 'feedback'
       });
@@ -306,7 +306,7 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
             💬 **Instructor Feedback:** ${comment.comment}`;
 
         await apiService.post(`/clone-discussions/${discussion.id}/messages`, {
-          senderId: 1, // Current director ID
+          senderId: currentUser.id, // Current director ID
           content: feedbackContent,
           messageType: 'feedback'
         });
