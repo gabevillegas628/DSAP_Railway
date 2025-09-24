@@ -1,8 +1,9 @@
 // components/StudentSettings.jsx - Updated to use apiService
 import React, { useState } from 'react';
-import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle, Camera } from 'lucide-react';
 import apiService from '../services/apiService'; // Updated to use apiService
 import ProfilePicture from './ProfilePicture';
+import WebcamCapture from './WebcamCaputer';
 
 const StudentSettings = ({ currentUser, onUserUpdate }) => {
     const [formData, setFormData] = useState({
@@ -23,6 +24,7 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
     const [hasChanges, setHasChanges] = useState(false);
     const [profilePictureFile, setProfilePictureFile] = useState(null);
     const [uploadingPicture, setUploadingPicture] = useState(false);
+    const [showWebcamCapture, setShowWebcamCapture] = useState(false);
 
     // Track if form has been modified
     React.useEffect(() => {
@@ -41,6 +43,13 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
 
     const togglePasswordVisibility = (field) => {
         setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+    };
+
+    // webcam capture handler
+    const handleWebcamCapture = (file) => {
+        if (file) {
+            handleProfilePictureUpload(file);
+        }
     };
 
     const validateForm = () => {
@@ -288,6 +297,16 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
                             >
                                 {uploadingPicture ? 'Uploading...' : 'Upload Picture'}
                             </label>
+
+                            {/* webcam capture button */}
+                            <button
+                                onClick={() => setShowWebcamCapture(true)}
+                                disabled={uploadingPicture}
+                                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 text-sm"
+                            >
+                                <Camera className="w-4 h-4" />
+                                <span>Take Photo</span>
+                            </button>
                             {currentUser?.profilePicture && (
                                 <button
                                     onClick={handleRemoveProfilePicture}
@@ -299,6 +318,7 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
                         </div>
                     </div>
                 </div>
+
 
                 <div className="space-y-6">
                     {/* Name Section */}
@@ -438,6 +458,11 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
                     </div>
                 </div>
             </div>
+            <WebcamCapture
+                isOpen={showWebcamCapture}
+                onClose={() => setShowWebcamCapture(false)}
+                onCapture={handleWebcamCapture}
+            />
         </div>
     );
 };

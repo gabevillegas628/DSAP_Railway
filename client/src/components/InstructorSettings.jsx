@@ -1,8 +1,9 @@
 // components/InstructorSettings.jsx - Settings component for instructors
 import React, { useState } from 'react';
-import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle, Camera } from 'lucide-react';
 import ProfilePicture from './ProfilePicture';
 import apiService from '../services/apiService';
+import WebcamCapture from './WebcamCaputer';
 
 const InstructorSettings = ({ currentUser, onUserUpdate }) => {
 
@@ -24,6 +25,8 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [hasChanges, setHasChanges] = useState(false);
     const [uploadingPicture, setUploadingPicture] = useState(false);
+    const [showWebcamCapture, setShowWebcamCapture] = useState(false);
+
 
     // Track if form has been modified
     React.useEffect(() => {
@@ -37,6 +40,13 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
         // Clear any existing messages when user starts typing
         if (message.text) {
             setMessage({ type: '', text: '' });
+        }
+    };
+
+    // webcam capture handler
+    const handleWebcamCapture = (file) => {
+        if (file) {
+            handleProfilePictureUpload(file);
         }
     };
 
@@ -170,28 +180,28 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
     };
 
     const handleProfilePictureUpload = async (file) => {
-    if (!file) return;
+        if (!file) return;
 
-    setUploadingPicture(true);
-    try {
-        const formData = new FormData();
-        formData.append('profilePicture', file);
+        setUploadingPicture(true);
+        try {
+            const formData = new FormData();
+            formData.append('profilePicture', file);
 
-        const updatedUser = await apiService.uploadFiles(
-            `/users/${currentUser.id}/profile-picture`,
-            formData
-        );
+            const updatedUser = await apiService.uploadFiles(
+                `/users/${currentUser.id}/profile-picture`,
+                formData
+            );
 
 
-        onUserUpdate(updatedUser); // This is where the error happens
-        setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
-    } catch (error) {
-        console.error('Profile picture upload error:', error);
-        setMessage({ type: 'error', text: `Failed to upload: ${error.message}` });
-    } finally {
-        setUploadingPicture(false);
-    }
-};
+            onUserUpdate(updatedUser); // This is where the error happens
+            setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
+        } catch (error) {
+            console.error('Profile picture upload error:', error);
+            setMessage({ type: 'error', text: `Failed to upload: ${error.message}` });
+        } finally {
+            setUploadingPicture(false);
+        }
+    };
 
     const handleRemoveProfilePicture = async () => {
         try {
@@ -285,6 +295,15 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
                             >
                                 {uploadingPicture ? 'Uploading...' : 'Upload Picture'}
                             </label>
+                            {/* webcam capture button */}
+                            <button
+                                onClick={() => setShowWebcamCapture(true)}
+                                disabled={uploadingPicture}
+                                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 text-sm"
+                            >
+                                <Camera className="w-4 h-4" />
+                                <span>Take Photo</span>
+                            </button>
                             {currentUser?.profilePicture && (
                                 <button
                                     onClick={handleRemoveProfilePicture}
@@ -434,6 +453,11 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
                     </div>
                 </div>
             </div>
+            <WebcamCapture
+                isOpen={showWebcamCapture}
+                onClose={() => setShowWebcamCapture(false)}
+                onCapture={handleWebcamCapture}
+            />
         </div>
     );
 };

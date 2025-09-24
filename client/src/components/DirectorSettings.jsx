@@ -5,6 +5,7 @@ import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import apiService from '../services/apiService';
 import { useDNAContext } from '../context/DNAContext';
+import WebcamCapture from './WebcamCaputer';
 
 // Add this CSS for animations
 const animationStyles = `
@@ -106,6 +107,7 @@ const DirectorSettings = () => {
   const [directors, setDirectors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+  const [showWebcamCapture, setShowWebcamCapture] = useState(false);
 
   // Import/Export states
   const [showExportModal, setShowExportModal] = useState(false);
@@ -141,52 +143,60 @@ const DirectorSettings = () => {
 
 
   const handleProfilePictureUpload = async (file) => {
-  if (!file || !currentUser) return;
+    if (!file || !currentUser) return;
 
-  if (!file.type.startsWith('image/')) {
-    setProfileMessage({ type: 'error', text: 'Please select an image file' });
-    return;
-  }
-  
-  if (file.size > 5 * 1024 * 1024) {
-    setProfileMessage({ type: 'error', text: 'Image must be smaller than 5MB' });
-    return;
-  }
+    if (!file.type.startsWith('image/')) {
+      setProfileMessage({ type: 'error', text: 'Please select an image file' });
+      return;
+    }
 
-  setUploadingPicture(true);
-  setProfileMessage({ type: '', text: '' });
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileMessage({ type: 'error', text: 'Image must be smaller than 5MB' });
+      return;
+    }
 
-  try {
-    const formData = new FormData();
-    formData.append('profilePicture', file);
 
-    const updatedUser = await apiService.uploadFiles(
-      `/users/${currentUser.id}/profile-picture`,
-      formData
-    );
+    setUploadingPicture(true);
+    setProfileMessage({ type: '', text: '' });
 
-    setProfileMessage({ type: 'success', text: 'Profile picture updated successfully!' });
-    // The context will handle the user update
-  } catch (error) {
-    setProfileMessage({ type: 'error', text: 'Failed to upload profile picture' });
-  } finally {
-    setUploadingPicture(false);
-  }
-};
+    try {
+      const formData = new FormData();
+      formData.append('profilePicture', file);
 
-const handleRemoveProfilePicture = async () => {
-  if (!currentUser) return;
+      const updatedUser = await apiService.uploadFiles(
+        `/users/${currentUser.id}/profile-picture`,
+        formData
+      );
 
-  setUploadingPicture(true);
-  try {
-    await apiService.delete(`/users/${currentUser.id}/profile-picture`);
-    setProfileMessage({ type: 'success', text: 'Profile picture removed successfully!' });
-  } catch (error) {
-    setProfileMessage({ type: 'error', text: 'Failed to remove profile picture' });
-  } finally {
-    setUploadingPicture(false);
-  }
-};
+      setProfileMessage({ type: 'success', text: 'Profile picture updated successfully!' });
+      // The context will handle the user update
+    } catch (error) {
+      setProfileMessage({ type: 'error', text: 'Failed to upload profile picture' });
+    } finally {
+      setUploadingPicture(false);
+    }
+  };
+
+  // webcam capture handler
+  const handleWebcamCapture = (file) => {
+    if (file) {
+      handleProfilePictureUpload(file);
+    }
+  };
+
+  const handleRemoveProfilePicture = async () => {
+    if (!currentUser) return;
+
+    setUploadingPicture(true);
+    try {
+      await apiService.delete(`/users/${currentUser.id}/profile-picture`);
+      setProfileMessage({ type: 'success', text: 'Profile picture removed successfully!' });
+    } catch (error) {
+      setProfileMessage({ type: 'error', text: 'Failed to remove profile picture' });
+    } finally {
+      setUploadingPicture(false);
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -464,7 +474,15 @@ const handleRemoveProfilePicture = async () => {
                     >
                       {uploadingPicture ? 'Uploading...' : (currentUser.profilePicture ? 'Change Picture' : 'Upload Picture')}
                     </label>
-
+                    {/* webcam capture button */}
+                    <button
+                      onClick={() => setShowWebcamCapture(true)}
+                      disabled={uploadingPicture}
+                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 text-sm"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Take Photo</span>
+                    </button>
                     {currentUser.profilePicture && (
                       <button
                         onClick={handleRemoveProfilePicture}
@@ -1067,6 +1085,11 @@ const handleRemoveProfilePicture = async () => {
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         onImportComplete={handleImportComplete}
+      />
+      <WebcamCapture
+        isOpen={showWebcamCapture}
+        onClose={() => setShowWebcamCapture(false)}
+        onCapture={handleWebcamCapture}
       />
     </div>
   );
