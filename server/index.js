@@ -1461,7 +1461,8 @@ const profilePictureUpload = multer({
     key: function (req, file, cb) {
       const userId = req.params.userId;
       const extension = file.originalname.split('.').pop();
-      const key = `profile-pics/user-${userId}.${extension}`;
+      const timestamp = Date.now();
+      const key = `profile-pics/user-${userId}-${timestamp}.${extension}`;
       cb(null, key);
     },
     contentType: multerS3.AUTO_CONTENT_TYPE,
@@ -8178,19 +8179,19 @@ app.get('/api/instructor-suggestions/:instructorId', async (req, res) => {
         },
         orderBy: { updatedAt: 'desc' }
       });
-      
+
       if (!recentActivity) {
         const lastActivity = await prisma.uploadedFile.findFirst({
           where: { assignedToId: student.id },
           orderBy: { updatedAt: 'desc' }
         });
-        
+
         silentStudents.push({
           id: student.id,
           name: student.name,
           email: student.email,
           lastActivityDate: lastActivity?.updatedAt || student.createdAt,
-          daysSinceActivity: lastActivity 
+          daysSinceActivity: lastActivity
             ? Math.floor((now - new Date(lastActivity.updatedAt)) / (1000 * 60 * 60 * 24))
             : Math.floor((now - new Date(student.createdAt)) / (1000 * 60 * 60 * 24))
         });
@@ -8226,18 +8227,18 @@ app.get('/api/instructor-suggestions/:instructorId', async (req, res) => {
     allRecentSubmissions.forEach(file => {
       const cloneName = file.cloneName || 'Unknown';
       if (!cloneStats[cloneName]) {
-        cloneStats[cloneName] = { 
-          total: 0, 
-          resubmissions: 0, 
+        cloneStats[cloneName] = {
+          total: 0,
+          resubmissions: 0,
           students: new Set(),
           resubmittingStudents: []
         };
       }
       cloneStats[cloneName].total++;
       cloneStats[cloneName].students.add(file.assignedTo.name);
-      
-      if (file.status === 'Corrected by student, waiting review' || 
-          file.status === 'Reviewed, needs to be reanalyzed') {
+
+      if (file.status === 'Corrected by student, waiting review' ||
+        file.status === 'Reviewed, needs to be reanalyzed') {
         cloneStats[cloneName].resubmissions++;
         cloneStats[cloneName].resubmittingStudents.push({
           name: file.assignedTo.name,
@@ -8254,7 +8255,7 @@ app.get('/api/instructor-suggestions/:instructorId', async (req, res) => {
     if (problematicClones.length > 0) {
       const [cloneName, stats] = problematicClones[0];
       const resubRate = Math.round((stats.resubmissions / stats.total) * 100);
-      
+
       const assignmentDetails = {
         cloneName,
         totalStudents: stats.students.size,
@@ -8268,7 +8269,7 @@ app.get('/api/instructor-suggestions/:instructorId', async (req, res) => {
           daysAgo: Math.floor((now - new Date(student.lastUpdate)) / (1000 * 60 * 60 * 24))
         }))
       };
-      
+
       suggestions.push({
         type: 'difficult_assignment',
         priority: 'low',
