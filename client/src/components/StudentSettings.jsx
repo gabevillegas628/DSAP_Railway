@@ -4,6 +4,7 @@ import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle, Camera } from 
 import apiService from '../services/apiService'; // Updated to use apiService
 import ProfilePicture from './ProfilePicture';
 import WebcamCapture from './WebcamCapture';
+import { validateProfilePicture } from '../utils/ProfilePictureValidator';
 
 const StudentSettings = ({ currentUser, onUserUpdate }) => {
     const [formData, setFormData] = useState({
@@ -96,11 +97,17 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
     const handleProfilePictureUpload = async (file) => {
         if (!file) return;
 
+        const validation = await validateProfilePicture(file);
+
+        if (!validation.isValid) {
+            setMessage({ type: 'error', text: validation.error });
+            return;
+        }
+
         setUploadingPicture(true);
         try {
             const formData = new FormData();
             formData.append('profilePicture', file);
-
 
             const updatedUser = await apiService.uploadFiles(
                 `/users/${currentUser.id}/profile-picture`,
@@ -110,11 +117,8 @@ const StudentSettings = ({ currentUser, onUserUpdate }) => {
             onUserUpdate(updatedUser);
             setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
         } catch (error) {
-            console.error('=== UPLOAD ERROR ===');
-            console.error('Error object:', error);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
-            setMessage({ type: 'error', text: `Upload failed: ${error.message}` });
+            console.error('Profile picture upload error:', error);
+            setMessage({ type: 'error', text: `Failed to upload: ${error.message}` });
         } finally {
             setUploadingPicture(false);
         }

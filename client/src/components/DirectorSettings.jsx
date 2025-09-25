@@ -6,6 +6,7 @@ import ImportModal from './ImportModal';
 import apiService from '../services/apiService';
 import { useDNAContext } from '../context/DNAContext';
 import WebcamCapture from './WebcamCapture';
+import { validateProfilePicture } from '../utils/ProfilePictureValidator';
 
 // Add this CSS for animations
 const animationStyles = `
@@ -136,12 +137,14 @@ const DirectorSettings = () => {
   const { currentUser } = useDNAContext();
   const [uploadingPicture, setUploadingPicture] = useState(false);
   const [profileMessage, setProfileMessage] = useState({ type: '', text: '' });
+  
 
   useEffect(() => {
     loadInitialData();
   }, []);
 
 
+  // Profile picture upload handler with validation (no porn validation)
   const handleProfilePictureUpload = async (file) => {
     if (!file || !currentUser) return;
 

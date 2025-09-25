@@ -4,6 +4,7 @@ import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle, Camera } from 
 import ProfilePicture from './ProfilePicture';
 import apiService from '../services/apiService';
 import WebcamCapture from './WebcamCapture';
+import { validateProfilePicture } from '../utils/ProfilePictureValidator';
 
 const InstructorSettings = ({ currentUser, onUserUpdate }) => {
 
@@ -182,6 +183,13 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
     const handleProfilePictureUpload = async (file) => {
         if (!file) return;
 
+        const validation = await validateProfilePicture(file);
+
+        if (!validation.isValid) {
+            setMessage({ type: 'error', text: validation.error });
+            return;
+        }
+
         setUploadingPicture(true);
         try {
             const formData = new FormData();
@@ -192,8 +200,7 @@ const InstructorSettings = ({ currentUser, onUserUpdate }) => {
                 formData
             );
 
-
-            onUserUpdate(updatedUser); // This is where the error happens
+            onUserUpdate(updatedUser);
             setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
         } catch (error) {
             console.error('Profile picture upload error:', error);
