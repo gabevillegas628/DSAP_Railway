@@ -1440,6 +1440,41 @@ app.get('/api/users/last-login', authenticateToken, requireRole(['director']), a
 });
 
 // =========================
+// Login screen stats
+// =========================
+// Get platform statistics for login screen
+app.get('/api/platform-stats', async (req, res) => {
+  try {
+    // Count total schools
+    const schoolCount = await prisma.school.count();
+
+    // Count approved students
+    const studentCount = await prisma.user.count({
+      where: {
+        role: 'student',
+        status: 'approved'
+      }
+    });
+
+    // Count research clones that have been submitted to NCBI
+    const ncbiSubmissionCount = await prisma.uploadedFile.count({
+      where: {
+        status: CLONE_STATUSES.SUBMITTED_TO_NCBI  // Using your imported constant
+      }
+    });
+
+    res.json({
+      schools: schoolCount,
+      students: studentCount,
+      ncbiSubmissions: ncbiSubmissionCount
+    });
+  } catch (error) {
+    console.error('Error fetching platform stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =========================
 // Profile Picture endpoints
 // =========================
 

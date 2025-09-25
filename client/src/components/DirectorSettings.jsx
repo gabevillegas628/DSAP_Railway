@@ -5,7 +5,7 @@ import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import apiService from '../services/apiService';
 import { useDNAContext } from '../context/DNAContext';
-import WebcamCapture from './WebcamCaputer';
+import WebcamCapture from './WebcamCapture';
 
 // Add this CSS for animations
 const animationStyles = `

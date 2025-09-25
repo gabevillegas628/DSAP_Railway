@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle, Camera } from 'lucide-react';
 import ProfilePicture from './ProfilePicture';
 import apiService from '../services/apiService';
-import WebcamCapture from './WebcamCaputer';
+import WebcamCapture from './WebcamCapture';
 
 const InstructorSettings = ({ currentUser, onUserUpdate }) => {
 

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Save, User, Lock, AlertCircle, CheckCircle, Camera } from 'lucide-react';
 import apiService from '../services/apiService'; // Updated to use apiService
 import ProfilePicture from './ProfilePicture';
-import WebcamCapture from './WebcamCaputer';
+import WebcamCapture from './WebcamCapture';
 
 const StudentSettings = ({ currentUser, onUserUpdate }) => {
     const [formData, setFormData] = useState({
