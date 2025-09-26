@@ -65,7 +65,7 @@ const SimpleStudentChat = ({
         try {
             setLoading(true);
             const data = await apiService.get(`/clone-discussions/student/${currentUser.id}`);
-            console.log('Loaded discussions:', data);
+            //console.log('Loaded discussions:', data);
             setDiscussions(data);
         } catch (error) {
             console.error('Error loading discussions:', error);
@@ -75,7 +75,7 @@ const SimpleStudentChat = ({
     };
 
     const selectDiscussion = async (discussion) => {
-        console.log('Selecting discussion:', discussion.id);
+        //console.log('Selecting discussion:', discussion.id);
 
         setSelectedDiscussion(discussion);
         setLoadingMessages(true);
@@ -85,12 +85,6 @@ const SimpleStudentChat = ({
             const response = await apiService.get(`/clone-discussions/${discussion.id}/messages`);
             setMessages(response.messages || []);
 
-            console.log('=== MESSAGES RESPONSE DEBUG ===');
-        console.log('Full response:', response);
-        console.log('Messages array:', response.messages);
-         console.log('First message:', response.messages[0]);
-            console.log('First message sender:', response.messages[0].sender);
-            console.log('First message sender profilePicture:', response.messages[0].sender?.profilePicture);
             // Mark as read if there are unread messages
             if (discussion.unreadCount > 0) {
                 await apiService.patch(`/clone-discussions/${discussion.id}/mark-read`, {

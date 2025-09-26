@@ -40,7 +40,6 @@ const StudentDashboard = () => {
   // In StudentDashboard.jsx, modify the openHelpTab function to handle both types:
 
   const openHelpTab = (questionId, questionText, isStepHelp = false) => {
-    console.log('Opening help tab for:', isStepHelp ? 'step' : 'question', questionId);
 
     const tabId = `help-${isStepHelp ? questionText : questionId}`; // Use step name for step help
 
@@ -104,18 +103,18 @@ const StudentDashboard = () => {
     if (!currentUser) return;
 
     try {
-      console.log('📄 Student fetching discussion unread count for user:', currentUser.id);
+      //console.log('📄 Student fetching discussion unread count for user:', currentUser.id);
 
       // Get all discussions for this student
       const discussions = await apiService.get(`/clone-discussions/student/${currentUser.id}`);
-      console.log('📨 Student total discussions:', discussions.length);
+      //console.log('📨 Student total discussions:', discussions.length);
 
       // Sum up unread counts from all discussions
       const totalUnreadCount = discussions.reduce((total, discussion) => {
         return total + (discussion.unreadCount || 0);
       }, 0);
 
-      console.log('📬 Student total unread messages from discussions:', totalUnreadCount);
+      //console.log('📬 Student total unread messages from discussions:', totalUnreadCount);
       setUnreadRepliesCount(totalUnreadCount);
     } catch (error) {
       console.error('Error fetching student discussion unread count:', error);
@@ -126,7 +125,7 @@ const StudentDashboard = () => {
   // Function to download files
   const downloadFile = async (clone) => {
     try {
-      console.log('Downloading file for clone:', clone);
+      //console.log('Downloading file for clone:', clone);
 
       // Use different endpoints based on clone type
       let downloadUrl;
@@ -158,7 +157,7 @@ const StudentDashboard = () => {
 
   // Function to open analysis tab
   const openAnalysisTab = async (clone) => {
-    console.log('Opening analysis tab for clone:', clone);
+    //console.log('Opening analysis tab for clone:', clone);
 
     const tabId = `analysis-${clone.id}`;
 
@@ -293,15 +292,15 @@ const StudentDashboard = () => {
 
   // Function to handle logout attempts
   const handleLogoutAttempt = (logoutCallback) => {
-    console.log('handleLogoutAttempt called, hasUnsavedChanges:', hasUnsavedChanges());
-    console.log('tabsWithUnsavedChanges:', tabsWithUnsavedChanges);
+    //console.log('handleLogoutAttempt called, hasUnsavedChanges:', hasUnsavedChanges());
+    //console.log('tabsWithUnsavedChanges:', tabsWithUnsavedChanges);
 
     if (hasUnsavedChanges()) {
-      console.log('Showing logout warning modal');
+      //console.log('Showing logout warning modal');
       setPendingLogout(() => logoutCallback); // Use function to store callback properly
       setShowLogoutWarning(true);
     } else {
-      console.log('No unsaved changes, proceeding with logout');
+      //console.log('No unsaved changes, proceeding with logout');
       logoutCallback();
     }
   };
@@ -328,12 +327,12 @@ const StudentDashboard = () => {
 
   // Expose the logout handler to parent components via window object
   useEffect(() => {
-    console.log('Setting up window.handleStudentLogoutAttempt');
+    //console.log('Setting up window.handleStudentLogoutAttempt');
     window.handleStudentLogoutAttempt = handleLogoutAttempt;
 
     // Cleanup function
     return () => {
-      console.log('Cleaning up window.handleStudentLogoutAttempt');
+      //console.log('Cleaning up window.handleStudentLogoutAttempt');
       delete window.handleStudentLogoutAttempt;
     };
   }, [tabsWithUnsavedChanges, handleLogoutAttempt]); // Add dependency to recreate when unsaved changes update
@@ -466,7 +465,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="h-screen bg-gray-50">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
+      <div className="w-[95%] max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">{getTimeBasedGreeting()}, {currentUser?.name?.split(' ')[0]}</h2>
           <p className="text-gray-600 mt-2">{currentUser?.school?.name}</p>

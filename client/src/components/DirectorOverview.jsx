@@ -18,20 +18,17 @@ const DirectorOverview = ({ onNavigateToTab }) => {
 
   // Fetch all data on component mount
   useEffect(() => {
-    console.log('DirectorOverview mounted, calling fetchAllData');
     fetchAllData();
   }, []);
 
   const fetchAllData = async () => {
     try {
-      console.log('fetchAllData starting...');
       setLoading(true);
       await Promise.all([
         fetchSchools(),
         fetchUploadedFiles(),
         fetchStudents()
       ]);
-      console.log('fetchAllData completed');
     } catch (error) {
       console.error('Error fetching overview data:', error);
       setError('Failed to load dashboard data');

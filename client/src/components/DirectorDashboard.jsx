@@ -27,18 +27,18 @@ const DirectorDashboard = () => {
     if (!currentUser) return;
 
     try {
-      console.log('📄 Director fetching discussion unread count for user:', currentUser.id);
+      //console.log('📄 Director fetching discussion unread count for user:', currentUser.id);
 
       // Get all discussions that directors can see
       const discussions = await apiService.get('/clone-discussions/director');
-      console.log('📨 Director total discussions:', discussions.length);
+      //console.log('📨 Director total discussions:', discussions.length);
 
       // Sum up unread counts from all discussions
       const totalUnreadCount = discussions.reduce((total, discussion) => {
         return total + (discussion.unreadCount || 0);
       }, 0);
 
-      console.log('📬 Director total unread messages from discussions:', totalUnreadCount);
+      //console.log('📬 Director total unread messages from discussions:', totalUnreadCount);
       setUnreadCount(totalUnreadCount);
     } catch (error) {
       console.error('Error fetching director discussion unread count:', error);
@@ -66,14 +66,11 @@ const DirectorDashboard = () => {
         apiService.get('/practice-submissions?reviewReady=true&includeTeacherReviewed=true')
       ]);
 
-      console.log('=== DASHBOARD REVIEW COUNT DEBUG ===');
-      console.log('Regular submissions awaiting review:', files.length);
-      console.log('Practice submissions awaiting review:', practiceSubmissions.length);
 
       // Count ALL files returned (since API already filtered to only director-reviewable items)
       const totalNeedsReview = files.length + practiceSubmissions.length;
 
-      console.log('Total director review count:', totalNeedsReview);
+      //console.log('Total director review count:', totalNeedsReview);
       setReviewCount(totalNeedsReview);
     } catch (error) {
       console.error('Error fetching review count:', error);
@@ -165,8 +162,8 @@ const DirectorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-<div className="w-[95%] max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8">
+      <div className="w-[95%] max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">Program Administration</h2>
           <p className="text-gray-600 mt-2">State-wide DNA analysis program management</p>
         </div>

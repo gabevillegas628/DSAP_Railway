@@ -464,9 +464,6 @@ const EnhancedReviewStatusBanner = ({ status, onRefresh, onToggleFeedback, hasUn
 
 // Main DNA Analysis Interface Component
 const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedChangesUpdate, currentUser, onNavigateToMessages, onOpenHelp }) => {
-  console.log('DNAAnalysisInterface currentUser:', currentUser);
-  console.log('DNAAnalysisInterface component rendering...');
-
   const [currentStep, setCurrentStep] = useState('clone-editing');
   const [analysisQuestions, setAnalysisQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -524,11 +521,9 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   }, []);
 
   useEffect(() => {
-    console.log('useEffect running...');
     fetchAnalysisQuestions();
 
     if (cloneData) {
-      console.log('Loading progress for', cloneData.type, 'file...');
       loadProgress();
     }
   }, [cloneData?.id, cloneData?.type]); // Only trigger when ID or type actually changes
@@ -542,7 +537,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   // 1. ADD this useEffect to clear chromatogram data when cloneData changes
   useEffect(() => {
     // Reset chromatogram state when switching between clones
-    console.log('CloneData changed, resetting chromatogram state');
     setChromatogramData(null);
     setShowChromatogram(false);
     setLoadingChromatogram(false);
@@ -609,7 +603,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
 
       if (discussion && discussion.messages && discussion.messages.length > 0) {
         // Case 1: Clone discussion exists - navigate to messages and pre-populate reply
-        console.log('Existing discussion found, navigating to messages...');
 
 
 
@@ -619,7 +612,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         }
       } else {
         // Case 2: No discussion exists - open MessageModal with pre-populated content
-        console.log('No existing discussion, opening MessageModal...');
         setMessageModalPrepopulatedContent(replyText);
         setMessageModalPrepopulatedSubject('Help with question feedback');
         setShowMessageModal(true);
@@ -636,11 +628,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   const handleSubmitForReview = async () => {
     // First, check if there are unsaved changes and save them
     if (hasUnsavedChanges && !saving) {
-      console.log('Saving unsaved changes before submit...');
+      //console.log('Saving unsaved changes before submit...');
       try {
         // Call the existing saveProgress function and wait for it to complete
         await saveProgress();
-        console.log('Changes saved successfully, proceeding with submit...');
+        //console.log('Changes saved successfully, proceeding with submit...');
       } catch (error) {
         console.error('Error saving before submit:', error);
         // If save fails, don't proceed with submit
@@ -653,7 +645,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   };
   // Add this new function to handle navigation to messages
   const handleNavigateToMessages = () => {
-    console.log('Navigating to messages for clone:', cloneData?.id);
+    //console.log('Navigating to messages for clone:', cloneData?.id);
 
 
 
@@ -664,18 +656,22 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   };
 
   const getQuestionComments = (questionId) => {
+    /*
     console.log('=== GET QUESTION COMMENTS DEBUG ===');
     console.log('Looking for comments for questionId:', questionId, 'Type:', typeof questionId);
     console.log('All reviewComments:', reviewComments);
+    */
 
     const comments = reviewComments.filter(comment => {
+      /*
       console.log('Checking comment:', comment);
       console.log('Comment questionId:', comment.questionId, 'Type:', typeof comment.questionId);
       console.log('Match?', comment.questionId === questionId, 'Loose match?', comment.questionId == questionId);
+      */
       return comment.questionId === questionId;
     });
 
-    console.log('Found comments for question:', comments);
+    //console.log('Found comments for question:', comments);
     return comments;
   };
 
@@ -724,13 +720,15 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
   const loadProgress = async () => {
     try {
       if (hasUnsavedChanges) {
-        console.log('Skipping loadProgress due to unsaved changes');
+        //console.log('Skipping loadProgress due to unsaved changes');
         return;
       }
+      /*
       console.log('=== LOAD PROGRESS DEBUG ===');
       console.log('Loading progress for clone:', cloneData.cloneName, 'Type:', cloneData.type);
       console.log('Initial currentStatus state:', currentStatus);
       console.log('cloneData.status:', cloneData.status);
+      */
 
       let progressData;
       if (cloneData.type === 'assigned') {
@@ -742,30 +740,18 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         return;
       }
 
-      console.log('*** RAW RESPONSE FROM SERVER ***');
-      console.log('Full progressData object:', progressData);
-      console.log('progressData.answers:', progressData.answers);
-
-      // Handle analysisData field (for assigned files) or direct fields (for practice)
-      // Handle analysisData field (for assigned files) or direct fields (for practice)
       // Handle analysisData field (for assigned files) or direct fields (for practice)
       let fullAnalysisData = {};
       if (cloneData.type === 'assigned') {
         // ALWAYS set status for assigned clones, regardless of analysisData
         if (progressData.status) {
           setCurrentStatus(progressData.status);
-          console.log('*** STATUS DEBUG FOR ASSIGNED ***');
-          console.log('progressData.status:', progressData.status);
-          console.log('cloneData.status:', cloneData.status);
-          console.log('Setting currentStatus to:', progressData.status);
         }
 
         // Parse analysisData if it exists
         if (progressData.analysisData) {
           try {
             fullAnalysisData = JSON.parse(progressData.analysisData);
-            console.log('*** PARSED ANALYSIS DATA ***');
-            console.log('Parsed analysis data object:', fullAnalysisData);
           } catch (parseError) {
             console.error('*** ERROR PARSING ANALYSIS DATA ***');
             console.error('Parse error:', parseError);
@@ -786,16 +772,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         // Also set the status for practice clones
         if (progressData.status) {
           setCurrentStatus(progressData.status);
-          console.log('*** STATUS DEBUG FOR PRACTICE ***');
-          console.log('progressData.status:', progressData.status);
-          console.log('Setting currentStatus to:', progressData.status);
         }
       }
 
       // Set review comments
       if (fullAnalysisData.reviewComments) {
-        console.log('*** SETTING REVIEW COMMENTS ***');
-        console.log('reviewComments:', fullAnalysisData.reviewComments);
         setReviewComments(fullAnalysisData.reviewComments);
       }
 
@@ -814,7 +795,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         if (onUnsavedChangesUpdate) {
           onUnsavedChangesUpdate(false);
         }
-        console.log('Restored answers:', initializedAnswers);
       } else {
         // Initialize empty answers with proper structure for sequence_range questions
         const emptyAnswers = {};
@@ -825,7 +805,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         });
 
         setAnswers(emptyAnswers);
-        console.log('Initialized empty answers with sequence_range support');
       }
 
       if (fullAnalysisData.currentStep) {
@@ -847,7 +826,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     return isReadOnly(currentStatus);
   };
 
-  // NEW: Check if student can edit (status allows editing)
   // NEW: Check if student can edit (status allows editing)
   const canEdit = () => {
     // Validate current status and warn if invalid
@@ -948,9 +926,11 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     const componentId = `${cloneData.type}-${cloneData.id}`;
 
     try {
+      /*
       console.log('=== CHROMATOGRAM LOADING (MULTI-TAB SAFE) ===');
       console.log('Component ID:', componentId);
       console.log('cloneData:', cloneData);
+      */
 
       let downloadEndpoint;
       let expectedCloneId;
@@ -967,7 +947,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         return;
       }
 
-      console.log('Download endpoint:', downloadEndpoint);
 
       // UPDATED: Use apiService.downloadBlob instead of raw fetch
       const blob = await apiService.downloadBlob(downloadEndpoint);
@@ -996,7 +975,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         const preSetComponentId = `${cloneData.type}-${cloneData.id}`;
         if (preSetComponentId === componentId) {
           setChromatogramData(uint8Array);
-          console.log('Successfully set chromatogram data for component:', componentId);
+          //console.log('Successfully set chromatogram data for component:', componentId);
         } else {
           console.log('Component changed before setting data, aborting');
         }
@@ -1070,7 +1049,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
           currentStep: currentStep,
           progress: progress
         });
-        console.log('Clone activity logged successfully');
+        //console.log('Clone activity logged successfully');
       } catch (activityError) {
         console.error('Failed to log clone activity (non-critical):', activityError);
         // Don't fail the save if activity logging fails
@@ -1333,8 +1312,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
       setShowChromatogram(false);
     } else {
       // Opening chromatogram viewer
-      console.log('=== OPENING CHROMATOGRAM VIEWER ===');
-      console.log('Clone:', cloneData.cloneName, 'Type:', cloneData.type, 'ID:', cloneData.id);
 
       setShowChromatogram(true);
 
@@ -1353,12 +1330,14 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     const questionComments = getQuestionComments(question.id);
     const isCorrect = isQuestionCorrect(question.id);
 
+    /*
     console.log('=== RENDER QUESTION DEBUG ===');
     console.log('Question ID:', question.id, 'Type:', typeof question.id);
     console.log('Question text:', question.text);
     console.log('Found comments for this question:', questionComments.length);
     console.log('Is question marked correct:', isCorrect);
     console.log('reviewComments state length:', reviewComments.length);
+    */
 
 
     // Render special types first
@@ -1721,7 +1700,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         blast1Data = blast1Answer;
       }
     } catch (e) {
-      console.log('Error parsing BLAST 1 results:', e);
+      console.error('Error parsing BLAST 1 results:', e);
     }
 
     try {
@@ -1731,7 +1710,7 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
         blast2Data = blast2Answer;
       }
     } catch (e) {
-      console.log('Error parsing BLAST 2 results:', e);
+      console.error('Error parsing BLAST 2 results:', e);
     }
 
     // Convert the object format to arrays for table display
@@ -1754,14 +1733,6 @@ const DNAAnalysisInterface = ({ cloneData, onClose, onProgressUpdate, onUnsavedC
     const blast1Results = convertBlastDataToArray(blast1Data);
     const blast2Results = convertBlastDataToArray(blast2Data);
 
-    console.log('BLAST Comparison Debug:', {
-      blast1Question: blast1Question?.text,
-      blast2Question: blast2Question?.text,
-      blast1Answer: blast1Answer,
-      blast2Answer: blast2Answer,
-      blast1Results,
-      blast2Results
-    });
 
     return (
       <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">

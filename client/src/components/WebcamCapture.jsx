@@ -37,7 +37,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
     if (!isOpen) return;
     
     try {
-      console.log('Starting camera initialization...');
+      //console.log('Starting camera initialization...');
       setCameraStarted(false);
       setError(null);
 
@@ -46,18 +46,18 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
         audio: false
       });
 
-      console.log('Got media stream:', mediaStream);
+      //console.log('Got media stream:', mediaStream);
       setStream(mediaStream);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
       if (videoRef.current) {
-        console.log('Setting up video element...');
+        //console.log('Setting up video element...');
         const video = videoRef.current;
         
         video.srcObject = mediaStream;
         video.play().then(() => {
-          console.log('Video playing successfully');
+          //console.log('Video playing successfully');
           setCameraStarted(true);
         }).catch(err => {
           console.log('Play failed, but continuing:', err);
@@ -160,7 +160,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
     if (videoRef.current && stream) {
       const video = videoRef.current;
       if (video.paused || video.ended) {
-        console.log('Video was paused, restarting...');
+        //console.log('Video was paused, restarting...');
         video.srcObject = stream;
         video.play().catch(err => {
           console.log('Error restarting video:', err);
@@ -300,6 +300,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
     const sourceY = cropCenterY - cropRadius;
     const sourceSize = cropRadius * 2;
     
+    /*
     console.log('Crop details:', {
       zoom,
       circleRadius,
@@ -310,6 +311,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
       cropCenterX, cropCenterY, cropRadius,
       sourceX, sourceY, sourceSize
     });
+    */
     
     // Create circular clipping path
     context.beginPath();
@@ -361,7 +363,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
   const videoRefCallback = useCallback((element) => {
     videoRef.current = element;
     if (element && stream && !cameraStarted) {
-      console.log('Video element mounted, setting stream...');
+      //console.log('Video element mounted, setting stream...');
       element.srcObject = stream;
       element.play().catch(console.log);
       setCameraStarted(true);
@@ -373,7 +375,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
     if (!capturedImage && videoRef.current && stream && cameraStarted) {
       const video = videoRef.current;
       if (video.paused || video.videoWidth === 0) {
-        console.log('Restoring video after retake...');
+        //console.log('Restoring video after retake...');
         video.srcObject = stream;
         video.play().catch(console.log);
       }
@@ -470,7 +472,7 @@ const WebcamCapture = ({ isOpen, onClose, onCapture }) => {
                 draggable={false}
               />
               
-              {/* Circular overlay - clean and simple */}
+              {/* Circular overlay for cropping */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div 
                   className="border-4 border-white rounded-full shadow-lg"

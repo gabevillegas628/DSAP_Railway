@@ -38,7 +38,7 @@ const DirectorMessagesChat = ({ onMessageRead }) => {
     const loadDiscussions = useCallback(async () => {
         try {
             const discussionsData = await apiService.get('/clone-discussions/director');
-            console.log('Loaded discussions:', discussionsData.length);
+            //console.log('Loaded discussions:', discussionsData.length);
             setDiscussions(discussionsData);
         } catch (error) {
             console.error('Error loading discussions:', error);

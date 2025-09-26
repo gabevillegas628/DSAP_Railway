@@ -25,7 +25,7 @@ const InstructorDashboard = () => {
       // Get messages only from students in instructor's school
       const receivedMessages = await apiService.get(`/messages/user/${currentUser.id}?type=received&schoolId=${currentUser.school.id}`);
 
-      console.log('📨 Total received messages from my school:', receivedMessages.length);
+      //console.log('📨 Total received messages from my school:', receivedMessages.length);
 
       // Count unread messages
       const unreadMessages = receivedMessages.filter(message => {
@@ -33,7 +33,7 @@ const InstructorDashboard = () => {
         return !readBy.some(read => read.userId === currentUser.id);
       });
 
-      console.log('📬 Unread messages:', unreadMessages.length);
+      //console.log('📬 Unread messages:', unreadMessages.length);
       setUnreadCount(unreadMessages.length);
     } catch (error) {
       console.error('Error fetching instructor message count:', error);
@@ -47,20 +47,20 @@ const InstructorDashboard = () => {
     if (!currentUser?.school?.id) return;
 
     try {
-      console.log('=== INSTRUCTOR REVIEW COUNT DEBUG ===');
+      //console.log('=== INSTRUCTOR REVIEW COUNT DEBUG ===');
 
       // Use the same API calls as InstructorAnalysisReview (WITHOUT includeTeacherReviewed)
       const schoolName = currentUser.school.name;
       const files = await apiService.get(`/uploaded-files?reviewReady=true&schoolName=${encodeURIComponent(schoolName)}`);
       const practiceSubmissions = await apiService.get(`/practice-submissions?reviewReady=true&schoolName=${encodeURIComponent(schoolName)}`);
 
-      console.log('Regular submissions from my school awaiting review:', files.length);
-      console.log('Practice submissions from my school awaiting review:', practiceSubmissions.length);
+      //console.log('Regular submissions from my school awaiting review:', files.length);
+      //console.log('Practice submissions from my school awaiting review:', practiceSubmissions.length);
 
       // Count ALL files returned (since API already filtered to only instructor-reviewable items)
       const totalNeedsReview = files.length + practiceSubmissions.length;
 
-      console.log('Total instructor review count:', totalNeedsReview);
+      //console.log('Total instructor review count:', totalNeedsReview);
       setReviewCount(totalNeedsReview);
     } catch (error) {
       console.error('Error fetching instructor review count:', error);

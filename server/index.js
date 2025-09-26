@@ -2209,7 +2209,9 @@ app.delete('/api/uploaded-files/:id', async (req, res) => {
   }
 });
 
+// =========================
 // Student Progress API endpoints
+// =========================
 
 // Save student progress and answers - WITH DETAILED DEBUGGING
 app.put('/api/uploaded-files/:id/progress', validateStatusMiddleware, async (req, res) => {
@@ -2246,8 +2248,6 @@ app.put('/api/uploaded-files/:id/progress', validateStatusMiddleware, async (req
       });
     }
 
-    // Continue with rest of your existing code...
-    console.log('Review Comments received:', reviewComments?.length || 0);
 
     // Check if file exists first
     const existingFile = await prisma.uploadedFile.findUnique({
@@ -2300,8 +2300,8 @@ app.put('/api/uploaded-files/:id/progress', validateStatusMiddleware, async (req
 
     const analysisDataString = JSON.stringify(updatedAnalysisData);
 
-    console.log('Final analysis data being saved:', updatedAnalysisData);
-    console.log('Review comments being preserved:', updatedAnalysisData.reviewComments?.length || 0);
+    //console.log('Final analysis data being saved:', updatedAnalysisData);
+    //console.log('Review comments being preserved:', updatedAnalysisData.reviewComments?.length || 0);
 
     // Update the file
     const updatedFile = await prisma.uploadedFile.update({
@@ -2326,7 +2326,6 @@ app.put('/api/uploaded-files/:id/progress', validateStatusMiddleware, async (req
 });
 
 // Get student progress and answers
-// CORRECTED GET progress endpoint in index.js:
 app.get('/api/uploaded-files/:id/progress', async (req, res) => {
   try {
     const { id } = req.params;
@@ -2422,22 +2421,24 @@ app.get('/api/student-progress', async (req, res) => {
   }
 });
 
+// =========================
 // Message API endpoints - CONSOLIDATED VERSION (no duplicates)
+// =========================
 
-// Add this to your index.js file in the messages section
 
 // Check if a discussion already exists for a specific clone and student
-// REPLACE your existing check-discussion endpoint with this corrected version:
 app.get('/api/messages/check-discussion/:studentId/:cloneId', async (req, res) => {
   try {
     const { studentId, cloneId } = req.params;
 
+    /*
     console.log('=== CHECK EXISTING DISCUSSION ENDPOINT HIT ===');
     console.log('Student ID:', studentId);
     console.log('Clone ID:', cloneId);
     console.log('Request method:', req.method);
     console.log('Request URL:', req.url);
     console.log('Request headers:', req.headers);
+    */
 
     // Validate input parameters
     if (!studentId || isNaN(parseInt(studentId))) {
@@ -2459,7 +2460,7 @@ app.get('/api/messages/check-discussion/:studentId/:cloneId', async (req, res) =
       ]
     };
 
-    console.log('Database query where clause:', whereClause);
+    //console.log('Database query where clause:', whereClause);
 
     // Check if any messages exist for this clone-student combination
     const existingMessages = await prisma.message.findMany({
@@ -2478,7 +2479,7 @@ app.get('/api/messages/check-discussion/:studentId/:cloneId', async (req, res) =
       orderBy: { createdAt: 'asc' }
     });
 
-    console.log('Raw database query returned:', existingMessages.length, 'messages');
+    //console.log('Raw database query returned:', existingMessages.length, 'messages');
 
     // FIXED: Resolve correct clone names but handle empty arrays properly
     let resolvedMessages = [];
@@ -2494,7 +2495,7 @@ app.get('/api/messages/check-discussion/:studentId/:cloneId', async (req, res) =
     }
 
     const discussionExists = resolvedMessages.length > 0;
-    console.log('Discussion exists:', discussionExists);
+    //console.log('Discussion exists:', discussionExists);
 
     if (discussionExists) {
       const firstMessage = resolvedMessages[0];
@@ -2555,13 +2556,14 @@ app.get('/api/messages/check-discussion/:studentId/:cloneId', async (req, res) =
   }
 });
 
-// Send message to directors (for students asking for help)
-// Send message to directors (for students asking for help)
+
+
 // Send message to directors (for students asking for help) - UPDATED FOR GROUP MESSAGING
 app.post('/api/messages/support', async (req, res) => {
   try {
     const { senderId, cloneId, cloneType, cloneProgress, currentStep, subject, content } = req.body;
 
+    /*
     console.log('=== MESSAGE SUPPORT DEBUG ===');
     console.log('Request body:', req.body);
     console.log('Sender ID:', senderId, 'Type:', typeof senderId);
@@ -2570,6 +2572,8 @@ app.post('/api/messages/support', async (req, res) => {
     console.log('Clone ID:', cloneId, 'Type:', typeof cloneId);
     console.log('Clone Progress:', cloneProgress, 'Type:', typeof cloneProgress);
     console.log('Current Step:', currentStep, 'Type:', typeof currentStep);
+    */
+
 
     // Validate required fields
     if (!senderId || senderId === undefined || senderId === null) {
@@ -2600,7 +2604,7 @@ app.post('/api/messages/support', async (req, res) => {
       }
     });
 
-    console.log(`Found ${directors.length} directors:`, directors.map(d => d.name));
+    //console.log(`Found ${directors.length} directors:`, directors.map(d => d.name));
 
     if (directors.length === 0) {
       console.log('ERROR: No directors found');
@@ -2610,7 +2614,7 @@ app.post('/api/messages/support', async (req, res) => {
     // Get clone information if cloneId provided
     let clone = null;
     if (cloneId && !isNaN(parseInt(cloneId))) {
-      console.log('Fetching clone information for ID:', cloneId);
+      //console.log('Fetching clone information for ID:', cloneId);
 
       try {
         if (cloneType === 'practice') {
@@ -2627,7 +2631,7 @@ app.post('/api/messages/support', async (req, res) => {
               filename: practiceClone.filename,
               type: 'practice'
             };
-            console.log('Found practice clone:', clone.cloneName);
+            //console.log('Found practice clone:', clone.cloneName);
           }
         } else {
           // Look in uploaded files table (assigned clones)
@@ -2641,7 +2645,7 @@ app.post('/api/messages/support', async (req, res) => {
           });
 
           if (clone) {
-            console.log('Found assigned clone:', clone.cloneName);
+            //console.log('Found assigned clone:', clone.cloneName);
           }
         }
 
@@ -2655,7 +2659,7 @@ app.post('/api/messages/support', async (req, res) => {
 
     // FIXED: Create separate message records for each director
     const directorIds = directors.map(d => d.id);
-    console.log('Creating group messages for all directors:', directorIds);
+    //console.log('Creating group messages for all directors:', directorIds);
 
     const groupMessages = [];
     for (const directorId of directorIds) {
@@ -2704,7 +2708,7 @@ app.post('/api/messages/support', async (req, res) => {
       };
     }
 
-    console.log('Created', groupMessages.length, 'group messages for all directors');
+    //console.log('Created', groupMessages.length, 'group messages for all directors');
 
     res.json({
       success: true,
@@ -2811,18 +2815,18 @@ app.get('/api/messages/user/:userId/counts', async (req, res) => {
   }
 });
 
-// FIXED: Reply endpoint with proper recipient logic
-// FIXED: Reply endpoint with proper group messaging logic
 // FIXED: Reply endpoint with proper group messaging logic
 app.post('/api/messages/:id/reply', async (req, res) => {
   try {
     const { id } = req.params;
     const { senderId, content } = req.body;
 
+    /*
     console.log('=== REPLY ENDPOINT DEBUG ===');
     console.log('Replying to message ID:', id);
     console.log('Sender ID:', senderId);
     console.log('Content:', content.substring(0, 50) + '...');
+    */
 
     // Get the original message
     const originalMessage = await prisma.message.findUnique({
@@ -2838,12 +2842,14 @@ app.post('/api/messages/:id/reply', async (req, res) => {
       return res.status(404).json({ error: 'Original message not found' });
     }
 
+    /*
     console.log('Original message found:');
     console.log('- Original sender:', originalMessage.sender.name, originalMessage.senderId);
     console.log('- Original recipient:', originalMessage.recipient.name, originalMessage.recipientId);
     console.log('- Current replier:', senderId);
     console.log('- Is group message:', originalMessage.isGroupMessage);
     console.log('- Message type:', originalMessage.messageType);
+    */
 
     // NEW: Group messaging logic - replies go to all participants
     if (originalMessage.isGroupMessage || originalMessage.messageType === 'group_support') {
@@ -2880,28 +2886,25 @@ app.post('/api/messages/:id/reply', async (req, res) => {
       // Get all recipients (excluding current sender)
       const recipients = participants.filter(id => id !== parseInt(senderId));
 
-      console.log('Original student ID:', originalStudentId);
-      console.log('All participants:', participants);
-      console.log('Recipients before student check:', recipients);
 
       // CRITICAL: Always ensure student gets the reply
       if (originalStudentId && !recipients.includes(originalStudentId)) {
         recipients.unshift(originalStudentId); // Add student as first recipient
-        console.log('Added student to recipients:', originalStudentId);
+        //console.log('Added student to recipients:', originalStudentId);
       }
 
-      console.log('Final recipients list:', recipients);
+      //console.log('Final recipients list:', recipients);
 
-      console.log('Original student ID:', originalStudentId);
-      console.log('Final recipients list:', recipients);
+      //console.log('Original student ID:', originalStudentId);
+      //console.log('Final recipients list:', recipients);
 
-      console.log('Group participants:', participants);
-      console.log('Reply recipients (excluding sender):', recipients);
+      //console.log('Group participants:', participants);
+      //console.log('Reply recipients (excluding sender):', recipients);
 
       // Create reply messages for all recipients
       const replyMessages = [];
       for (const recipientId of recipients) {
-        console.log('Creating reply for recipient:', recipientId);
+        //console.log('Creating reply for recipient:', recipientId);
 
         const replyMessage = await prisma.message.create({
           data: {
@@ -2944,10 +2947,10 @@ app.post('/api/messages/:id/reply', async (req, res) => {
         });
 
         replyMessages.push(replyMessage);
-        console.log('Created reply message:', replyMessage.id, 'to', replyMessage.recipient.name);
+        //console.log('Created reply message:', replyMessage.id, 'to', replyMessage.recipient.name);
       }
 
-      console.log('Created', replyMessages.length, 'group reply messages');
+      //console.log('Created', replyMessages.length, 'group reply messages');
 
       // Return the first reply message (they're all essentially the same content)
       return res.json(replyMessages[0]);
@@ -4184,10 +4187,6 @@ app.get('/api/practice-submissions', async (req, res) => {
   try {
     const { reviewReady, schoolId, schoolName, includeTeacherReviewed } = req.query;
 
-    console.log('=== PRACTICE SUBMISSIONS QUERY DEBUG ===');
-    console.log('reviewReady:', reviewReady);
-    console.log('includeTeacherReviewed:', includeTeacherReviewed);
-    console.log('schoolName:', schoolName);
 
     let whereClause = {};
 
@@ -4209,12 +4208,12 @@ app.get('/api/practice-submissions', async (req, res) => {
       // Only include teacher-reviewed items for directors
       if (includeTeacherReviewed === 'true') {
         reviewStatuses.push(CLONE_STATUSES.REVIEWED_BY_TEACHER);
-        console.log('✅ Including REVIEWED_BY_TEACHER status for directors (practice)');
+       // console.log('✅ Including REVIEWED_BY_TEACHER status for directors (practice)');
       } else {
         console.log('❌ NOT including REVIEWED_BY_TEACHER status (instructor view - practice)');
       }
 
-      console.log('Practice review statuses being searched:', reviewStatuses);
+      //console.log('Practice review statuses being searched:', reviewStatuses);
 
       whereClause = {
         AND: [
@@ -4234,7 +4233,7 @@ app.get('/api/practice-submissions', async (req, res) => {
       }
     }
 
-    console.log('Final practice whereClause:', JSON.stringify(whereClause, null, 2));
+    //console.log('Final practice whereClause:', JSON.stringify(whereClause, null, 2));
 
     const submissions = await prisma.userPracticeProgress.findMany({
       where: whereClause,
@@ -4259,8 +4258,8 @@ app.get('/api/practice-submissions', async (req, res) => {
       orderBy: { updatedAt: 'desc' }
     });
 
-    console.log('Found practice submissions:', submissions.length);
-    console.log('Practice submissions with REVIEWED_BY_TEACHER:', submissions.filter(s => s.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
+    //console.log('Found practice submissions:', submissions.length);
+    //console.log('Practice submissions with REVIEWED_BY_TEACHER:', submissions.filter(s => s.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
 
     // Format the submissions to match expected structure
     const formattedSubmissions = submissions.map(submission => ({
@@ -4280,7 +4279,7 @@ app.get('/api/practice-submissions', async (req, res) => {
       lastReviewed: submission.lastReviewed
     }));
 
-    console.log('Formatted practice submissions:', formattedSubmissions.length);
+    //console.log('Formatted practice submissions:', formattedSubmissions.length);
     res.json(formattedSubmissions);
   } catch (error) {
     console.error('Error in practice-submissions endpoint:', error);
@@ -6695,7 +6694,7 @@ app.get('/api/schools/public', async (req, res) => {
 
 app.get('/api/students/with-progress', authenticateToken, requireRole(['director', 'instructor']), async (req, res) => {
   try {
-    console.log('=== OPTIMIZED STUDENTS WITH PROGRESS ENDPOINT ===');
+    //console.log('=== OPTIMIZED STUDENTS WITH PROGRESS ENDPOINT ===');
 
     // Step 1: Get all approved students (same as original)
     const students = await prisma.user.findMany({
@@ -6717,7 +6716,7 @@ app.get('/api/students/with-progress', authenticateToken, requireRole(['director
       }
     });
 
-    console.log('✓ Students fetched:', students.length);
+    //console.log('✓ Students fetched:', students.length);
 
     // Step 2: Get active practice clones (same as original)
     const allPracticeClones = await prisma.practiceClone.findMany({
@@ -6726,7 +6725,7 @@ app.get('/api/students/with-progress', authenticateToken, requireRole(['director
       }
     });
 
-    console.log('✓ Active practice clones:', allPracticeClones.length);
+    //console.log('✓ Active practice clones:', allPracticeClones.length);
 
     // Step 3: OPTIMIZED - Get all progress in one query instead of N queries
     const allProgressRecords = await prisma.userPracticeProgress.findMany({
@@ -6738,7 +6737,7 @@ app.get('/api/students/with-progress', authenticateToken, requireRole(['director
       }
     });
 
-    console.log('✓ All progress records fetched:', allProgressRecords.length);
+    //console.log('✓ All progress records fetched:', allProgressRecords.length);
 
     // Step 4: Process students with their progress data (optimized lookup)
     const studentsWithProgress = students.map(student => {
@@ -6775,7 +6774,7 @@ app.get('/api/students/with-progress', authenticateToken, requireRole(['director
       };
     });
 
-    console.log('✓ Students with progress processed:', studentsWithProgress.length);
+    //console.log('✓ Students with progress processed:', studentsWithProgress.length);
 
     res.json({
       students: studentsWithProgress,
@@ -8706,8 +8705,8 @@ app.get('/api/clone-discussions/student/:studentId', async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    console.log('=== GETTING STUDENT DISCUSSIONS ===');
-    console.log('Student ID:', studentId);
+    //console.log('=== GETTING STUDENT DISCUSSIONS ===');
+    //console.log('Student ID:', studentId);
 
     const discussions = await prisma.cloneDiscussion.findMany({
       where: {
@@ -8736,6 +8735,7 @@ app.get('/api/clone-discussions/student/:studentId', async (req, res) => {
       orderBy: { lastMessageAt: 'desc' }
     });
 
+    /*
     console.log('Found discussions:', discussions.length);
     console.log('Discussion details:', discussions.map(d => ({
       id: d.id,
@@ -8744,6 +8744,7 @@ app.get('/api/clone-discussions/student/:studentId', async (req, res) => {
       practiceCloneId: d.practiceCloneId,
       messageCount: d._count.messages
     })));
+    */
 
     // Add unread count for each discussion - FIXED readBy handling
     // Fix in index.js - the unread count calculation
@@ -8794,7 +8795,7 @@ app.get('/api/clone-discussions/student/:studentId', async (req, res) => {
       })
     );
 
-    console.log('Final discussions with unread counts:', discussionsWithUnread.length);
+    //console.log('Final discussions with unread counts:', discussionsWithUnread.length);
     res.json(discussionsWithUnread);
 
   } catch (error) {

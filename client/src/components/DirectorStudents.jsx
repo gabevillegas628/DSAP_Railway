@@ -255,10 +255,10 @@ const DirectorStudents = () => {
       setLoading(true);
       setError('');
 
-      console.log('=== USING OPTIMIZED STUDENTS ENDPOINT (3 DB queries total) ===');
+      //console.log('=== USING OPTIMIZED STUDENTS ENDPOINT (3 DB queries total) ===');
 
       const response = await apiService.get('/students/with-progress');
-      console.log('✅ Optimized endpoint response:', response);
+      //console.log('✅ Optimized endpoint response:', response);
 
       // Handle the correct response format: { students: [...], metadata: {...} }
       const studentsWithProgress = response.students;
@@ -267,9 +267,9 @@ const DirectorStudents = () => {
         throw new Error('Invalid students array in response');
       }
 
-      console.log(`✅ Loaded ${studentsWithProgress.length} students with only 3 database queries`);
+      //console.log(`✅ Loaded ${studentsWithProgress.length} students with only 3 database queries`);
       if (response.metadata) {
-        console.log('📊 Metadata:', response.metadata);
+        //console.log('📊 Metadata:', response.metadata);
       }
 
       setAllStudents(studentsWithProgress);
@@ -319,7 +319,7 @@ const DirectorStudents = () => {
         })
       );
 
-      console.log('✅ Updated all students with practice progress');
+      //console.log('✅ Updated all students with practice progress');
       setAllStudents(updatedStudents);
     } catch (error) {
       console.log('⚠️ Failed to fetch practice progress, keeping basic data:', error);
@@ -446,7 +446,7 @@ const DirectorStudents = () => {
           }
         }));
       } catch (practiceError) {
-        console.log('No practice submissions found for student');
+        //console.log('No practice submissions found for student');
         setStudentAssignments(prev => ({
           ...prev,
           [studentId]: {
@@ -456,7 +456,7 @@ const DirectorStudents = () => {
         }));
       }
 
-      console.log(`Found assignments for student ${studentId}`);
+      //console.log(`Found assignments for student ${studentId}`);
 
     } catch (error) {
       console.error('Error fetching student assignments:', error);

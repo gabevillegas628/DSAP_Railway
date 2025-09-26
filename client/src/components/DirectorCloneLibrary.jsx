@@ -81,8 +81,6 @@ const DirectorCloneLibrary = () => {
     fetchUploadedFiles();
     fetchStudents();
     fetchPracticeClones();
-    console.log('🧪 BASIC TEST: DirectorCloneLibrary component mounted!');
-    console.log('🧪 Current user:', currentUser);
   }, []);
 
   // Reset pagination when search changes
@@ -92,7 +90,6 @@ const DirectorCloneLibrary = () => {
 
   // Check for missing files on component mount
   useEffect(() => {
-    console.log('🚀 DirectorCloneLibrary useEffect - calling checkMissingFiles');
     checkMissingFiles();
   }, []);
 
