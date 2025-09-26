@@ -1223,14 +1223,28 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
 
     return sortedIndices.map(index => (
       <tr key={index} className="hover:bg-gray-50">
-        <td className="px-2 py-1 font-mono text-xs">{answer[`accession_${index}`] || '-'}</td>
-        <td className="px-2 py-1 text-xs truncate max-w-32" title={answer[`definition_${index}`] || '-'}>
+        <td className="px-2 py-1 font-mono text-xs" style={{ width: '20%' }}>
+          {answer[`accession_${index}`] || '-'}
+        </td>
+        <td className="px-2 py-1 text-xs" style={{
+          wordBreak: 'break-word',
+          whiteSpace: 'normal',
+          width: '30%'
+        }} title={answer[`definition_${index}`] || '-'}>
           {answer[`definition_${index}`] || '-'}
         </td>
-        <td className="px-2 py-1 text-xs italic">{answer[`organism_${index}`] || '-'}</td>
-        <td className="px-2 py-1 font-mono text-xs">{answer[`start_${index}`] || '-'}</td>
-        <td className="px-2 py-1 font-mono text-xs">{answer[`end_${index}`] || '-'}</td>
-        <td className="px-2 py-1 font-mono text-xs">{answer[`evalue_${index}`] || '-'}</td>
+        <td className="px-2 py-1 text-xs italic break-words" style={{ width: '20%' }}>
+          {answer[`organism_${index}`] || '-'}
+        </td>
+        <td className="px-2 py-1 font-mono text-xs" style={{ width: '10%' }}>
+          {answer[`start_${index}`] || '-'}
+        </td>
+        <td className="px-2 py-1 font-mono text-xs" style={{ width: '10%' }}>
+          {answer[`end_${index}`] || '-'}
+        </td>
+        <td className="px-2 py-1 font-mono text-xs" style={{ width: '10%' }}>
+          {answer[`evalue_${index}`] || '-'}
+        </td>
       </tr>
     ));
   };
@@ -1568,16 +1582,16 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
             {/* Student's BLAST Results */}
             <div>
               <h6 className="text-sm font-medium text-gray-900 mb-2">Student's BLAST Results:</h6>
-              <div className="bg-gray-50 rounded-lg p-3 overflow-x-auto">
-                <table className="min-w-full text-xs">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <table className="w-full text-xs table-fixed">
                   <thead className="bg-gray-200">
                     <tr>
-                      <th className="px-2 py-1 text-left font-medium text-gray-700">Accession</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-700">Definition</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-700">Organism</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-700">Start</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-700">End</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-700">E-value</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '20%' }}>Accession</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '30%' }}>Definition</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '20%' }}>Organism</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '10%' }}>Start</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '10%' }}>End</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '10%' }}>E-value</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
@@ -1777,16 +1791,16 @@ const DirectorAnalysisReview = ({ onReviewCompleted }) => {
       } else {
         // Original practice clone view remains unchanged
         return (
-          <div className="bg-gray-50 rounded-lg p-3 overflow-x-auto">
-            <table className="min-w-full text-xs">
+          <div className="bg-gray-50 rounded-lg p-3">
+            <table className="w-full text-xs table-fixed">
               <thead className="bg-gray-200">
                 <tr>
-                  <th className="px-2 py-1 text-left font-medium text-gray-700">Accession</th>
-                  <th className="px-2 py-1 text-left font-medium text-gray-700">Definition</th>
-                  <th className="px-2 py-1 text-left font-medium text-gray-700">Organism</th>
-                  <th className="px-2 py-1 text-left font-medium text-gray-700">Start</th>
-                  <th className="px-2 py-1 text-left font-medium text-gray-700">End</th>
-                  <th className="px-2 py-1 text-left font-medium text-gray-700">E-value</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '20%' }}>Accession</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '30%' }}>Definition</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '20%' }}>Organism</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '10%' }}>Start</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '10%' }}>End</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-700" style={{ width: '10%' }}>E-value</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">

@@ -45,6 +45,7 @@ export const validateProfilePicture = async (file) => {
           const inappropriate = predictions.some(prediction => 
             (prediction.className === 'Porn' && prediction.probability > 0.3) ||
             (prediction.className === 'Sexy' && prediction.probability > 0.6) ||
+            (prediction.className === 'Drawing' && prediction.probability > 0.3) ||
             (prediction.className === 'Hentai' && prediction.probability > 0.3)
           );
 

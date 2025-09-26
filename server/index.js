@@ -536,50 +536,6 @@ const pollNCBIForResults = async (rid, maxAttempts = 60) => {
   throw new Error('BLAST search timeout - results not ready after maximum attempts');
 };
 
-// Parse BLAST JSON results into our format
-// Parse BLAST JSON results into our format
-const parseBlastResults = (jsonData) => {
-  try {
-    console.log('Parsing BLAST JSON:', JSON.stringify(jsonData, null, 2).substring(0, 500));
-
-    // Handle different possible JSON structures
-    let hits = [];
-
-    if (jsonData?.BlastOutput2?.[0]?.report?.results?.search?.hits) {
-      hits = jsonData.BlastOutput2[0].report.results.search.hits;
-    } else if (jsonData?.BlastOutput?.iterations?.[0]?.hits) {
-      hits = jsonData.BlastOutput.iterations[0].hits;
-    } else if (jsonData?.hits) {
-      hits = jsonData.hits;
-    } else {
-      console.log('No hits found in expected locations');
-      return [];
-    }
-
-    console.log('Found', hits.length, 'hits in BLAST results');
-
-    return hits.slice(0, 3).map((hit, index) => {
-      const hsp = hit.hsps?.[0] || hit.hsp?.[0] || {};
-
-      return {
-        rank: index + 1,
-        accession: hit.accession || hit.id || '',
-        definition: hit.definition || hit.title || '',
-        organism: hit.taxid ? `Tax ID: ${hit.taxid}` : (hit.organism || ''),
-        start: hsp.hit_from?.toString() || hsp.start?.toString() || '',
-        end: hsp.hit_to?.toString() || hsp.end?.toString() || '',
-        evalue: hsp.evalue ? parseFloat(hsp.evalue).toExponential(2) : '',
-        score: hsp.score || hsp.bit_score || '',
-        identity: hsp.identity || hsp.identities || ''
-      };
-    });
-
-  } catch (error) {
-    console.error('Error parsing BLAST results:', error);
-    console.error('JSON data structure:', Object.keys(jsonData || {}));
-    return [];
-  }
-};
 
 // Enhanced BLAST search function
 const performNCBIBlastSearch = async (sequence, database = 'nt', program = 'blastn') => {
@@ -744,16 +700,13 @@ app.get('/api/progress-test', (req, res) => {
 // Schools API endpoints
 app.get('/api/schools', authenticateToken, async (req, res) => {
   try {
-    console.log('=== SCHOOLS ENDPOINT HIT ===');
-    console.log('User from token:', req.user);
 
     const schools = await prisma.school.findMany();
-    console.log('Found schools:', schools.length);
-    console.log('Schools data:', schools);
 
     res.json(schools);
   } catch (error) {
     console.log('=== SCHOOLS ERROR ===', error);
+    console.log('Error details:', error.message, error.stack);
     res.status(500).json({ error: error.message });
   }
 });
@@ -974,14 +927,10 @@ app.delete('/api/analysis-questions/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log('Deleting analysis question:', id);
-
     // First, delete all common feedback entries for this question
     const deletedFeedback = await prisma.commonFeedback.deleteMany({
       where: { questionId: id }
     });
-
-    console.log(`Deleted ${deletedFeedback.count} common feedback entries for question ${id}`);
 
     // Then delete the question itself
     const deletedQuestion = await prisma.analysisQuestion.delete({
@@ -1767,7 +1716,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
       whereClause.schoolId = parseInt(schoolId);
     }
 
-    console.log('Users endpoint - whereClause:', whereClause); // Debug logging
+    //console.log('Users endpoint - whereClause:', whereClause); // Debug logging
 
     const users = await prisma.user.findMany({
       where: whereClause,
@@ -1786,7 +1735,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
       return userWithoutPassword;
     });
 
-    console.log(`Found ${usersWithoutPasswords.length} users matching criteria`); // Debug logging
+    //console.log(`Found ${usersWithoutPasswords.length} users matching criteria`); // Debug logging
 
     res.json(usersWithoutPasswords);
   } catch (error) {
@@ -1883,8 +1832,9 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 
-
+// =========================
 // Clone Library API endpoints
+// =========================
 
 // Simple function to use filename as clone name
 function generateCloneName(filename) {
@@ -1896,10 +1846,13 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
   try {
     const { reviewReady, schoolId, schoolName, includeTeacherReviewed } = req.query;
 
+    /**
     console.log('=== UPLOADED FILES QUERY DEBUG ===');
     console.log('reviewReady:', reviewReady);
     console.log('includeTeacherReviewed:', includeTeacherReviewed);
     console.log('schoolName:', schoolName);
+    */
+
 
     let whereClause = {};
 
@@ -1921,12 +1874,12 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
       // Only include teacher-reviewed items for directors
       if (includeTeacherReviewed === 'true') {
         reviewStatuses.push(CLONE_STATUSES.REVIEWED_BY_TEACHER);
-        console.log('✅ Including REVIEWED_BY_TEACHER status for directors');
+        //console.log('✅ Including REVIEWED_BY_TEACHER status for directors');
       } else {
         console.log('❌ NOT including REVIEWED_BY_TEACHER status (instructor view)');
       }
 
-      console.log('Review statuses being searched:', reviewStatuses);
+      //console.log('Review statuses being searched:', reviewStatuses);
 
       whereClause = {
         AND: [
@@ -1948,7 +1901,7 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
       }
     }
 
-    console.log('Final whereClause:', JSON.stringify(whereClause, null, 2));
+    //console.log('Final whereClause:', JSON.stringify(whereClause, null, 2));
 
     const files = await prisma.uploadedFile.findMany({
       where: whereClause,
@@ -1966,8 +1919,8 @@ app.get('/api/uploaded-files', authenticateToken, async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    console.log('Found files:', files.length);
-    console.log('Files with status REVIEWED_BY_TEACHER:', files.filter(f => f.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
+    //console.log('Found files:', files.length);
+    //console.log('Files with status REVIEWED_BY_TEACHER:', files.filter(f => f.status === CLONE_STATUSES.REVIEWED_BY_TEACHER).length);
 
     res.json(files);
   } catch (error) {
@@ -2125,11 +2078,6 @@ app.put('/api/uploaded-files/:id', async (req, res) => {
     const { id } = req.params;
     const { status, analysisData, progress, ...otherUpdates } = req.body;
 
-    console.log('=== FILE UPDATE DEBUG ===');
-    console.log('File ID:', id);
-    console.log('Status update:', status);
-    console.log('Analysis data update:', analysisData ? 'Present' : 'None');
-    console.log('Progress update:', progress);
 
     const updateData = {
       ...otherUpdates,
@@ -2179,10 +2127,6 @@ app.get('/api/uploaded-files/:id/download', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    console.log('=== S3 FILE DOWNLOAD DEBUG ===');
-    console.log('File ID:', id);
-    console.log('S3 Key:', file.filename);
-    console.log('Original name:', file.originalName);
 
     // Get the file from S3
     const getObjectCommand = new GetObjectCommand({
@@ -2236,10 +2180,6 @@ app.delete('/api/uploaded-files/:id', async (req, res) => {
       });
     }
 
-    console.log('=== DELETING FILE FROM S3 AND DATABASE ===');
-    console.log('File ID:', id);
-    console.log('S3 Key:', fileToDelete.filename);
-    console.log('Clone Name:', fileToDelete.cloneName);
 
     // Delete from S3 first
     try {
@@ -2277,10 +2217,6 @@ app.put('/api/uploaded-files/:id/progress', validateStatusMiddleware, async (req
     const { id } = req.params;
     const { progress, answers, currentStep, status, reviewComments, reviewScore, lastReviewed, submittedAt } = req.body;
 
-    console.log('=== SAVE PROGRESS DEBUG ===');
-    console.log('File ID:', id);
-    console.log('Progress:', progress);
-    console.log('Requested status:', status);
 
     // Validate status if provided
     if (status && !isValidStatus(status)) {
