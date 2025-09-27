@@ -12,6 +12,7 @@ import DirectorMessagesChat from './DirectorMessagesChat';
 import DirectorAnalysisReview from './DirectorAnalysisReview';
 import DirectorSettings from './DirectorSettings';
 import DirectorHelp from './DirectorHelp.jsx';
+import BugReportsTab from './BugReportsTab.jsx';
 import { CLONE_STATUSES, getReviewStatus } from '../statusConstraints.js';
 import apiService from '../services/apiService';
 
@@ -108,7 +109,8 @@ const DirectorDashboard = () => {
       name: 'Analysis Review',
       badge: reviewCount > 0 ? reviewCount : null
     },
-    { id: 'settings', name: 'Settings' }
+    { id: 'settings', name: 'Settings' },
+    { id: 'bug-reports', name: 'Bug Reports' }
   ];
 
   // Replace the renderTabContent function and return statement in DirectorDashboard.jsx
@@ -155,6 +157,10 @@ const DirectorDashboard = () => {
 
         <div style={{ display: activeTab === 'help-topics' ? 'block' : 'none' }}>
           <DirectorHelp />
+        </div>
+
+        <div style={{ display: activeTab === 'bug-reports' ? 'block' : 'none' }}>
+          <BugReportsTab />
         </div>
       </div>
     );

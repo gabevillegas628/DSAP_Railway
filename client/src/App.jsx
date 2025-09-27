@@ -14,19 +14,19 @@ import StudentHelp from './components/StudentHelp';
 import ResetPasswordPage from './components/ResetPasswordPage';
 
 const useIsMobile = () => {
-    const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
 
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
-    return isMobile;
+  return isMobile;
 };
 
 const App = () => {
@@ -61,7 +61,7 @@ const App = () => {
   }, []);
 
   const loginAs = (user) => {
-    console.log('Logging in as:', user);
+    //console.log('Logging in as:', user);
     setCurrentUser(user);
     localStorage.setItem('user', JSON.stringify(user));
   };
@@ -73,8 +73,6 @@ const App = () => {
   };
 
   const updateCurrentUser = (updatedUser) => {
-       console.log('=== updateCurrentUser called ===');
-    console.log('updatedUser:', updatedUser);
     setCurrentUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
@@ -92,9 +90,6 @@ const App = () => {
     logout
   };
 
-   console.log('=== APP.JSX CONTEXT VALUE ===');
-  console.log('contextValue keys:', Object.keys(contextValue));
-  console.log('updateCurrentUser in context:', typeof contextValue.updateCurrentUser);
 
   // Show loading spinner while checking authentication
   if (loading) {
@@ -122,12 +117,12 @@ const App = () => {
               <Route path="/*" element={
                 !currentUser ? (
                   <div>
-            {isMobile ? (
-                <LoginScreenMobile onLogin={loginAs} />
-            ) : (
-                <LoginScreen onLogin={loginAs} />
-            )}
-        </div>
+                    {isMobile ? (
+                      <LoginScreenMobile onLogin={loginAs} />
+                    ) : (
+                      <LoginScreen onLogin={loginAs} />
+                    )}
+                  </div>
                 ) : (
                   <div className="min-h-screen bg-gray-50">
                     <Navigation currentUser={currentUser} onLogout={logout} />

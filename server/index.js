@@ -8045,6 +8045,199 @@ app.get('/api/users/:id/demographics', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
+// Bug Report Endpoints
+// ==========================================
+
+// Updated GET endpoint for bug reports with sorting
+app.get('/api/bug-reports', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'director') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { status, urgency, page = 1, limit = 20, sortBy = 'created', sortOrder = 'desc' } = req.query;
+    
+    const where = {};
+    if (status && status !== 'all') where.status = status;
+    if (urgency && urgency !== 'all') where.urgency = urgency;
+    
+    // Build orderBy based on sortBy parameter
+    let orderBy = [];
+    
+    switch (sortBy) {
+      case 'created':
+        orderBy.push({ createdAt: sortOrder });
+        break;
+        
+      case 'urgency':
+        // For urgency, we need custom ordering since it's a string
+        if (sortOrder === 'desc') {
+          // High -> Medium -> Low
+          orderBy.push({ urgency: 'desc' });
+        } else {
+          // Low -> Medium -> High
+          orderBy.push({ urgency: 'asc' });
+        }
+        // Add secondary sort by creation date
+        orderBy.push({ createdAt: 'desc' });
+        break;
+        
+      case 'status':
+        orderBy.push({ status: sortOrder });
+        // Add secondary sort by creation date
+        orderBy.push({ createdAt: 'desc' });
+        break;
+        
+      default:
+        // Fallback to creation date
+        orderBy.push({ createdAt: 'desc' });
+    }
+    
+    const bugReports = await prisma.bugReport.findMany({
+      where,
+      include: {
+        user: {
+          select: { name: true, email: true, role: true }
+        },
+        assignedTo: {
+          select: { name: true, email: true }
+        }
+      },
+      orderBy,
+      skip: (page - 1) * limit,
+      take: parseInt(limit)
+    });
+
+    // For urgency sorting, we need to do custom ordering since Prisma doesn't handle enum-like sorting well
+    let sortedBugReports = bugReports;
+    if (sortBy === 'urgency') {
+      const urgencyOrder = sortOrder === 'desc' 
+        ? { 'high': 3, 'medium': 2, 'low': 1 }
+        : { 'high': 1, 'medium': 2, 'low': 3 };
+        
+      sortedBugReports = bugReports.sort((a, b) => {
+        const aValue = urgencyOrder[a.urgency] || 0;
+        const bValue = urgencyOrder[b.urgency] || 0;
+        
+        if (aValue !== bValue) {
+          return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
+        }
+        
+        // Secondary sort by creation date (newest first)
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    }
+
+    const total = await prisma.bugReport.count({ where });
+    
+    res.json({
+      bugReports: sortedBugReports,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching bug reports:', error);
+    res.status(500).json({ error: 'Failed to fetch bug reports' });
+  }
+});
+
+// The other endpoints (submit, update, stats) remain the same as before
+app.post('/api/bug-reports/submit', authenticateToken, async (req, res) => {
+  try {
+    const { description, steps, urgency, browserInfo, consoleOutput } = req.body;
+    const userId = req.user.userId;
+    
+    const bugReport = await prisma.bugReport.create({
+      data: {
+        title: `Bug Report #${Date.now()}`,
+        description,
+        steps: steps || '',
+        urgency,
+        userId,
+        userRole: req.user.role,
+        browserInfo: JSON.stringify({
+          userAgent: req.headers['user-agent'],
+          ...browserInfo
+        }),
+        consoleOutput: consoleOutput ? JSON.stringify(consoleOutput) : null
+      },
+      include: {
+        user: {
+          select: { name: true, email: true, role: true }
+        }
+      }
+    });
+    
+    res.json({ success: true, id: bugReport.id });
+  } catch (error) {
+    console.error('Error creating bug report:', error);
+    res.status(500).json({ error: 'Failed to submit bug report' });
+  }
+});
+
+app.patch('/api/bug-reports/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'director') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { status, resolution, assignedToId } = req.body;
+    
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (resolution !== undefined) updateData.resolution = resolution;
+    if (assignedToId !== undefined) updateData.assignedToId = assignedToId;
+    if (status === 'resolved' || status === 'closed') {
+      updateData.resolvedAt = new Date();
+    }
+    
+    const bugReport = await prisma.bugReport.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: {
+        user: { select: { name: true, email: true, role: true } },
+        assignedTo: { select: { name: true, email: true } }
+      }
+    });
+    
+    res.json(bugReport);
+  } catch (error) {
+    console.error('Error updating bug report:', error);
+    res.status(500).json({ error: 'Failed to update bug report' });
+  }
+});
+
+app.get('/api/bug-reports/stats', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'director') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const stats = await Promise.all([
+      prisma.bugReport.count({ where: { status: 'open' } }),
+      prisma.bugReport.count({ where: { status: 'in_progress' } }),
+      prisma.bugReport.count({ where: { urgency: 'high', status: { in: ['open', 'in_progress'] } } }),
+      prisma.bugReport.count()
+    ]);
+
+    res.json({
+      open: stats[0],
+      inProgress: stats[1],
+      highPriority: stats[2],
+      total: stats[3]
+    });
+  } catch (error) {
+    console.error('Error fetching bug report stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// ==========================================
 // Instructor Smart Suggestions Endpoint
 // ==========================================
 app.get('/api/instructor-suggestions/:instructorId', async (req, res) => {

@@ -43,6 +43,10 @@ model User {
   // Profile Picture
   profilePicture String?
 
+  // Bug submission
+  bugReports BugReport[]
+  assignedBugReports BugReport[] @relation("AssignedBugReports")
+
   discussions              CloneDiscussion[] @relation("StudentDiscussions")
   discussionMessagesSent   DiscussionMessage[] @relation("DiscussionMessageSender")
 
@@ -396,4 +400,33 @@ model MasterStepHelp {
   stepHelps   StepHelp[]
 
   @@index([step])
+}
+
+model BugReport {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  steps       String?
+  urgency     String   @default("medium")
+  status      String   @default("open")
+  
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  userRole    String
+  
+  browserInfo   String?
+  consoleOutput String? // Add this new field
+  resolution    String?
+  
+  assignedToId Int?
+  assignedTo   User? @relation("AssignedBugReports", fields: [assignedToId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+  
+  @@index([status])
+  @@index([urgency])
+  @@index([userId])
+  @@index([createdAt])
 }

@@ -25,7 +25,7 @@ class ApiService {
 
     // Always get fresh token from localStorage instead of cached this.token
     const currentToken = localStorage.getItem('token');
-    console.log('API call - Using token:', currentToken ? 'Token exists' : 'No token found');
+    //console.log('API call - Using token:', currentToken ? 'Token exists' : 'No token found');
 
     // FIXED: Re-enable authentication
     if (currentToken) {
@@ -86,13 +86,7 @@ class ApiService {
   }
 
   async handleResponse(response) {
-    // Enhanced debugging
-    console.log(`API Response - ${response.url}:`, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      ok: response.ok
-    });
+    
 
     if (response.status === 401) {
       // Token expired or invalid - redirect to login
@@ -122,7 +116,7 @@ class ApiService {
 
     try {
       const jsonData = await response.json();
-      console.log(`API Success Response:`, jsonData);
+      //console.log(`API Success Response:`, jsonData);
       return jsonData;
     } catch (parseError) {
       const responseText = await response.text();
@@ -135,27 +129,22 @@ class ApiService {
   // GET request
   async get(endpoint) {
     const fullUrl = `${API_BASE}${endpoint}`;
-    console.log(`API GET: ${fullUrl}`);
-    console.log('Request headers:', this.getHeaders());
+    //console.log(`API GET: ${fullUrl}`);
+    //console.log('Request headers:', this.getHeaders());
 
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: this.getHeaders()
     });
 
-    console.log('Response received:', {
-      url: response.url,
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
+    
 
     return this.handleResponse(response);
   }
 
   // POST request
   async post(endpoint, data) {
-    console.log(`API POST: ${API_BASE}${endpoint}`, data);
+    //console.log(`API POST: ${API_BASE}${endpoint}`, data);
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -166,7 +155,7 @@ class ApiService {
 
   // PUT request
   async put(endpoint, data) {
-    console.log(`API PUT: ${API_BASE}${endpoint}`, data);
+    //console.log(`API PUT: ${API_BASE}${endpoint}`, data);
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -177,7 +166,7 @@ class ApiService {
 
   // PATCH request
   async patch(endpoint, data) {
-    console.log(`API PATCH: ${API_BASE}${endpoint}`, data);
+    //console.log(`API PATCH: ${API_BASE}${endpoint}`, data);
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'PATCH',
       headers: this.getHeaders(),
@@ -188,7 +177,7 @@ class ApiService {
 
   // DELETE request
   async delete(endpoint) {
-    console.log(`API DELETE: ${API_BASE}${endpoint}`);
+    //console.log(`API DELETE: ${API_BASE}${endpoint}`);
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'DELETE',
       headers: this.getHeaders()
@@ -198,7 +187,7 @@ class ApiService {
 
   // Special method for file uploads
   async uploadFiles(endpoint, formData) {
-    console.log(`API UPLOAD: ${API_BASE}${endpoint}`);
+    //console.log(`API UPLOAD: ${API_BASE}${endpoint}`);
     const headers = {
       'ngrok-skip-browser-warning': 'true'
     };

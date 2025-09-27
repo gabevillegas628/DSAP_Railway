@@ -53,7 +53,7 @@ const StudentClones = ({
 
   const getValidatedStatus = (clone) => {
     const status = clone.status || CLONE_STATUSES.AVAILABLE;
-    console.log(`Clone ${clone.cloneName} status: "${status}" (type: ${clone.type})`);
+    //console.log(`Clone ${clone.cloneName} status: "${status}" (type: ${clone.type})`);
     return status;
   };
 
