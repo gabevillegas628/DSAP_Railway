@@ -441,14 +441,7 @@ INSTANCE_NAME=${instanceName}
     console.warn('Could not copy config from main .env');
   }
   
-  return `# Add your configuration here
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-JWT_SECRET=your-jwt-secret
-S3_ACCESS_KEY_ID=your-s3-key
-S3_SECRET_ACCESS_KEY=your-s3-secret
-S3_REGION=us-east-1
-S3_BUCKET_NAME=your-bucket`;
+ 
 }
 
     async installDependencies(instanceName) {
