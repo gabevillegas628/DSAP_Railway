@@ -421,24 +421,34 @@ INSTANCE_NAME=${instanceName}
     }
 
     getEmailConfig() {
-        try {
-            const mainEnvPath = path.join(this.baseDir, 'server', '.env');
-            if (fs.existsSync(mainEnvPath)) {
-                const content = fs.readFileSync(mainEnvPath, 'utf8');
-                const emailLines = content.split('\n').filter(line =>
-                    line.startsWith('EMAIL_USER=') ||
-                    line.startsWith('EMAIL_PASSWORD=') ||
-                    line.startsWith('SENDGRID_API_KEY=')
-                );
-                return emailLines.join('\n');
-            }
-        } catch (error) {
-            console.warn('Could not copy email config from main .env');
-        }
-
-        return `EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password`;
+  try {
+    const mainEnvPath = path.join(this.baseDir, 'server', '.env');
+    if (fs.existsSync(mainEnvPath)) {
+      const content = fs.readFileSync(mainEnvPath, 'utf8');
+      const configLines = content.split('\n').filter(line => 
+        line.startsWith('EMAIL_USER=') || 
+        line.startsWith('EMAIL_PASSWORD=') ||
+        line.startsWith('SENDGRID_API_KEY=')
+      );
+      return configLines.join('\n');
     }
+  } catch (error) {
+    console.warn('Could not copy config from main .env');
+  }
+  
+  return `# Email Configuration
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+
+# AWS S3 Configuration (TEMPORARY - REMOVE IN PRODUCTION)
+S3_ACCESS_KEY_ID=AKIATLST7CQ2HJMRCSVQ
+S3_SECRET_ACCESS_KEY=fsHTpW2X2lrVnA7KUOCRwLO5zN9zQ8sz71uKngT5
+S3_REGION=us-east-2
+S3_BUCKET_NAME=dna-analysis-files-2026
+
+# JWT Secret (CHANGE IN PRODUCTION)
+JWT_SECRET=8f2a9c6e4b7d1a5f3e8c9b2d6a4e7f1c3b8e5a2f9c6d4e7a1b5c8f2e9a6c3d7f`;
+}
 
     async installDependencies(instanceName) {
         console.log('   📦 Installing dependencies...');
