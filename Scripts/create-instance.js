@@ -329,26 +329,37 @@ EMAIL_PASSWORD=your-app-password
     }
 
     async runMigrations(instanceName) {
-        console.log('   🗄️  Running database migrations...');
+        console.log('   🗄️  Setting up database schema...');
 
         const serverDir = path.join(this.instancesDir, instanceName, 'server');
 
         try {
-            // Generate Prisma client
+            console.log('   📋 Generating Prisma client...');
             execSync('npx prisma generate', {
                 cwd: serverDir,
-                stdio: 'pipe'
+                stdio: 'inherit'
             });
 
-            // Run migrations
-            execSync('npx prisma migrate deploy', {
+            console.log('   🔄 Creating database schema...');
+            // Use db push instead of migrate deploy - this creates tables directly from schema
+            execSync('npx prisma db push --accept-data-loss', {
                 cwd: serverDir,
-                stdio: 'pipe'
+                stdio: 'inherit'
             });
 
-            console.log('   ✅ Migrations completed');
+            // Verify tables were created
+            console.log('   ✅ Verifying tables...');
+            const dbConfig = JSON.parse(
+                fs.readFileSync(path.join(this.instancesDir, instanceName, 'db-config.json'), 'utf8')
+            );
+
+            execSync(`PGPASSWORD='${dbConfig.password}' psql -h localhost -U ${dbConfig.user} -d ${dbConfig.name} -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public';"`, {
+                stdio: 'inherit'
+            });
+
+            console.log('   ✅ Database schema setup completed');
         } catch (error) {
-            throw new Error(`Migration failed: ${error.message}`);
+            throw new Error(`Schema setup failed: ${error.message}`);
         }
     }
 
