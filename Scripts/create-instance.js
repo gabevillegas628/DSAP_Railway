@@ -160,8 +160,9 @@ class InstanceCreator {
     async createDatabase(instanceName) {
         console.log('   📊 Creating database...');
 
-        const dbName = `${instanceName}_db`;
-        const dbUser = `${instanceName}_user`;
+        // Convert to lowercase to avoid PostgreSQL case issues
+        const dbName = `${instanceName.toLowerCase()}_db`;
+        const dbUser = `${instanceName.toLowerCase()}_user`;
         const dbPassword = this.generatePassword();
 
         try {
@@ -172,10 +173,10 @@ class InstanceCreator {
             // Create user and grant privileges - SHOW OUTPUT FOR DEBUGGING
             console.log(`   Creating user: ${dbUser}`);
             const sqlCommands = `
-      CREATE USER ${dbUser} WITH ENCRYPTED PASSWORD '${dbPassword}';
-      GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};
-      ALTER DATABASE ${dbName} OWNER TO ${dbUser};
-    `;
+            CREATE USER ${dbUser} WITH ENCRYPTED PASSWORD '${dbPassword}';
+            GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};
+            ALTER DATABASE ${dbName} OWNER TO ${dbUser};
+            `;
 
             execSync(`sudo -u postgres psql -c "${sqlCommands}"`, { stdio: 'inherit' });
 
