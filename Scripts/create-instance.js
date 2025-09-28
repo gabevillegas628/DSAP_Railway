@@ -34,9 +34,10 @@ class InstanceManager {
         console.log('2. Manage existing instances');
         console.log('3. Quick status check');
         console.log('4. View logs (non-streaming)');
-        console.log('5. Exit');
+        console.log('5. Resurrect all instances');  // ADD THIS LINE
+        console.log('6. Exit');                     // UPDATE NUMBER
 
-        const choice = await this.question('\nEnter choice (1-5): ');
+        const choice = await this.question('\nEnter choice (1-6): '); // UPDATE RANGE
 
         switch (choice) {
             case '1':
@@ -51,7 +52,10 @@ class InstanceManager {
             case '4':
                 await this.viewLogs();
                 break;
-            case '5':
+            case '5':                              // ADD THIS CASE
+                await this.resurrectAllInstances();
+                break;
+            case '6':                              // UPDATE NUMBER
                 console.log('Goodbye!');
                 break;
             default:
@@ -421,28 +425,28 @@ INSTANCE_NAME=${instanceName}
     }
 
     getEmailConfig() {
-  try {
-    const mainEnvPath = path.join(this.baseDir, 'server', '.env');
-    if (fs.existsSync(mainEnvPath)) {
-      const content = fs.readFileSync(mainEnvPath, 'utf8');
-      const configLines = content.split('\n').filter(line => 
-        line.startsWith('EMAIL_USER=') || 
-        line.startsWith('EMAIL_PASSWORD=') ||
-        line.startsWith('SENDGRID_API_KEY=') ||
-        line.startsWith('S3_ACCESS_KEY_ID=') ||
-        line.startsWith('S3_SECRET_ACCESS_KEY=') ||
-        line.startsWith('S3_REGION=') ||
-        line.startsWith('S3_BUCKET_NAME=') ||
-        line.startsWith('JWT_SECRET=')
-      );
-      return configLines.join('\n');
+        try {
+            const mainEnvPath = path.join(this.baseDir, 'server', '.env');
+            if (fs.existsSync(mainEnvPath)) {
+                const content = fs.readFileSync(mainEnvPath, 'utf8');
+                const configLines = content.split('\n').filter(line =>
+                    line.startsWith('EMAIL_USER=') ||
+                    line.startsWith('EMAIL_PASSWORD=') ||
+                    line.startsWith('SENDGRID_API_KEY=') ||
+                    line.startsWith('S3_ACCESS_KEY_ID=') ||
+                    line.startsWith('S3_SECRET_ACCESS_KEY=') ||
+                    line.startsWith('S3_REGION=') ||
+                    line.startsWith('S3_BUCKET_NAME=') ||
+                    line.startsWith('JWT_SECRET=')
+                );
+                return configLines.join('\n');
+            }
+        } catch (error) {
+            console.warn('Could not copy config from main .env');
+        }
+
+        return '';
     }
-  } catch (error) {
-    console.warn('Could not copy config from main .env');
-  }
-  
- 
-}
 
     async installDependencies(instanceName) {
         console.log('   📦 Installing dependencies...');
@@ -652,6 +656,53 @@ createDirector();
             console.log('✅ Cleanup completed');
         } catch (error) {
             console.log(`⚠️  Cleanup had issues: ${error.message}`);
+        }
+    }
+
+    async resurrectAllInstances() {
+        console.log('🔄 Starting all instances after server restart...');
+
+        const instances = this.getInstances();
+
+        if (instances.length === 0) {
+            console.log('No instances found to resurrect.');
+            return;
+        }
+
+        console.log(`Found ${instances.length} instances: ${instances.join(', ')}`);
+
+        let started = 0;
+        let failed = 0;
+
+        for (const instanceName of instances) {
+            const config = this.getInstanceConfig(instanceName);
+            if (config && config.paths && config.paths.server) {
+                try {
+                    // Check if already running
+                    const status = this.getInstanceStatus(instanceName);
+                    if (status === 'online') {
+                        console.log(`   ⚡ ${instanceName} already running`);
+                        continue;
+                    }
+
+                    execSync(`pm2 start index.js --name ${instanceName} --cwd ${config.paths.server}`, { stdio: 'pipe' });
+                    console.log(`   ✅ Started ${instanceName} on port ${config.port}`);
+                    started++;
+                } catch (error) {
+                    console.log(`   ❌ Failed to start ${instanceName}: ${error.message}`);
+                    failed++;
+                }
+            } else {
+                console.log(`   ⚠️  No valid config found for ${instanceName}`);
+                failed++;
+            }
+        }
+
+        if (started > 0) {
+            execSync('pm2 save', { stdio: 'pipe' });
+            console.log(`\n🎉 Resurrection complete: ${started} started, ${failed} failed`);
+        } else {
+            console.log('\nNo instances needed to be started');
         }
     }
 
