@@ -428,7 +428,12 @@ INSTANCE_NAME=${instanceName}
       const configLines = content.split('\n').filter(line => 
         line.startsWith('EMAIL_USER=') || 
         line.startsWith('EMAIL_PASSWORD=') ||
-        line.startsWith('SENDGRID_API_KEY=')
+        line.startsWith('SENDGRID_API_KEY=') ||
+        line.startsWith('S3_ACCESS_KEY_ID=') ||
+        line.startsWith('S3_SECRET_ACCESS_KEY=') ||
+        line.startsWith('S3_REGION=') ||
+        line.startsWith('S3_BUCKET_NAME=') ||
+        line.startsWith('JWT_SECRET=')
       );
       return configLines.join('\n');
     }
@@ -436,18 +441,14 @@ INSTANCE_NAME=${instanceName}
     console.warn('Could not copy config from main .env');
   }
   
-  return `# Email Configuration
+  return `# Add your configuration here
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=your-app-password
-
-# AWS S3 Configuration (TEMPORARY - REMOVE IN PRODUCTION)
-S3_ACCESS_KEY_ID=AKIATLST7CQ2HJMRCSVQ
-S3_SECRET_ACCESS_KEY=fsHTpW2X2lrVnA7KUOCRwLO5zN9zQ8sz71uKngT5
-S3_REGION=us-east-2
-S3_BUCKET_NAME=dna-analysis-files-2026
-
-# JWT Secret (CHANGE IN PRODUCTION)
-JWT_SECRET=8f2a9c6e4b7d1a5f3e8c9b2d6a4e7f1c3b8e5a2f9c6d4e7a1b5c8f2e9a6c3d7f`;
+JWT_SECRET=your-jwt-secret
+S3_ACCESS_KEY_ID=your-s3-key
+S3_SECRET_ACCESS_KEY=your-s3-secret
+S3_REGION=us-east-1
+S3_BUCKET_NAME=your-bucket`;
 }
 
     async installDependencies(instanceName) {
