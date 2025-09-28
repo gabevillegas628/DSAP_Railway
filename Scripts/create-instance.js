@@ -4,16 +4,15 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, spawn } = require('child_process');
 const readline = require('readline');
-const bcrypt = require('bcryptjs'); // Add bcrypt for password hashing
 
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
 
-class InstanceCreator {
+class InstanceManager {
     constructor() {
-        this.baseDir = path.join(__dirname, '..'); // Updated: go up one level from scripts/
+        this.baseDir = path.join(__dirname, '..');
         this.instancesDir = path.join(this.baseDir, 'instances');
         this.basePort = 5000;
     }
@@ -24,15 +23,61 @@ class InstanceCreator {
         });
     }
 
+    async main() {
+        console.log('🧬 DNA Analysis Instance Manager');
+        console.log('================================');
+
+        const instances = this.getInstances();
+
+        console.log('\nChoose an action:');
+        console.log('1. Create new instance');
+        console.log('2. Manage existing instances');
+        console.log('3. Quick status check');
+        console.log('4. View logs (non-streaming)');
+        console.log('5. Exit');
+
+        const choice = await this.question('\nEnter choice (1-5): ');
+
+        switch (choice) {
+            case '1':
+                await this.createInstance();
+                break;
+            case '2':
+                await this.manageInstances();
+                break;
+            case '3':
+                this.showQuickStatus();
+                break;
+            case '4':
+                await this.viewLogs();
+                break;
+            case '5':
+                console.log('Goodbye!');
+                break;
+            default:
+                console.log('Invalid choice');
+        }
+
+        rl.close();
+    }
+
+    getInstances() {
+        if (!fs.existsSync(this.instancesDir)) {
+            return [];
+        }
+        return fs.readdirSync(this.instancesDir).filter(item =>
+            fs.statSync(path.join(this.instancesDir, item)).isDirectory()
+        );
+    }
+
     async createInstance() {
-        console.log('🚀 New Instance Creator');
-        console.log('======================');
+        console.log('\n🚀 Creating New Instance');
+        console.log('========================');
 
         // Get instance details
         const instanceName = await this.question('Instance name: ');
         if (!instanceName || !instanceName.match(/^[a-zA-Z0-9-_]+$/)) {
             console.log('❌ Invalid instance name. Use only letters, numbers, hyphens, and underscores.');
-            rl.close();
             return;
         }
 
@@ -40,7 +85,6 @@ class InstanceCreator {
         const instanceDir = path.join(this.instancesDir, instanceName);
         if (fs.existsSync(instanceDir)) {
             console.log('❌ Instance already exists!');
-            rl.close();
             return;
         }
 
@@ -48,7 +92,7 @@ class InstanceCreator {
         console.log('\n👤 Director Account Setup');
         const directorName = await this.question('Director name: ');
         const directorEmail = await this.question('Director email: ');
-        const directorPassword = await this.question('Director password (or press Enter for default "admin123"): ');
+        const directorPassword = await this.question('Director password (or press Enter for "admin123"): ');
 
         const finalPassword = directorPassword.trim() || 'admin123';
 
@@ -57,40 +101,26 @@ class InstanceCreator {
 
         console.log(`\n📋 Configuration:`);
         console.log(`- Instance name: ${instanceName}`);
-        console.log(`- Database: ${instanceName}_db`);
+        console.log(`- Database: ${instanceName.toLowerCase()}_db`);
         console.log(`- Port: ${port}`);
-        console.log(`- Directory: ${instanceDir}`);
         console.log(`- Director: ${directorName} (${directorEmail})`);
 
         const confirm = await this.question('\nProceed? (y/n): ');
         if (confirm.toLowerCase() !== 'y') {
             console.log('Setup cancelled.');
-            rl.close();
             return;
         }
 
         try {
             console.log('\n🔧 Creating instance...');
 
-            // Step 1: Create database
+            // Execute all creation steps
             await this.createDatabase(instanceName);
-
-            // Step 2: Create instance directory and copy files
             await this.setupInstanceFiles(instanceName, port);
-
-            // Step 3: Install dependencies
             await this.installDependencies(instanceName);
-
-            // Step 4: Run database migrations
             await this.runMigrations(instanceName);
-
-            // Step 5: Create default director account
             await this.createDirectorAccount(instanceName, directorName, directorEmail, finalPassword);
-
-            // Step 6: Build frontend
             await this.buildFrontend(instanceName);
-
-            // Step 7: Start the instance
             await this.startInstance(instanceName, port);
 
             console.log('\n🎉 Instance created successfully!');
@@ -98,23 +128,160 @@ class InstanceCreator {
             console.log(`\n🔑 Director Login:`);
             console.log(`   Email: ${directorEmail}`);
             console.log(`   Password: ${finalPassword}`);
-            console.log(`\n🛠️  Management commands:`);
-            console.log(`   Stop:    pm2 stop ${instanceName}`);
-            console.log(`   Restart: pm2 restart ${instanceName}`);
-            console.log(`   Logs:    pm2 logs ${instanceName}`);
-            console.log(`   Delete:  pm2 delete ${instanceName}`);
+
+            // Offer immediate management options
+            console.log('\n📋 Quick Actions:');
+            const quickAction = await this.question('Would you like to (v)iew logs, (r)estart, or (c)ontinue? ');
+
+            if (quickAction.toLowerCase() === 'v') {
+                this.showInstanceLogs(instanceName);
+            } else if (quickAction.toLowerCase() === 'r') {
+                execSync(`pm2 restart ${instanceName}`, { stdio: 'inherit' });
+                console.log(`✅ Restarted ${instanceName}`);
+            }
 
         } catch (error) {
             console.error(`\n❌ Failed to create instance: ${error.message}`);
-        }
 
-        rl.close();
+            // Offer cleanup
+            const cleanup = await this.question('\nWould you like to clean up partial installation? (y/n): ');
+            if (cleanup.toLowerCase() === 'y') {
+                await this.cleanupFailedInstance(instanceName);
+            }
+        }
     }
 
+    async manageInstances() {
+        const instances = this.getInstances();
+
+        if (instances.length === 0) {
+            console.log('No instances found. Create one first.');
+            return;
+        }
+
+        console.log('\n🛠️  Instance Management');
+        console.log('======================');
+
+        instances.forEach((instance, index) => {
+            const status = this.getInstanceStatus(instance);
+            const config = this.getInstanceConfig(instance);
+            console.log(`${index + 1}. ${instance} (Port: ${config?.port || 'unknown'}) - ${status}`);
+        });
+
+        console.log('\nActions:');
+        console.log('r - Restart instance');
+        console.log('s - Stop instance');
+        console.log('d - Delete instance (with confirmation)');
+        console.log('l - View logs');
+        console.log('c - Cancel');
+
+        const action = await this.question('\nChoose action: ');
+        if (action.toLowerCase() === 'c') return;
+
+        const choice = await this.question('Enter instance number: ');
+        const index = parseInt(choice) - 1;
+
+        if (index < 0 || index >= instances.length) {
+            console.log('Invalid instance number.');
+            return;
+        }
+
+        const instanceName = instances[index];
+
+        switch (action.toLowerCase()) {
+            case 'r':
+                await this.restartInstance(instanceName);
+                break;
+            case 's':
+                await this.stopInstance(instanceName);
+                break;
+            case 'd':
+                await this.deleteInstance(instanceName);
+                break;
+            case 'l':
+                await this.showInstanceLogs(instanceName);
+                break;
+            default:
+                console.log('Invalid action.');
+        }
+    }
+
+    showQuickStatus() {
+        console.log('\n📊 Quick Status Check');
+        console.log('====================');
+
+        const instances = this.getInstances();
+        if (instances.length === 0) {
+            console.log('No instances found.');
+            return;
+        }
+
+        instances.forEach(instance => {
+            const config = this.getInstanceConfig(instance);
+            const status = this.getInstanceStatus(instance);
+            const url = config ? `http://localhost:${config.port}` : 'unknown';
+            console.log(`${instance.padEnd(20)} ${status.padEnd(12)} ${url}`);
+        });
+    }
+
+    async viewLogs() {
+        const instances = this.getInstances();
+
+        if (instances.length === 0) {
+            console.log('No instances found.');
+            return;
+        }
+
+        console.log('\nSelect instance:');
+        instances.forEach((instance, index) => {
+            console.log(`${index + 1}. ${instance}`);
+        });
+
+        const choice = await this.question('Enter instance number: ');
+        const index = parseInt(choice) - 1;
+
+        if (index >= 0 && index < instances.length) {
+            await this.showInstanceLogs(instances[index]);
+        } else {
+            console.log('Invalid instance number.');
+        }
+    }
+
+    async showInstanceLogs(instanceName) {
+        console.log(`\n📋 Log Options for ${instanceName}:`);
+        console.log('1. Last 20 lines');
+        console.log('2. Last 50 lines');
+        console.log('3. Last 100 lines');
+        console.log('4. Errors only');
+
+        const logChoice = await this.question('Choose option (1-4): ');
+
+        try {
+            switch (logChoice) {
+                case '1':
+                    execSync(`pm2 logs ${instanceName} --lines 20 --nostream`, { stdio: 'inherit' });
+                    break;
+                case '2':
+                    execSync(`pm2 logs ${instanceName} --lines 50 --nostream`, { stdio: 'inherit' });
+                    break;
+                case '3':
+                    execSync(`pm2 logs ${instanceName} --lines 100 --nostream`, { stdio: 'inherit' });
+                    break;
+                case '4':
+                    execSync(`pm2 logs ${instanceName} --err --lines 50 --nostream`, { stdio: 'inherit' });
+                    break;
+                default:
+                    console.log('Invalid option.');
+            }
+        } catch (error) {
+            console.log(`❌ Failed to show logs: ${error.message}`);
+        }
+    }
+
+    // All the existing creation methods...
     async findAvailablePort() {
         let port = this.basePort;
 
-        // Get all existing instances to check their ports
         if (fs.existsSync(this.instancesDir)) {
             const instances = fs.readdirSync(this.instancesDir).filter(item =>
                 fs.statSync(path.join(this.instancesDir, item)).isDirectory()
@@ -136,7 +303,6 @@ class InstanceCreator {
                 port++;
             }
         } else {
-            // Check if base port is available
             while (!(await this.isPortAvailable(port))) {
                 port++;
             }
@@ -160,31 +326,21 @@ class InstanceCreator {
     async createDatabase(instanceName) {
         console.log('   📊 Creating database...');
 
-        // Convert to lowercase to avoid PostgreSQL case issues
         const dbName = `${instanceName.toLowerCase()}_db`;
         const dbUser = `${instanceName.toLowerCase()}_user`;
         const dbPassword = this.generatePassword();
 
         try {
-            // Create database - SHOW OUTPUT FOR DEBUGGING
-            console.log(`   Creating database: ${dbName}`);
-            execSync(`sudo -u postgres createdb ${dbName}`, { stdio: 'inherit' });
+            execSync(`sudo -u postgres createdb ${dbName}`, { stdio: 'pipe' });
 
-            // Create user and grant privileges - SHOW OUTPUT FOR DEBUGGING
-            console.log(`   Creating user: ${dbUser}`);
             const sqlCommands = `
-            CREATE USER ${dbUser} WITH ENCRYPTED PASSWORD '${dbPassword}';
-            GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};
-            ALTER DATABASE ${dbName} OWNER TO ${dbUser};
-            `;
+        CREATE USER ${dbUser} WITH ENCRYPTED PASSWORD '${dbPassword}';
+        GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};
+        ALTER DATABASE ${dbName} OWNER TO ${dbUser};
+      `;
 
-            execSync(`sudo -u postgres psql -c "${sqlCommands}"`, { stdio: 'inherit' });
+            execSync(`sudo -u postgres psql -c "${sqlCommands}"`, { stdio: 'pipe' });
 
-            // Test the connection
-            console.log(`   Testing connection...`);
-            execSync(`PGPASSWORD='${dbPassword}' psql -h localhost -U ${dbUser} -d ${dbName} -c "SELECT 1;"`, { stdio: 'inherit' });
-
-            // Store database config
             const dbConfig = {
                 name: dbName,
                 user: dbUser,
@@ -194,7 +350,6 @@ class InstanceCreator {
                 url: `postgresql://${dbUser}:${dbPassword}@localhost:5432/${dbName}`
             };
 
-            // Ensure instances directory exists
             if (!fs.existsSync(this.instancesDir)) {
                 fs.mkdirSync(this.instancesDir, { recursive: true });
             }
@@ -210,9 +365,6 @@ class InstanceCreator {
             console.log(`   ✅ Database created: ${dbName}`);
 
         } catch (error) {
-            console.error(`   ❌ Database creation error details:`);
-            console.error(`   Command that failed: ${error.cmd || 'unknown'}`);
-            console.error(`   Error output: ${error.stderr || error.message}`);
             throw new Error(`Database creation failed: ${error.message}`);
         }
     }
@@ -222,43 +374,31 @@ class InstanceCreator {
 
         const instanceDir = path.join(this.instancesDir, instanceName);
 
-        // Read database config
         const dbConfig = JSON.parse(
             fs.readFileSync(path.join(instanceDir, 'db-config.json'), 'utf8')
         );
 
-        // Copy server directory
         const serverDir = path.join(instanceDir, 'server');
         execSync(`cp -r ${path.join(this.baseDir, 'server')} ${serverDir}`, { stdio: 'pipe' });
 
-        // Copy client directory
         const clientDir = path.join(instanceDir, 'client');
         execSync(`cp -r ${path.join(this.baseDir, 'client')} ${clientDir}`, { stdio: 'pipe' });
 
-        // Create uploads directory
         const uploadsDir = path.join(serverDir, 'uploads');
         fs.mkdirSync(uploadsDir, { recursive: true });
         fs.mkdirSync(path.join(uploadsDir, 'profile-pics'), { recursive: true });
 
-        // Create server .env file
         const serverEnv = `
-# Database Configuration
 DATABASE_URL="${dbConfig.url}"
-
-# Server Configuration
 PORT=${port}
 NODE_ENV=production
-
-# Email Configuration (copy from main .env if it exists)
+HOST=0.0.0.0
 ${this.getEmailConfig()}
-
-# Instance Information
 INSTANCE_NAME=${instanceName}
 `.trim();
 
         fs.writeFileSync(path.join(serverDir, '.env'), serverEnv);
 
-        // Create instance config
         const instanceConfig = {
             name: instanceName,
             port: port,
@@ -282,7 +422,7 @@ INSTANCE_NAME=${instanceName}
 
     getEmailConfig() {
         try {
-            const mainEnvPath = path.join(this.baseDir, 'server', '.env'); // Updated path
+            const mainEnvPath = path.join(this.baseDir, 'server', '.env');
             if (fs.existsSync(mainEnvPath)) {
                 const content = fs.readFileSync(mainEnvPath, 'utf8');
                 const emailLines = content.split('\n').filter(line =>
@@ -296,10 +436,8 @@ INSTANCE_NAME=${instanceName}
             console.warn('Could not copy email config from main .env');
         }
 
-        return `# Add your email configuration here
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-# SENDGRID_API_KEY=your-sendgrid-api-key`;
+        return `EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password`;
     }
 
     async installDependencies(instanceName) {
@@ -310,18 +448,8 @@ EMAIL_PASSWORD=your-app-password
         const clientDir = path.join(instanceDir, 'client');
 
         try {
-            // Install server dependencies
-            execSync('npm install', {
-                cwd: serverDir,
-                stdio: 'pipe'
-            });
-
-            // Install client dependencies  
-            execSync('npm install', {
-                cwd: clientDir,
-                stdio: 'pipe'
-            });
-
+            execSync('npm install', { cwd: serverDir, stdio: 'pipe' });
+            execSync('npm install', { cwd: clientDir, stdio: 'pipe' });
             console.log('   ✅ Dependencies installed');
         } catch (error) {
             throw new Error(`Dependency installation failed: ${error.message}`);
@@ -334,29 +462,8 @@ EMAIL_PASSWORD=your-app-password
         const serverDir = path.join(this.instancesDir, instanceName, 'server');
 
         try {
-            console.log('   📋 Generating Prisma client...');
-            execSync('npx prisma generate', {
-                cwd: serverDir,
-                stdio: 'inherit'
-            });
-
-            console.log('   🔄 Creating database schema...');
-            // Use db push instead of migrate deploy - this creates tables directly from schema
-            execSync('npx prisma db push --accept-data-loss', {
-                cwd: serverDir,
-                stdio: 'inherit'
-            });
-
-            // Verify tables were created
-            console.log('   ✅ Verifying tables...');
-            const dbConfig = JSON.parse(
-                fs.readFileSync(path.join(this.instancesDir, instanceName, 'db-config.json'), 'utf8')
-            );
-
-            execSync(`PGPASSWORD='${dbConfig.password}' psql -h localhost -U ${dbConfig.user} -d ${dbConfig.name} -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public';"`, {
-                stdio: 'inherit'
-            });
-
+            execSync('npx prisma generate', { cwd: serverDir, stdio: 'pipe' });
+            execSync('npx prisma db push --accept-data-loss', { cwd: serverDir, stdio: 'pipe' });
             console.log('   ✅ Database schema setup completed');
         } catch (error) {
             throw new Error(`Schema setup failed: ${error.message}`);
@@ -369,10 +476,9 @@ EMAIL_PASSWORD=your-app-password
         const serverDir = path.join(this.instancesDir, instanceName, 'server');
 
         try {
-            // Hash the password
+            const bcrypt = require('bcryptjs');
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // Create a simple Node.js script to create the user
             const createUserScript = `
 const { PrismaClient } = require('@prisma/client');
 
@@ -380,18 +486,7 @@ async function createDirector() {
   const prisma = new PrismaClient();
   
   try {
-    // Check if director already exists
-    const existingDirector = await prisma.user.findUnique({
-      where: { email: '${email}' }
-    });
-    
-    if (existingDirector) {
-      console.log('Director already exists');
-      return;
-    }
-    
-    // Create director
-    const director = await prisma.user.create({
+    await prisma.user.create({
       data: {
         name: '${name}',
         email: '${email}',
@@ -400,12 +495,13 @@ async function createDirector() {
         status: 'approved'
       }
     });
-    
-    console.log('Director created successfully:', director.email);
-    
+    console.log('Director created successfully');
   } catch (error) {
-    console.error('Error creating director:', error);
-    process.exit(1);
+    if (error.code === 'P2002') {
+      console.log('Director with this email already exists');
+    } else {
+      throw error;
+    }
   } finally {
     await prisma.$disconnect();
   }
@@ -414,17 +510,10 @@ async function createDirector() {
 createDirector();
 `;
 
-            // Write the script to a temporary file
             const scriptPath = path.join(serverDir, 'create-director.js');
             fs.writeFileSync(scriptPath, createUserScript);
 
-            // Run the script
-            execSync('node create-director.js', {
-                cwd: serverDir,
-                stdio: 'pipe'
-            });
-
-            // Clean up the script file
+            execSync('node create-director.js', { cwd: serverDir, stdio: 'pipe' });
             fs.unlinkSync(scriptPath);
 
             console.log(`   ✅ Director account created: ${email}`);
@@ -440,11 +529,7 @@ createDirector();
         const clientDir = path.join(this.instancesDir, instanceName, 'client');
 
         try {
-            execSync('npm run build', {
-                cwd: clientDir,
-                stdio: 'pipe'
-            });
-
+            execSync('npm run build', { cwd: clientDir, stdio: 'pipe' });
             console.log('   ✅ Frontend built successfully');
         } catch (error) {
             throw new Error(`Frontend build failed: ${error.message}`);
@@ -454,7 +539,6 @@ createDirector();
     async startInstance(instanceName, port) {
         console.log('   🚀 Starting instance...');
 
-        // Install PM2 if not available
         try {
             execSync('pm2 --version', { stdio: 'pipe' });
         } catch {
@@ -465,17 +549,105 @@ createDirector();
         const serverDir = path.join(this.instancesDir, instanceName, 'server');
 
         try {
-            // Start with PM2
-            execSync(`pm2 start index.js --name ${instanceName} --cwd ${serverDir}`, {
-                stdio: 'pipe'
-            });
-
-            // Save PM2 configuration
+            execSync(`pm2 start index.js --name ${instanceName} --cwd ${serverDir}`, { stdio: 'pipe' });
             execSync('pm2 save', { stdio: 'pipe' });
-
             console.log(`   ✅ Instance started on port ${port}`);
         } catch (error) {
             throw new Error(`Failed to start instance: ${error.message}`);
+        }
+    }
+
+    // Management methods
+    getInstanceConfig(instanceName) {
+        try {
+            const configPath = path.join(this.instancesDir, instanceName, 'config.json');
+            return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        } catch {
+            return null;
+        }
+    }
+
+    getInstanceStatus(instanceName) {
+        try {
+            const result = execSync(`pm2 jlist`, { encoding: 'utf8' });
+            const processes = JSON.parse(result);
+            const process = processes.find(p => p.name === instanceName);
+            return process ? process.pm2_env.status : 'stopped';
+        } catch {
+            return 'unknown';
+        }
+    }
+
+    async restartInstance(instanceName) {
+        try {
+            execSync(`pm2 restart ${instanceName}`, { stdio: 'inherit' });
+            console.log(`✅ Restarted ${instanceName}`);
+        } catch (error) {
+            console.log(`❌ Failed to restart ${instanceName}: ${error.message}`);
+        }
+    }
+
+    async stopInstance(instanceName) {
+        try {
+            execSync(`pm2 stop ${instanceName}`, { stdio: 'inherit' });
+            console.log(`✅ Stopped ${instanceName}`);
+        } catch (error) {
+            console.log(`❌ Failed to stop ${instanceName}: ${error.message}`);
+        }
+    }
+
+    async deleteInstance(instanceName) {
+        const config = this.getInstanceConfig(instanceName);
+
+        console.log(`\n⚠️  WARNING: This will permanently delete:`);
+        console.log(`- Instance: ${instanceName}`);
+        console.log(`- Database: ${config?.database?.name || 'unknown'}`);
+        console.log(`- All files and uploads`);
+
+        const confirm = await this.question('\nType "DELETE" to confirm: ');
+
+        if (confirm === 'DELETE') {
+            try {
+                execSync(`pm2 delete ${instanceName}`, { stdio: 'pipe' });
+
+                if (config?.database) {
+                    execSync(`sudo -u postgres dropdb ${config.database.name}`, { stdio: 'pipe' });
+                    execSync(`sudo -u postgres psql -c "DROP USER ${config.database.user}"`, { stdio: 'pipe' });
+                }
+
+                execSync(`rm -rf ${path.join(this.instancesDir, instanceName)}`, { stdio: 'pipe' });
+                console.log(`✅ Deleted ${instanceName} completely`);
+            } catch (error) {
+                console.log(`❌ Failed to delete ${instanceName}: ${error.message}`);
+            }
+        } else {
+            console.log('Deletion cancelled.');
+        }
+    }
+
+    async cleanupFailedInstance(instanceName) {
+        try {
+            console.log('🧹 Cleaning up failed installation...');
+
+            // Try to stop PM2 process
+            try {
+                execSync(`pm2 delete ${instanceName}`, { stdio: 'pipe' });
+            } catch (e) { }
+
+            // Try to drop database
+            try {
+                execSync(`sudo -u postgres dropdb ${instanceName.toLowerCase()}_db`, { stdio: 'pipe' });
+                execSync(`sudo -u postgres psql -c "DROP USER ${instanceName.toLowerCase()}_user"`, { stdio: 'pipe' });
+            } catch (e) { }
+
+            // Remove files
+            try {
+                execSync(`rm -rf ${path.join(this.instancesDir, instanceName)}`, { stdio: 'pipe' });
+            } catch (e) { }
+
+            console.log('✅ Cleanup completed');
+        } catch (error) {
+            console.log(`⚠️  Cleanup had issues: ${error.message}`);
         }
     }
 
@@ -486,8 +658,8 @@ createDirector();
 
 // Run the script
 if (require.main === module) {
-    const creator = new InstanceCreator();
-    creator.createInstance().catch(console.error);
+    const manager = new InstanceManager();
+    manager.main().catch(console.error);
 }
 
-module.exports = InstanceCreator;
+module.exports = InstanceManager;
