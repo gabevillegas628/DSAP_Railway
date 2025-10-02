@@ -2016,7 +2016,7 @@ app.put('/api/uploaded-files/:id/assign', async (req, res) => {
 });
 
 // Update file status
-app.put('/api/uploaded-files/:id/status', async (req, res) => {
+app.put('/api/uploaded-files/:id/status', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -2039,8 +2039,16 @@ app.put('/api/uploaded-files/:id/status', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Validate status transition
-    if (!isValidStatusTransition(currentFile.status, status)) {
+    // Get the user making the request
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+
+    // Directors can override any status - skip validation for them
+    const isDirector = user && user.role === 'director';
+
+    // Validate status transition (skip for directors)
+    if (!isDirector && !isValidStatusTransition(currentFile.status, status)) {
       console.warn(`Invalid status transition from "${currentFile.status}" to "${status}"`);
       return res.status(400).json({
         error: `Cannot change status from "${currentFile.status}" to "${status}"`,
@@ -2069,6 +2077,173 @@ app.put('/api/uploaded-files/:id/status', async (req, res) => {
 
     res.json(updatedFile);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NCBI Submission endpoint
+// NCBI Submission endpoint
+app.post('/api/ncbi/submit', authenticateToken, requireRole(['director']), async (req, res) => {
+  try {
+    const { fileIds, submitterInfo } = req.body;
+
+    if (!fileIds || fileIds.length === 0) {
+      return res.status(400).json({ error: 'No files selected for submission' });
+    }
+
+    console.log(`=== NCBI SUBMISSION REQUEST ===`);
+    console.log(`Files to submit: ${fileIds.length}`);
+    console.log(`Submitter: ${submitterInfo.submitterName}`);
+
+    // Fetch analysis questions to help find the sequence
+    const analysisQuestions = await prisma.analysisQuestion.findMany({
+      orderBy: { order: 'asc' }
+    });
+
+    // Fetch the files with their analysis data
+    const files = await prisma.uploadedFile.findMany({
+      where: {
+        id: { in: fileIds },
+        status: CLONE_STATUSES.TO_BE_SUBMITTED_NCBI
+      },
+      include: {
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            school: { select: { name: true } }
+          }
+        }
+      }
+    });
+
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'No valid files found for submission' });
+    }
+
+    const successful = [];
+    const failed = [];
+
+    // Helper function to extract sequence from answers (same logic as review components)
+    const getEditedSequenceFromAnswers = (answers, questions) => {
+      // Find the clone-editing step questions that are DNA sequence types
+      const editingQuestions = questions.filter(q =>
+        q.step === 'clone-editing' && (q.type === 'dna_sequence')
+      );
+
+      // Look for sequence-like content
+      for (const question of editingQuestions) {
+        const answer = answers[question.id];
+        if (answer && typeof answer === 'string') {
+          // Basic validation for DNA sequence
+          const cleanSequence = answer.replace(/\s/g, '').toUpperCase();
+          if (/^[ATGC]+$/.test(cleanSequence) && cleanSequence.length > 50) {
+            return cleanSequence;
+          }
+        }
+      }
+      return null;
+    };
+
+    // Process each file
+    for (const file of files) {
+      try {
+        // Parse analysis data
+        let analysisData = {};
+        try {
+          analysisData = JSON.parse(file.analysisData || '{}');
+        } catch (e) {
+          console.error(`Failed to parse analysis data for file ${file.id}`);
+        }
+
+        // Extract sequence using the helper function
+        const sequence = getEditedSequenceFromAnswers(
+          analysisData.answers || {},
+          analysisQuestions
+        );
+
+        if (!sequence) {
+          failed.push({
+            fileId: file.id,
+            filename: file.filename,
+            error: 'No valid DNA sequence found in analysis answers'
+          });
+          continue;
+        }
+
+        console.log(`Found sequence for ${file.filename}: ${sequence.length} bp`);
+
+        // Prepare submission data for NCBI
+        const submissionData = {
+          filename: file.filename,
+          sequence: sequence,
+          sequenceLength: sequence.length,
+          organism: submitterInfo.organism,
+          isolationSource: submitterInfo.isolationSource,
+          collectionDate: submitterInfo.collectionDate,
+          country: submitterInfo.country,
+          submitter: {
+            name: submitterInfo.submitterName,
+            email: submitterInfo.submitterEmail,
+            institution: submitterInfo.submitterInstitution
+          },
+          student: {
+            name: file.assignedTo?.name,
+            school: file.assignedTo?.school?.name
+          },
+          notes: submitterInfo.notes
+        };
+
+        // TODO: Implement actual NCBI API submission here
+        // For now, we'll simulate success and log the data
+        console.log(`Would submit to NCBI:`, {
+          filename: file.filename,
+          sequenceLength: sequence.length,
+          organism: submitterInfo.organism
+        });
+
+        // Update file status to SUBMITTED_TO_NCBI
+        await prisma.uploadedFile.update({
+          where: { id: file.id },
+          data: {
+            status: CLONE_STATUSES.SUBMITTED_TO_NCBI,
+            // Store submission metadata
+            analysisData: JSON.stringify({
+              ...analysisData,
+              ncbiSubmission: {
+                submittedAt: new Date().toISOString(),
+                submitter: submitterInfo.submitterName,
+                organism: submitterInfo.organism,
+                sequenceLength: sequence.length,
+                // In real implementation, store NCBI accession number here
+                accessionNumber: null
+              }
+            })
+          }
+        });
+
+        successful.push(file.id);
+
+      } catch (error) {
+        console.error(`Error submitting file ${file.id}:`, error);
+        failed.push({
+          fileId: file.id,
+          filename: file.filename,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      successful,
+      failed,
+      message: `Successfully submitted ${successful.length} of ${fileIds.length} clones to NCBI`
+    });
+
+  } catch (error) {
+    console.error('NCBI submission error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -4027,35 +4202,36 @@ async function generatePracticeFeedback(practiceCloneId, userAnswers) {
         correctCount++;
         comments.push({
           questionId: correct.questionId,
-          comment: 'Correct!',
-          type: 'success',
+          feedback: '',  // No feedback text needed for correct answers
+          feedbackVisible: true,
+          correctAnswer: correct.correctAnswer,  // Store for reference
+          isCorrect: true,  // NEW: proper boolean
           timestamp: new Date().toISOString()
         });
       } else {
         comments.push({
           questionId: correct.questionId,
-          comment: correct.explanation || `Incorrect. The correct answer is: ${correct.correctAnswer}`,
-          type: 'correction',
+          feedback: correct.explanation || `The correct answer is: ${correct.correctAnswer}`,  // renamed from "comment"
+          feedbackVisible: true,  // NEW: default visible
+          correctAnswer: correct.correctAnswer,  // NEW: store correct answer
+          isCorrect: false,  // NEW: proper boolean
           timestamp: new Date().toISOString()
         });
       }
     });
 
-    const score = correctAnswers.length > 0 ? Math.round((correctCount / correctAnswers.length) * 100) : 0;
+    const score = correctAnswers.length > 0 ?
+      Math.round((correctCount / correctAnswers.length) * 100) : 0;
 
     return {
-      comments,
-      score,
-      totalQuestions: correctAnswers.length,
-      correctAnswers: correctCount
+      reviewComments: comments,
+      reviewScore: score
     };
   } catch (error) {
     console.error('Error generating practice feedback:', error);
     return {
-      comments: [],
-      score: 0,
-      totalQuestions: 0,
-      correctAnswers: 0
+      reviewComments: [],
+      reviewScore: 0
     };
   }
 }
@@ -4208,7 +4384,7 @@ app.get('/api/practice-submissions', async (req, res) => {
       // Only include teacher-reviewed items for directors
       if (includeTeacherReviewed === 'true') {
         reviewStatuses.push(CLONE_STATUSES.REVIEWED_BY_TEACHER);
-       // console.log('✅ Including REVIEWED_BY_TEACHER status for directors (practice)');
+        // console.log('✅ Including REVIEWED_BY_TEACHER status for directors (practice)');
       } else {
         console.log('❌ NOT including REVIEWED_BY_TEACHER status (instructor view - practice)');
       }
@@ -8056,19 +8232,19 @@ app.get('/api/bug-reports', authenticateToken, async (req, res) => {
     }
 
     const { status, urgency, page = 1, limit = 20, sortBy = 'created', sortOrder = 'desc' } = req.query;
-    
+
     const where = {};
     if (status && status !== 'all') where.status = status;
     if (urgency && urgency !== 'all') where.urgency = urgency;
-    
+
     // Build orderBy based on sortBy parameter
     let orderBy = [];
-    
+
     switch (sortBy) {
       case 'created':
         orderBy.push({ createdAt: sortOrder });
         break;
-        
+
       case 'urgency':
         // For urgency, we need custom ordering since it's a string
         if (sortOrder === 'desc') {
@@ -8081,18 +8257,18 @@ app.get('/api/bug-reports', authenticateToken, async (req, res) => {
         // Add secondary sort by creation date
         orderBy.push({ createdAt: 'desc' });
         break;
-        
+
       case 'status':
         orderBy.push({ status: sortOrder });
         // Add secondary sort by creation date
         orderBy.push({ createdAt: 'desc' });
         break;
-        
+
       default:
         // Fallback to creation date
         orderBy.push({ createdAt: 'desc' });
     }
-    
+
     const bugReports = await prisma.bugReport.findMany({
       where,
       include: {
@@ -8111,25 +8287,25 @@ app.get('/api/bug-reports', authenticateToken, async (req, res) => {
     // For urgency sorting, we need to do custom ordering since Prisma doesn't handle enum-like sorting well
     let sortedBugReports = bugReports;
     if (sortBy === 'urgency') {
-      const urgencyOrder = sortOrder === 'desc' 
+      const urgencyOrder = sortOrder === 'desc'
         ? { 'high': 3, 'medium': 2, 'low': 1 }
         : { 'high': 1, 'medium': 2, 'low': 3 };
-        
+
       sortedBugReports = bugReports.sort((a, b) => {
         const aValue = urgencyOrder[a.urgency] || 0;
         const bValue = urgencyOrder[b.urgency] || 0;
-        
+
         if (aValue !== bValue) {
           return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
         }
-        
+
         // Secondary sort by creation date (newest first)
         return new Date(b.createdAt) - new Date(a.createdAt);
       });
     }
 
     const total = await prisma.bugReport.count({ where });
-    
+
     res.json({
       bugReports: sortedBugReports,
       pagination: {
@@ -8150,7 +8326,7 @@ app.post('/api/bug-reports/submit', authenticateToken, async (req, res) => {
   try {
     const { description, steps, urgency, browserInfo, consoleOutput } = req.body;
     const userId = req.user.userId;
-    
+
     const bugReport = await prisma.bugReport.create({
       data: {
         title: `Bug Report #${Date.now()}`,
@@ -8171,7 +8347,7 @@ app.post('/api/bug-reports/submit', authenticateToken, async (req, res) => {
         }
       }
     });
-    
+
     res.json({ success: true, id: bugReport.id });
   } catch (error) {
     console.error('Error creating bug report:', error);
@@ -8187,7 +8363,7 @@ app.patch('/api/bug-reports/:id', authenticateToken, async (req, res) => {
 
     const { id } = req.params;
     const { status, resolution, assignedToId } = req.body;
-    
+
     const updateData = {};
     if (status) updateData.status = status;
     if (resolution !== undefined) updateData.resolution = resolution;
@@ -8195,7 +8371,7 @@ app.patch('/api/bug-reports/:id', authenticateToken, async (req, res) => {
     if (status === 'resolved' || status === 'closed') {
       updateData.resolvedAt = new Date();
     }
-    
+
     const bugReport = await prisma.bugReport.update({
       where: { id: parseInt(id) },
       data: updateData,
@@ -8204,7 +8380,7 @@ app.patch('/api/bug-reports/:id', authenticateToken, async (req, res) => {
         assignedTo: { select: { name: true, email: true } }
       }
     });
-    
+
     res.json(bugReport);
   } catch (error) {
     console.error('Error updating bug report:', error);
